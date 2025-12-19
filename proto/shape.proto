@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package shape;
+import "rdr.proto";
+
+message Point {
+    rdr.Position pos = 1;
+}
+
+message Ball {
+    rdr.Position pos = 1;
+    float radius = 2;
+}
+
+message Cube {
+    rdr.Position pos = 1;
+    rdr.Rotation rot = 2;
+    rdr.Scale scale = 3;
+}

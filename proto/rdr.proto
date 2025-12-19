@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package rdr;
+
+
+message Pack {
+  string data_type = 1;
+  bytes data = 2;
+}
+
+// 
+message Position {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message Rotation {
+  float rx = 1;
+  float ry = 2;
+  float rz = 3;
+}
+
+message Scale {
+  float sx = 1;
+  float sy = 2;
+  float sz = 3;
+}
