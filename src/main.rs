@@ -39,6 +39,7 @@ fn main() -> Result<(), AppState> {
     };
     
     App::new()
+        .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
         .add_plugins(DefaultPlugins)
         .add_plugins(FpsCameraPlugin::default())
         .add_plugins(LookTransformPlugin)
