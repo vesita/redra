@@ -1,9 +1,12 @@
 use bevy::prelude::*;
-use redra::{channel::core::RDPack, module::resource::RDResource, net::listener::RDListener, setup::{self, rd_setup}, update::rd_update};
+use redra::{channel::core::RDPack, module::resource::RDResource, net::listener::RDListener, setup::rd_setup, update::rd_update};
 use tokio::sync::{broadcast, mpsc};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use redra::module::resource::{channel::RDChannel, handle::RDHandle};
+use smooth_bevy_cameras::{
+    LookTransformPlugin,
+    controllers::fps::{FpsCameraPlugin},
+};
 
 #[derive(Debug)]
 enum AppState {
@@ -37,6 +40,8 @@ fn main() -> Result<(), AppState> {
     
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(FpsCameraPlugin::default())
+        .add_plugins(LookTransformPlugin)
         .insert_resource(resource)
         .add_systems(Startup, rd_setup)
         .add_systems(Update, rd_update)

@@ -4080,6 +4080,7 @@ dependencies = [
  "nalgebra",
  "prost",
  "prost-build",
+ "smooth-bevy-cameras",
  "socket2",
  "tokio",
 ]
@@ -4434,6 +4435,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "smooth-bevy-cameras"
+version = "0.14.0"
+source = "git+https://github.com/vesita/smooth-bevy-cameras.git#c293dd0dc3338f93c12d4a3384eb8347c111020d"
+dependencies = [
+ "approx",
+ "bevy",
 ]
 
 [[package]]

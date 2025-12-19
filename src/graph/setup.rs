@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::{channel::core::RDPack, module::resource::RDResource, net::listener::RDListener};
+use smooth_bevy_cameras::controllers::fps::*;
 
 pub fn rd_setup (
     mut commands: Commands,
@@ -18,8 +19,20 @@ pub fn rd_setup (
         ..default()
     });
 
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
+    // 添加FPS相机控制器
+    commands
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ))
+        .insert(FpsCameraBundle::new(
+            FpsCameraController {
+                enabled: true,
+                mouse_rotate_sensitivity: Vec2::new(0.1, 0.1),
+                ..Default::default()
+            },
+            Vec3::new(-2.5, 4.5, 9.0),  // 相机位置
+            Vec3::new(0.0, 0.0, 0.0),    // 看向的目标点
+            Vec3::Y,
+        ));
 }
