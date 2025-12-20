@@ -16,8 +16,8 @@ enum AppState {
 
 fn main() -> Result<(), AppState> {
     // 加载资源
-    let (engine_sender, net_receiver) = broadcast::channel::<RDPack>(64);
-    let (net_sender, engine_receiver) = mpsc::channel::<RDPack>(64);
+    let (engine_sender, net_receiver) = broadcast::channel::<RDPack>(1024);
+    let (net_sender, engine_receiver) = mpsc::channel::<RDPack>(1024);
     
     let channel = RDChannel {
         sender: engine_sender,

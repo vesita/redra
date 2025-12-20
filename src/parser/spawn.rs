@@ -9,10 +9,12 @@ pub fn general_spawn(
     resources: ResMut<RDResource>
 ) {
     if let Ok(mut channel) = resources.channel.lock() {
-        if let Ok(pack) = channel.receiver.try_recv() {
+        // 循环处理所有可用的数据包
+        while let Ok(pack) = channel.receiver.try_recv() {
             match pack {
                 RDPack::Message(_) => todo!(),
                 RDPack::Spawn(spw) => {
+                    println!("{:?}", spw.transform);
                     // 通过字符串标识符查找材质
                     let material = if let Some(handle) = resources.materials.get(&spw.material) {
                         let handle_clone = handle.lock().unwrap().clone();

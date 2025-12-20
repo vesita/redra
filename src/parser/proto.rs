@@ -41,6 +41,8 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
             // 将pack.data解析为Cube消息
             match shape::Cube::decode(&pack.data[..]) {
                 Ok(cube) => {
+                    println!("创建SpawnPack");
+                    println!("Cube: {:?}", cube);
                     let rd_cube = cube_rdr(&cube);
                     // 创建Bevy网格和变换
                     let mesh = Arc::new(rd_cube.to_mesh());
@@ -64,10 +66,10 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
             }
         },
         "sphere" => {
-            // 将pack.data解析为Ball消息
+            // 将pack.data解析为Sphere消息
             match shape::Sphere::decode(&pack.data[..]) {
-                Ok(ball) => {
-                    let rd_sphere = sphere_rdr(&ball);
+                Ok(sphere) => {
+                    let rd_sphere = sphere_rdr(&sphere);
                     // 创建Bevy网格和变换
                     let mesh = Arc::new(rd_sphere.to_mesh());
                     let transform = rd_sphere.pose();
@@ -85,7 +87,7 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     });
                 },
                 Err(e) => {
-                    eprintln!("解析 Ball 数据失败: {}", e);
+                    eprintln!("解析 Sphere 数据失败: {}", e);
                 }
             }
         },

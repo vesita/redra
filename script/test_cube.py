@@ -196,9 +196,6 @@ def send_messages(host: str, port: int, messages: list):
         
         print(f"总共发送 {total_bytes} 字节到 {host}:{port}")
         
-        # 保持连接一段时间，避免立即关闭
-        time.sleep(1)
-        
     except socket.timeout:
         print(f"连接超时：无法在5秒内连接到 {host}:{port}")
         print("请检查：")
