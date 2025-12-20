@@ -111,7 +111,7 @@ fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                         material: "default".to_string(),
                     };
                     
-                    let rd_pack = RDPack::Spawn(spawn_pack);
+                    let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
                     tokio::spawn(async move {
                         if let Err(e) = sender.send(rd_pack).await {
                             eprintln!("发送RDPack到Bevy失败: {}", e);

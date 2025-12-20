@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub enum RDPack {
     Message(String),
-    Spawn(SpawnPack),
+    Spawn(Box<SpawnPack>),
 }
 
 #[derive(Clone)]
