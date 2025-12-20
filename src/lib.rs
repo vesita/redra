@@ -4,7 +4,7 @@ pub mod proto;
 pub mod utils;
 pub mod module;
 pub mod net;
-pub mod channel;
+pub mod parser;
 
 // 别名
 pub use module::alias::*;

@@ -5,14 +5,14 @@ use crate::{geometry::pose::RDRPose};
 
 
 #[derive(Debug, Default, Message)]
-pub struct RDRCube {
+pub struct RDCube {
     pub pose: RDRPose,
     // 边长
     pub edges: Vector3<f32>,
 }
 
 
-impl RDRCube {
+impl RDCube {
     pub fn to_mesh(&self) -> Mesh {
         let (x_length, y_length, z_length) = (self.edges[0], self.edges[1], self.edges[2]);
         Mesh::from(Cuboid::new(x_length, y_length, z_length))

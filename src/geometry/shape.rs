@@ -1,7 +1,7 @@
 pub mod point;
 pub mod cube;
-pub mod ball;
+pub mod sphere;
 
 pub use point::*;
 pub use cube::*;
-pub use ball::*;
+pub use sphere::*;

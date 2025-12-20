@@ -7,7 +7,7 @@ message Point {
     rdr.Position pos = 1;
 }
 
-message Ball {
+message Sphere {
     rdr.Position pos = 1;
     float radius = 2;
 }

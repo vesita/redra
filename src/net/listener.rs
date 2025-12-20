@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use tokio::{self, sync::{broadcast, mpsc::{self}}};
 
-use crate::{channel::core::{RDPack}, net::server::RDServer};
+use crate::{parser::core::{RDPack}, net::server::RDServer};
 
 
 pub struct RDListener {

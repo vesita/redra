@@ -28,8 +28,8 @@ pub fn scale_rdr(scale: &Scale) -> RDRScale {
     }
 }
 
-pub fn point_rdr(point: &Point) -> RDRPoint {
-    RDRPoint {
+pub fn point_rdr(point: &Point) -> RDPoint {
+    RDPoint {
         position: Vector3::new(
             point.pos.unwrap().x,
             point.pos.unwrap().y,
@@ -38,20 +38,20 @@ pub fn point_rdr(point: &Point) -> RDRPoint {
     }
 }
 
-pub fn ball_rdr(ball: &Ball) -> RDRBall {
-    RDRBall {
+pub fn sphere_rdr(sphere: &Sphere) -> RDSphere {
+    RDSphere {
         pose: RDRPosVec {
             pos: Vector3::new(
-                ball.pos.unwrap().x,
-                ball.pos.unwrap().y,
-                ball.pos.unwrap().z
+                sphere.pos.unwrap().x,
+                sphere.pos.unwrap().y,
+                sphere.pos.unwrap().z
             ),
         },
-        radius: ball.radius,
+        radius: sphere.radius,
     }
 }
 
-pub fn cube_rdr(cube: &Cube) -> RDRCube {
+pub fn cube_rdr(cube: &Cube) -> RDCube {
     // 获取旋转矩阵，如果没有提供旋转信息，则使用单位矩阵
     let rot_mat = cube.rot.as_ref().map(|r| rotate_rdr(r).to_matrix()).unwrap_or_else(|| {
         RDRRotation { rx: 0.0, ry: 0.0, rz: 0.0 }.to_matrix()
@@ -72,7 +72,7 @@ pub fn cube_rdr(cube: &Cube) -> RDRCube {
         cube.scale.as_ref().map_or(1.0, |s| s.sz)
     );
     
-    RDRCube {
+    RDCube {
         pose: RDRPose {
             pose: pose_matrix,
         },

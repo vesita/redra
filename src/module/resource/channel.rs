@@ -1,6 +1,6 @@
 use tokio::sync::{broadcast, mpsc};
 
-use crate::channel::core::RDPack;
+use crate::parser::core::RDPack;
 
 
 pub struct RDChannel {

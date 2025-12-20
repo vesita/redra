@@ -3,6 +3,6 @@ use nalgebra::Vector3;
 
 
 #[derive(Debug, Default, Message)]
-pub struct RDRPoint {
+pub struct RDPoint {
     pub position: Vector3<f32>,
 }

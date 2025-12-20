@@ -12,6 +12,7 @@ from typing import Tuple
 class DataType:
     """数据类型常量"""
     CUBE = "cube"
+    SPHERE = "sphere"
 
 
 def encode_varint(value: int) -> bytes:
@@ -104,6 +105,28 @@ def create_cube_message(pos: Tuple[float, float, float],
     cube_data += encode_bytes_field(3, scale_data)     # scale (嵌套消息)
     
     return cube_data
+
+
+def create_sphere_message(pos: Tuple[float, float, float], radius: float = 1.0) -> bytes:
+    """
+    创建球体消息
+    
+    Args:
+        pos: 位置坐标 (x, y, z)
+        radius: 球体半径
+        
+    Returns:
+        bytes: 编码后的球体消息
+    """
+    # 构造嵌套的Position消息 (tag=1)
+    position_data = create_position_message(pos[0], pos[1], pos[2])
+    
+    # 构造Sphere消息
+    sphere_data = b''
+    sphere_data += encode_bytes_field(1, position_data)  # pos (嵌套消息)
+    sphere_data += encode_float_field(2, radius)         # radius (float)
+    
+    return sphere_data
 
 
 def create_pack_message(data_type: str, data: bytes) -> bytes:
@@ -227,26 +250,34 @@ def main():
     
     # 创建立方体数据
     cube_data = create_cube_message(
-        pos=(0.0, 0.0, 0.0),      # 位置在原点
+        pos=(0.0, 0.0, 4.0),      # 位置在原点
         rot=(0.0, 0.0, 0.0),      # 无旋转
         scale=(1.0, 1.0, 1.0)     # 标准大小
     )
     
     # 包装成Pack消息
-    pack_message = create_pack_message(DataType.CUBE, cube_data)
+    pack_message1 = create_pack_message(DataType.CUBE, cube_data)
     
     # 创建另一个不同位置和大小的立方体进行测试
     cube_data2 = create_cube_message(
-        pos=(2.0, 1.0, 0.0),      # 在(2,1,0)位置
+        pos=(3.0, 1.0, 0.0),      # 在(2,1,0)位置
         rot=(0.0, 45.0, 0.0),     # Y轴旋转45度
         scale=(0.5, 1.5, 0.5)     # 不同比例缩放
     )
     
     pack_message2 = create_pack_message(DataType.CUBE, cube_data2)
     
+    # 创建球体数据
+    sphere_data = create_sphere_message(
+        pos=(0.0, 4.0, 0.0),      # 在(0,2,0)位置
+        radius=1.0                # 半径为1.0
+    )
+    
+    pack_message3 = create_pack_message(DataType.SPHERE, sphere_data)
+    
     # 在一个连接中发送所有消息
-    print("正在发送立方体定义...")
-    send_messages(HOST, PORT, [pack_message, pack_message2])
+    print("正在发送立方体和球体定义...")
+    send_messages(HOST, PORT, [pack_message, pack_message1, pack_message2, pack_message3])
 
 
 if __name__ == '__main__':

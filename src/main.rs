@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use redra::{channel::core::RDPack, module::resource::RDResource, net::listener::RDListener, setup::rd_setup, update::rd_update};
+use redra::{parser::core::RDPack, module::resource::RDResource, net::listener::RDListener, setup::rd_setup, update::rd_update};
 use tokio::sync::{broadcast, mpsc};
 use std::sync::{Arc, Mutex};
 use redra::module::resource::{channel::RDChannel, handle::RDHandle};
