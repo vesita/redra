@@ -14,7 +14,7 @@ pub fn general_spawn(
             match pack {
                 RDPack::Message(_) => todo!(),
                 RDPack::Spawn(spw) => {
-                    println!("{:?}", spw.transform);
+                    debug!("{:?}", spw.transform);
                     // 通过字符串标识符查找材质
                     let material = if let Some(handle) = resources.materials.get(&spw.material) {
                         let handle_clone = handle.lock().unwrap().clone();

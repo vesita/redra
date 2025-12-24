@@ -4,8 +4,9 @@ package rdr;
 
 
 message Pack {
-  string data_type = 1;
-  bytes data = 2;
+  uint32 total_size = 1;
+  string data_type = 2;
+  bytes data = 3;
 }
 
 // 

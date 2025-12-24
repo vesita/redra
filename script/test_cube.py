@@ -4,74 +4,22 @@
 """
 
 import socket
-import struct
+import sys
+import os
 import time
 from typing import Tuple
+
+# 添加proto目录到Python路径
+sys.path.append(os.path.join(os.path.dirname(__file__), 'proto'))
+
+import rdr_pb2
+import shape_pb2
 
 
 class DataType:
     """数据类型常量"""
     CUBE = "cube"
     SPHERE = "sphere"
-
-
-def encode_varint(value: int) -> bytes:
-    """编码varint值"""
-    if value < 0x80:
-        return struct.pack('B', value)
-    # 处理更大的数值
-    encoded_bytes = b''
-    while value >= 0x80:
-        encoded_bytes += struct.pack('B', (value & 0x7F) | 0x80)
-        value >>= 7
-    encoded_bytes += struct.pack('B', value)
-    return encoded_bytes
-
-
-def encode_string_field(field_number: int, value: str) -> bytes:
-    """编码字符串字段"""
-    key = (field_number << 3) | 2  # 字符串类型标签
-    value_bytes = value.encode('utf-8')
-    return encode_varint(key) + encode_varint(len(value_bytes)) + value_bytes
-
-
-def encode_bytes_field(field_number: int, value: bytes) -> bytes:
-    """编码bytes字段"""
-    key = (field_number << 3) | 2  # bytes类型标签
-    return encode_varint(key) + encode_varint(len(value)) + value
-
-
-def encode_float_field(field_number: int, value: float) -> bytes:
-    """编码浮点数字段"""
-    key = (field_number << 3) | 5  # 32位浮点类型标签
-    return encode_varint(key) + struct.pack('<f', value)
-
-
-def create_position_message(x: float, y: float, z: float) -> bytes:
-    """创建Position消息"""
-    position_data = b''
-    position_data += encode_float_field(1, x)  # x
-    position_data += encode_float_field(2, y)  # y
-    position_data += encode_float_field(3, z)  # z
-    return position_data
-
-
-def create_rotation_message(rx: float, ry: float, rz: float) -> bytes:
-    """创建Rotation消息"""
-    rotation_data = b''
-    rotation_data += encode_float_field(1, rx)  # rx
-    rotation_data += encode_float_field(2, ry)  # ry
-    rotation_data += encode_float_field(3, rz)  # rz
-    return rotation_data
-
-
-def create_scale_message(sx: float, sy: float, sz: float) -> bytes:
-    """创建Scale消息"""
-    scale_data = b''
-    scale_data += encode_float_field(1, sx)   # sx
-    scale_data += encode_float_field(2, sy)   # sy
-    scale_data += encode_float_field(3, sz)   # sz
-    return scale_data
 
 
 def create_cube_message(pos: Tuple[float, float, float], 
@@ -88,23 +36,25 @@ def create_cube_message(pos: Tuple[float, float, float],
     Returns:
         bytes: 编码后的立方体消息
     """
-    # 构造嵌套的Position消息 (tag=1)
-    position_data = create_position_message(pos[0], pos[1], pos[2])
+    # 创建Cube消息
+    cube = shape_pb2.Cube()
     
-    # 构造嵌套的Rotation消息 (tag=2)
-    rotation_data = create_rotation_message(rot[0], rot[1], rot[2])
+    # 设置位置
+    cube.pos.x = pos[0]
+    cube.pos.y = pos[1]
+    cube.pos.z = pos[2]
     
-    # 构造嵌套的Scale消息 (tag=3)
-    scale_data = create_scale_message(scale[0], scale[1], scale[2])
+    # 设置旋转
+    cube.rot.rx = rot[0]
+    cube.rot.ry = rot[1]
+    cube.rot.rz = rot[2]
     
-    # 构造Cube消息
-    cube_data = b''
-    # 注意：在proto定义中，Cube消息的字段是pos(1), rot(2), scale(3)，都是嵌套消息类型
-    cube_data += encode_bytes_field(1, position_data)  # pos (嵌套消息)
-    cube_data += encode_bytes_field(2, rotation_data)  # rot (嵌套消息)
-    cube_data += encode_bytes_field(3, scale_data)     # scale (嵌套消息)
+    # 设置缩放
+    cube.scale.sx = scale[0]
+    cube.scale.sy = scale[1]
+    cube.scale.sz = scale[2]
     
-    return cube_data
+    return cube.SerializeToString()
 
 
 def create_sphere_message(pos: Tuple[float, float, float], radius: float = 1.0) -> bytes:
@@ -118,15 +68,18 @@ def create_sphere_message(pos: Tuple[float, float, float], radius: float = 1.0) 
     Returns:
         bytes: 编码后的球体消息
     """
-    # 构造嵌套的Position消息 (tag=1)
-    position_data = create_position_message(pos[0], pos[1], pos[2])
+    # 创建Sphere消息
+    sphere = shape_pb2.Sphere()
     
-    # 构造Sphere消息
-    sphere_data = b''
-    sphere_data += encode_bytes_field(1, position_data)  # pos (嵌套消息)
-    sphere_data += encode_float_field(2, radius)         # radius (float)
+    # 设置位置
+    sphere.pos.x = pos[0]
+    sphere.pos.y = pos[1]
+    sphere.pos.z = pos[2]
     
-    return sphere_data
+    # 设置半径
+    sphere.radius = radius
+    
+    return sphere.SerializeToString()
 
 
 def create_pack_message(data_type: str, data: bytes) -> bytes:
@@ -140,36 +93,27 @@ def create_pack_message(data_type: str, data: bytes) -> bytes:
     Returns:
         bytes: 编码后的包装消息
     """
-    # 构造Pack消息
-    pack_data = b''
-    pack_data += encode_string_field(1, data_type)  # data_type字段
-    pack_data += encode_bytes_field(2, data)       # data字段
+    # 创建Pack消息
+    pack = rdr_pb2.Pack()
+    pack.data_type = data_type
+    pack.data = data
     
-    return pack_data
-
-
-
-
-def test_port_connectivity(host: str, port: int) -> bool:
-    """
-    测试端口连通性
+    # 先序列化pack以计算大小（不含total_size字段）
+    temp_pack_data = pack.SerializeToString()
     
-    Args:
-        host: 主机地址
-        port: 端口号
-        
-    Returns:
-        bool: 是否可以连接
-    """
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        return result == 0
-    except Exception:
-        return False
-
+    # 设置total_size为完整pack消息的预计大小
+    # total_size字段本身是uint32类型，占用1-5字节(varint编码)
+    # 我们需要计算包含total_size字段的实际大小
+    pack.total_size = len(temp_pack_data)
+    
+    # 重新序列化包含total_size的完整消息
+    full_pack_data = pack.SerializeToString()
+    
+    # 修正total_size为实际的完整消息大小
+    pack.total_size = len(full_pack_data)
+    
+    # 最终序列化
+    return pack.SerializeToString()
 
 def send_messages(host: str, port: int, messages: list):
     """
@@ -220,20 +164,6 @@ def main():
     # 配置参数
     HOST = 'localhost'
     PORT = 8080  # 根据源码，这是默认端口
-    
-    # 首先测试端口连通性
-    print("正在测试端口连通性...")
-    if not test_port_connectivity(HOST, PORT):
-        print(f"错误：无法连接到 {HOST}:{PORT}")
-        print("\n可能的原因：")
-        print("1. Redra服务未启动")
-        print("2. Redra服务未正确监听端口")
-        print("3. 端口号配置错误")
-        print("\n请确保：")
-        print("1. 运行 'cargo run' 启动Redra服务")
-        print("2. 检查Redra服务日志确认监听成功")
-        print("3. 使用 'ss -tuln | grep 8080' 或 'netstat -an | grep 8080' 确认端口监听状态")
-        return
     
     # 创建立方体数据
     cube_data = create_cube_message(
