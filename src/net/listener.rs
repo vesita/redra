@@ -40,11 +40,11 @@ impl RDListener {
         
         let listener = match TokioTcpListener::bind(socket_addr).await {
             Ok(listener) => {
-                info!("开始监听地址: {}", self.address);
+                info!("开始监听网络地址: {}", self.address);
                 listener
             },
             Err(e) => {
-                error!("绑定地址失败: {}", e);
+                error!("绑定网络地址失败: {}", e);
                 return;
             }
         };
@@ -53,7 +53,7 @@ impl RDListener {
         loop {
             match listener.accept().await {
                 Ok((socket, addr)) => {
-                    info!("接受连接: {:?}", addr);
+                    info!("接受新的客户端连接: {}", addr);
                     connection_id += 1;
                     let (link_tx, forward_rx) = mpsc::channel::<Vec<u8>>(1024);
                     let (forward_tx, link_rx) = mpsc::channel::<Vec<u8>>(1024);
@@ -66,12 +66,12 @@ impl RDListener {
                         self.engine_broadcast.resubscribe()
                     );
                     let forwarder_task = task::spawn(async move {
-                        info!("启动转发任务 {}", connection_id);
+                        info!("启动转发任务 - 连接ID: {}", connection_id);
                         forwarder.run().await;
                     });
-                    info!("链接: {}", connection_id);
+                    info!("创建连接 - ID: {}", connection_id);
                     let linker_task = task::spawn(async move {
-                        info!("启动链接任务 {}", connection_id);
+                        info!("启动链接任务 - 连接ID: {}", connection_id);
                         linker.run().await;
                     });
                     
@@ -79,17 +79,19 @@ impl RDListener {
                     self.forwarders.push(forwarder_task);
                 },
                 Err(e) => {
-                    error!("接受连接时出错: {}", e);
+                    error!("接受客户端连接时出错: {}", e);
                 }
             }
             let _ = sleep(Duration::from_millis(100));
             if let Ok(()) = shutdown.try_recv() {
+                info!("收到关闭信号，正在停止所有连接任务...");
                 for task in self.linkers.drain(..) {
                     task.abort();
                 }
                 for task in self.forwarders.drain(..) {
                     task.abort();
                 }
+                info!("已停止所有网络任务");
             }
         }
     }
