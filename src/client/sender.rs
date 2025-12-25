@@ -1,10 +1,33 @@
 use prost::Message;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
+use std::sync::OnceLock;
+use tokio::sync::Mutex;
+
 use crate::proto::{declare, rd, shape};
 
+static CLIENT_TCPLINK: OnceLock<Mutex<Option<TcpStream>>> = OnceLock::new();
+
+async fn get_link() -> &'static Mutex<Option<TcpStream>> {
+    CLIENT_TCPLINK.get_or_init(|| Mutex::new(None))
+}
+
+async fn ensure_connection(stream_mutex: &Mutex<Option<TcpStream>>) -> Result<(), Box<dyn std::error::Error>> {
+    let mut guard = stream_mutex.lock().await;
+    if guard.is_none() {
+        let stream = TcpStream::connect("127.0.0.1:8080").await?;
+        *guard = Some(stream);
+    }
+    Ok(())
+}
+
 pub async fn send_bytes(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+    let stream_mutex = get_link().await;
+    ensure_connection(stream_mutex).await?;
+    
+    let mut guard = stream_mutex.lock().await;
+    let stream = guard.as_mut().unwrap();
+
     let trailer = declare::Trailer {
         me: 1,
         next: data.len() as u32,
