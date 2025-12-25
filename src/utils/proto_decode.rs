@@ -2,13 +2,13 @@ use log::{error, info};
 use nalgebra::base;
 use prost::Message;
 
-use crate::proto::{declare, rdr::{self, Pack}};
+use crate::proto::{declare, rd::{self, Pack}};
 
 pub fn auto_decode(buffer: &[u8]) -> Result<Vec<Pack>, String> { 
     let mut base = 0;
     let mut result = vec![];
     while let Some((left, right)) = read_trailer(&buffer, base) {
-        if let Ok(pack) = rdr::Pack::decode(&buffer[left..right]) {
+        if let Ok(pack) = rd::Pack::decode(&buffer[left..right]) {
             info!("协议数据包解码成功，类型: {:?}", pack.data_type);
             result.push(pack);
             base = right;

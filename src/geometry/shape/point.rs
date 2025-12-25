@@ -14,11 +14,15 @@ impl RDPoint {
     }
 
     pub fn pose(&self) -> Transform {
-        let translation = Vec3::new(
+        let translation = self.to_vec3();
+        Transform::from_translation(translation)
+    }
+
+    pub fn to_vec3(&self) -> Vec3 {
+        Vec3::new(
             self.position[0],
             self.position[1],
             self.position[2],
-        );
-        Transform::from_translation(translation)
+        )
     }
 }

@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 
 use crate::{
     parser::{core::RDPack, proto::process_pack},
-    proto::rdr::{self, Pack}, utils::proto_decode::auto_decode,
+    proto::rd::{self, Pack}, utils::proto_decode::auto_decode,
 };
 
 pub struct RDForwarder {

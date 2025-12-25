@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package rdr;
+package rd;
 
 
 message Pack {
