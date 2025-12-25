@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package declare;
+
+message Trailer {
+  uint32 me = 1;
+  uint32 next = 2;
+}

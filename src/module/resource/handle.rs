@@ -2,9 +2,9 @@
 use std::collections::HashMap;
 use tokio;
 
-use crate::{ThLc, net::{listener::RDListener, server::RDServer}};
+use crate::{ThLc, net::{listener::RDListener, forwarder::RDForwarder}};
 
 pub struct RDHandle {
     pub listener: ThLc<RDListener>,
-    pub servers: HashMap<String, ThLc<RDServer>>,
+    pub servers: HashMap<String, ThLc<RDForwarder>>,
 }

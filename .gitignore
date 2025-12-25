@@ -1,10 +1,13 @@
 /target
-
+Cargo.lock
 
 
 // python
 .venv
+uv.lock
+
 
 .vscode/
 
 src/proto/
+script/proto/

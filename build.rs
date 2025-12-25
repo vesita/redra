@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     // 编译 proto 文件到 src/pb 目录
     prost_build::Config::new()
         .out_dir("src/proto/")
-        .compile_protos(&["proto/rdr.proto", "proto/shape.proto"], &["proto/"])?;
+        .compile_protos(&["proto/declare.proto", "proto/rdr.proto", "proto/shape.proto"], &["proto/"])?;
         
     Ok(())
 }

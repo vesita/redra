@@ -1,6 +1,7 @@
 use prost::Message;
 use tokio::sync::mpsc;
 use std::sync::Arc;
+use log::{error, info, debug};
 
 use crate::{parser::{core::{RDPack, SpawnPack}, interface::{sphere_rdr, cube_rdr}}, proto::{rdr, shape}};
 
@@ -14,7 +15,7 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     // 处理Position数据
                     let _pos = position;
                 }
-                Err(e) => eprintln!("解析 Position 数据失败: {}", e),
+                Err(e) => error!("解析 Position 数据失败: {}", e),
             }
         }
         "rotation" => {
@@ -24,7 +25,7 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     // 处理Rotation数据
                     let _rot = rotation;
                 }
-                Err(e) => eprintln!("解析 Rotation 数据失败: {}", e),
+                Err(e) => error!("解析 Rotation 数据失败: {}", e),
             }
         }
         "scale" => {
@@ -34,15 +35,15 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     // 处理Scale数据
                     let _scale = scale;
                 }
-                Err(e) => eprintln!("解析 Scale 数据失败: {}", e),
+                Err(e) => error!("解析 Scale 数据失败: {}", e),
             }
         }
         "cube" => {
             // 将pack.data解析为Cube消息
             match shape::Cube::decode(&pack.data[..]) {
                 Ok(cube) => {
-                    println!("创建SpawnPack");
-                    println!("Cube: {:?}", cube);
+                    info!("创建SpawnPack");
+                    debug!("Cube: {:?}", cube);
                     let rd_cube = cube_rdr(&cube);
                     // 创建Bevy网格和变换
                     let mesh = Arc::new(rd_cube.to_mesh());
@@ -58,11 +59,11 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
                     tokio::spawn(async move {
                         if let Err(e) = sender.send(rd_pack).await {
-                            eprintln!("发送RDPack到Bevy失败: {}", e);
+                            error!("发送RDPack到Bevy失败: {}", e);
                         }
                     });
                 }
-                Err(e) => eprintln!("解析 Cube 数据失败: {}", e),
+                Err(e) => error!("解析 Cube 数据失败: {}", e),
             }
         },
         "sphere" => {
@@ -82,17 +83,17 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                     let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
                     tokio::spawn(async move {
                         if let Err(e) = sender.send(rd_pack).await {
-                            eprintln!("发送RDPack到Bevy失败: {}", e);
+                            error!("发送RDPack到Bevy失败: {}", e);
                         }
                     });
                 },
                 Err(e) => {
-                    eprintln!("解析 Sphere 数据失败: {}", e);
+                    error!("解析 Sphere 数据失败: {}", e);
                 }
             }
         },
         _ => {
-            eprintln!("未知的数据类型: {}", pack.data_type);
+            error!("未知的数据类型: {}", pack.data_type);
         }
     }
 }
