@@ -17,8 +17,8 @@ enum AppState {
 
 #[tokio::main]
 async fn main() -> Result<(), AppState> {
-    // 初始化 shutdown channel
-    let (shutdown_tx, shutdown_rx) = broadcast::channel::<()>(1);
+    // // 初始化 shutdown channel
+    // let (shutdown_tx, shutdown_rx) = broadcast::channel::<()>(1);
     
     // 加载资源
     let (engine_sender, net_receiver) = broadcast::channel::<RDPack>(1024);
@@ -31,7 +31,7 @@ async fn main() -> Result<(), AppState> {
     println!("启动网络任务...");
     tokio::spawn(async move {
         let mut net = RDListener::new(net_sender, net_receiver);
-        net.run(shutdown_rx).await;
+        net.run().await;
     });
 
     let resource = RDResource {
@@ -48,6 +48,6 @@ async fn main() -> Result<(), AppState> {
         .add_systems(Startup, rd_setup)
         .add_systems(Update, rd_update)
         .run();
-    let _ = shutdown_tx.send(());
+    // let _ = shutdown_tx.send(());
     Ok(())
 }

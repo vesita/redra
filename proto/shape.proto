@@ -1,19 +1,24 @@
 syntax = "proto3";
 
 package shape;
-import "rdr.proto";
+import "rd.proto";
 
 message Point {
-    rdr.Position pos = 1;
+    rd.Position pos = 1;
+}
+
+message Segment {
+  Point start = 1;
+  Point end = 2;
 }
 
 message Sphere {
-    rdr.Position pos = 1;
+    rd.Position pos = 1;
     float radius = 2;
 }
 
 message Cube {
-    rdr.Position pos = 1;
-    rdr.Rotation rot = 2;
-    rdr.Scale scale = 3;
+    rd.Position pos = 1;
+    rd.Rotation rot = 2;
+    rd.Scale scale = 3;
 }

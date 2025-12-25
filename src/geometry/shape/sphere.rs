@@ -21,10 +21,11 @@ impl RDSphere {
             self.pose.pos[1],
             self.pose.pos[2],
         );
-        Transform {
-            translation,
-            rotation: Quat::IDENTITY,
-            scale: Vec3::ONE,
-        }
+        // Transform {
+        //     translation,
+        //     rotation: Quat::IDENTITY,
+        //     scale: Vec3::ONE,
+        // }
+        Transform::from_translation(translation)
     }
 }

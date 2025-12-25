@@ -11,10 +11,11 @@ use std::collections::VecDeque;
 
 use crate::{
     parser::{core::RDPack, proto::process_pack},
-    proto::rdr::{self, Pack}, utils::proto_decode::auto_decode,
+    proto::rd::{self, Pack}, utils::proto_decode::auto_decode,
 };
 
 pub struct RDForwarder {
+    pub id: usize,
     pub sender: mpsc::Sender<Vec<u8>>,
     pub receiver: mpsc::Receiver<Vec<u8>>,
     pub forward_sender: mpsc::Sender<RDPack>,
@@ -23,12 +24,14 @@ pub struct RDForwarder {
 
 impl RDForwarder {
     pub fn new(
+        id: usize,
         sender: mpsc::Sender<Vec<u8>>,
         receiver: mpsc::Receiver<Vec<u8>>,
         forward_sender: mpsc::Sender<RDPack>,
         forward_receiver: broadcast::Receiver<RDPack>,
     ) -> RDForwarder {
         RDForwarder {
+            id,
             sender,
             receiver,
             forward_sender,
@@ -36,7 +39,7 @@ impl RDForwarder {
         }
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self, release: mpsc::Sender<usize>) {
         let mut packets_processed = 0;
         let mut buffer: VecDeque<Vec<u8>> = VecDeque::new();
         loop {
@@ -74,6 +77,8 @@ impl RDForwarder {
                 }
             }
         }
+        
+        release.send(self.id).await.expect("释放资源失败");
         info!("数据转发任务结束，共处理 {} 个数据包", packets_processed);
     }
 
