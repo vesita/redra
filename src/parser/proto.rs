@@ -3,7 +3,15 @@ use tokio::sync::mpsc;
 use std::sync::Arc;
 use log::{error, info, debug};
 
-use crate::{parser::{core::{RDPack, SpawnPack}, interface::{sphere_rdr, cube_rdr}}, proto::{rdr, shape}};
+use crate::{parser::{core::{RDPack, SpawnPack}, interface::{cube_rdr, point_rdr, position_rdr, sphere_rdr}}, proto::{rdr, shape}};
+
+/// 发送SpawnPack到Bevy
+async fn send_spawn_pack(spawn_pack: SpawnPack, sender: mpsc::Sender<RDPack>) {
+    let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
+    if let Err(e) = sender.send(rd_pack).await {
+        error!("发送RDPack到Bevy失败: {}", e);
+    }
+}
 
 /// 处理Pack消息
 pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
@@ -12,8 +20,7 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
             // 将pack.data解析为Position消息
             match rdr::Position::decode(&pack.data[..]) {
                 Ok(position) => {
-                    // 处理Position数据
-                    let _pos = position;
+                    let _pos = position_rdr(&position);
                 }
                 Err(e) => error!("解析 Position 数据失败: {}", e),
             }
@@ -56,12 +63,7 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                         material: "default".to_string(),
                     };
                     
-                    let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
-                    tokio::spawn(async move {
-                        if let Err(e) = sender.send(rd_pack).await {
-                            error!("发送RDPack到Bevy失败: {}", e);
-                        }
-                    });
+                    tokio::spawn(send_spawn_pack(spawn_pack, sender));
                 }
                 Err(e) => error!("解析 Cube 数据失败: {}", e),
             }
@@ -80,16 +82,31 @@ pub fn process_pack(pack: rdr::Pack, sender: mpsc::Sender<RDPack>) {
                         transform,
                         material: "default".to_string(),
                     };
-                    let rd_pack = RDPack::Spawn(Box::new(spawn_pack));
-                    tokio::spawn(async move {
-                        if let Err(e) = sender.send(rd_pack).await {
-                            error!("发送RDPack到Bevy失败: {}", e);
-                        }
-                    });
+                    tokio::spawn(send_spawn_pack(spawn_pack, sender));
                 },
                 Err(e) => {
                     error!("解析 Sphere 数据失败: {}", e);
                 }
+            }
+        },
+        "point" => {
+            // 将pack.data解析为Point消息
+            match shape::Point::decode(&pack.data[..]) {
+                Ok(point) => {
+                    // 处理Point数据
+                    let point = point_rdr(&point);
+
+                    let mesh = Arc::new(point.to_mesh());
+                    let transform = point.pose();
+
+                    let spawn_pack = SpawnPack {
+                        mesh,
+                        transform,
+                        material: "default".to_string(),
+                    };
+                    tokio::spawn(send_spawn_pack(spawn_pack, sender));
+                }
+                Err(e) => error!("解析 Point 数据失败: {}", e),
             }
         },
         _ => {
