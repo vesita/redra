@@ -7,6 +7,7 @@ use tokio::{io::AsyncReadExt, net::TcpStream, sync::{broadcast, mpsc}, time::{sl
 use crate::proto::declare;
 
 pub struct RDLinker {
+    pub id: usize,
     pub sender: mpsc::Sender<Vec<u8>>,
     pub receiver: mpsc::Receiver<Vec<u8>>,
     pub socket: TcpStream,
@@ -14,18 +15,20 @@ pub struct RDLinker {
 
 impl RDLinker {
     pub fn new(
+        id: usize,
         sender: mpsc::Sender<Vec<u8>>,
         receiver: mpsc::Receiver<Vec<u8>>,
         socket: TcpStream,
     ) -> RDLinker {
         RDLinker {
+            id,
             sender,
             receiver,
             socket,
         }
     }
     
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self, release: mpsc::Sender<usize>) {
         info!("启动TCP链接处理器");
         
         let mut total_bytes_received = 0;
@@ -59,6 +62,8 @@ impl RDLinker {
                 }
             }
         }
+        
+        release.send(self.id).await.expect("释放资源失败");
         info!("TCP链接处理器任务结束，总计处理 {} 字节，{} 个数据包", total_bytes_received, packets_received);
     }
 
