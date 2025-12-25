@@ -1,10 +1,10 @@
 use nalgebra::{Matrix4, Vector3};
 
-use crate::{geometry::{base::*, pose::RDRPose, shape::*}, proto::{rdr::*, shape::*}};
+use crate::{geometry::{base::*, pose::RDRPose, shape::{line::RDSegment, *}}, proto::{rd::*, shape::*}};
 
 
 
-pub fn position_rdr(position: &Position) -> RDRPosition {
+pub fn position_rd(position: &Position) -> RDRPosition {
     RDRPosition {
         x: position.x,
         y: position.y,
@@ -12,7 +12,7 @@ pub fn position_rdr(position: &Position) -> RDRPosition {
     }
 }
 
-pub fn rotate_rdr(rotate: &Rotation) -> RDRRotation {
+pub fn rotate_rd(rotate: &Rotation) -> RDRRotation {
     RDRRotation {
         rx: rotate.rx,
         ry: rotate.ry,
@@ -20,7 +20,7 @@ pub fn rotate_rdr(rotate: &Rotation) -> RDRRotation {
     }
 }
 
-pub fn scale_rdr(scale: &Scale) -> RDRScale {
+pub fn scale_rd(scale: &Scale) -> RDRScale {
     RDRScale {
         sx: scale.sx,
         sy: scale.sy,
@@ -28,7 +28,7 @@ pub fn scale_rdr(scale: &Scale) -> RDRScale {
     }
 }
 
-pub fn point_rdr(point: &Point) -> RDPoint {
+pub fn point_rd(point: &Point) -> RDPoint {
     RDPoint {
         position: Vector3::new(
             point.pos.unwrap().x,
@@ -38,7 +38,7 @@ pub fn point_rdr(point: &Point) -> RDPoint {
     }
 }
 
-pub fn sphere_rdr(sphere: &Sphere) -> RDSphere {
+pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
     RDSphere {
         pose: RDRPosVec {
             pos: Vector3::new(
@@ -51,9 +51,9 @@ pub fn sphere_rdr(sphere: &Sphere) -> RDSphere {
     }
 }
 
-pub fn cube_rdr(cube: &Cube) -> RDCube {
+pub fn cube_rd(cube: &Cube) -> RDCube {
     // 获取旋转矩阵，如果没有提供旋转信息，则使用单位矩阵
-    let rot_mat = cube.rot.as_ref().map(|r| rotate_rdr(r).to_matrix()).unwrap_or_else(|| {
+    let rot_mat = cube.rot.as_ref().map(|r| rotate_rd(r).to_matrix()).unwrap_or_else(|| {
         RDRRotation { rx: 0.0, ry: 0.0, rz: 0.0 }.to_matrix()
     });
     
@@ -77,5 +77,12 @@ pub fn cube_rdr(cube: &Cube) -> RDCube {
             pose: pose_matrix,
         },
         edges: edges,
+    }
+}
+
+pub fn segment_rd(segment: &Segment) -> RDSegment {
+    RDSegment {
+        start: point_rd(segment.start.as_ref().unwrap()),
+        end: point_rd(segment.end.as_ref().unwrap()),
     }
 }

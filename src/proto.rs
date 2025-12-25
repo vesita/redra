@@ -1,3 +1,3 @@
 pub mod shape;
-pub mod rdr;
+pub mod rd;
 pub mod declare;

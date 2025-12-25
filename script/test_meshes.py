@@ -12,7 +12,7 @@ import numpy as np
 # 添加proto目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'proto'))
 
-import rdr_pb2
+import rd_pb2
 import shape_pb2
 import declare_pb2
 
@@ -28,7 +28,7 @@ def create_pack_message(data_type: str, data: bytes) -> bytes:
     Returns:
         bytes: 编码后的包装消息
     """
-    pack = rdr_pb2.Pack()
+    pack = rd_pb2.Pack()
     pack.data_type = data_type
     pack.data = data
     return pack.SerializeToString()
@@ -61,6 +61,14 @@ def create_sphere(pos: Tuple[float, float, float], radius: float = 1.0) -> bytes
     sphere.pos.x, sphere.pos.y, sphere.pos.z = pos
     sphere.radius = radius
     return create_pack_message("sphere", sphere.SerializeToString())
+
+
+def create_line(start_pos: Tuple[float, float, float], end_pos: Tuple[float, float, float]) -> bytes:
+    """创建线段消息"""
+    segment = shape_pb2.Segment()
+    segment.start.pos.x, segment.start.pos.y, segment.start.pos.z = start_pos
+    segment.end.pos.x, segment.end.pos.y, segment.end.pos.z = end_pos
+    return create_pack_message("segment", segment.SerializeToString())
 
 
 def send_messages(host: str, port: int, messages: list):
@@ -100,7 +108,7 @@ def send_messages_with_trailer(host: str, port: int, messages: list):
             total_bytes = 0
             for i, message in enumerate(messages):
                 # 解析消息以获取类型信息
-                pack = rdr_pb2.Pack()
+                pack = rd_pb2.Pack()
                 pack.ParseFromString(message)
                 
                 trailer = trailer_pack(message)
@@ -135,12 +143,13 @@ def main():
         create_cube(pos=(0.0, 0.0, 0.0)),
         create_cube(pos=(0.0, 0.0, 4.0)),
         create_cube(pos=(3.0, 1.0, 0.0), rot=(0.0, 45.0, 0.0), scale=(0.5, 1.5, 0.5)),
-        create_sphere(pos=(0.0, 4.0, 0.0), radius=1.0)
+        create_sphere(pos=(0.0, 4.0, 0.0), radius=1.0),
+        create_line(start_pos=(0.0, 2.0, 0.0), end_pos=(4.0, 2.0, 0.0))  # 添加一条线段
     ]
     
     # 显示将要发送的消息信息
     for i, msg in enumerate(messages):
-        pack = rdr_pb2.Pack()
+        pack = rd_pb2.Pack()
         pack.ParseFromString(msg)
         print(f"消息 {i+1}: 类型={pack.data_type}, 大小={len(msg)} 字节")
     
