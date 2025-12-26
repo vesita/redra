@@ -4,110 +4,152 @@ use log::{error, info, warn};
 use prost::Message;
 use tokio::{io::AsyncReadExt, net::TcpStream, sync::{broadcast, mpsc}, time::{sleep, timeout}};
 
-use crate::proto::declare;
+use crate::{ThLc, proto::declare, utils::proto_decode::read_trailer};
+use super::work_share::{RDWosh};
 
 pub struct RDLinker {
     pub id: usize,
-    pub sender: mpsc::Sender<Vec<u8>>,
-    pub receiver: mpsc::Receiver<Vec<u8>>,
     pub socket: TcpStream,
+    pub wosh: ThLc<RDWosh>,
+    pub expand_request: mpsc::Sender<usize>,
 }
 
 impl RDLinker {
     pub fn new(
         id: usize,
-        sender: mpsc::Sender<Vec<u8>>,
-        receiver: mpsc::Receiver<Vec<u8>>,
         socket: TcpStream,
+        wosh: ThLc<RDWosh>,
+        expand_request: mpsc::Sender<usize>,
     ) -> RDLinker {
         RDLinker {
             id,
-            sender,
-            receiver,
             socket,
+            wosh,
+            expand_request,
         }
     }
     
     pub async fn run(&mut self, release: mpsc::Sender<usize>) {
-        info!("启动TCP链接处理器");
+        info!("启动TCP链接处理器 ID: {}", self.id);
         
         let mut total_bytes_received = 0;
         let mut packets_received = 0;
 
+        // 使用更大的缓冲区来减少系统调用
+        let mut buffer = [0; 4096];
+        
+        // 累积缓冲区，用于处理跨包数据
+        let mut accum_buffer = Vec::new();
+
+        let mut sender = None;
+
         loop {
-            let mut buffer = [0; 1024];
             match self.socket.read(&mut buffer).await {
                 Ok(0) => {
-                    // info!("接收到0字节，连接可能已关闭");
-                    let _ = sleep(Duration::from_millis(10));
+                    info!("接收到0字节，连接可能已关闭，退出链接处理器 ID: {}", self.id);
+                    break;
                 },
                 Ok(len) => {
                     total_bytes_received += len;
                     packets_received += 1;
                     
-                    info!("从TCP连接接收到 {} 字节数据，累计接收: {} 字节，数据包序号: {}", 
-                            len, total_bytes_received, packets_received);
+                    info!("从TCP连接 ID: {} 接收到 {} 字节数据，累计接收: {} 字节，数据包序号: {}", 
+                            self.id, len, total_bytes_received, packets_received);
                     
-                    let data = (&buffer[..len]).to_vec();
+                    // 将新接收的数据追加到累积缓冲区
+                    accum_buffer.extend_from_slice(&buffer[..len]);
                     
-                    // 发送到处理channel
-                    if let Err(e) = self.sender.send(data).await {
-                        error!("发送数据到处理队列失败: {} (数据包序号 #{})", e, packets_received);
-                        break;
+                    // 处理累积缓冲区中的完整数据包
+                    while let Some(packet_data) = self.extract_complete_packet(&mut accum_buffer).await {
+                        // 使用提取的辅助函数发送数据
+                        if !self.send_data(packet_data, &mut sender).await {
+                            warn!("发送数据失败，ID: {}", self.id);
+                        }
                     }
                 },
                 Err(e) => {
-                    error!("从TCP连接读取数据失败: {}", e);
+                    error!("从TCP连接ID: {} 读取数据失败: {}", self.id, e);
                     break;
                 }
             }
         }
         
+        // 处理连接断开前剩余的未完整数据
+        if !accum_buffer.is_empty() {
+            warn!("连接断开时仍有未处理的数据，长度: {}", accum_buffer.len());
+            // 尝试发送剩余数据，即使它可能不是一个完整的包
+            if !accum_buffer.is_empty() {
+                if !self.send_data(accum_buffer, &mut sender).await {
+                    warn!("发送剩余数据失败，ID: {}", self.id);
+                }
+            }
+        }
+        
+        // 将当前sender放回wosh
+        if let Some(s) = sender {
+            if let Ok(ws) = self.wosh.lock() {
+                ws.add_channel(s, self.id);
+            }
+        }
+        
         release.send(self.id).await.expect("释放资源失败");
-        info!("TCP链接处理器任务结束，总计处理 {} 字节，{} 个数据包", total_bytes_received, packets_received);
+        info!("TCP链接处理器任务结束，ID: {}，总计处理 {} 字节，{} 个数据包", 
+              self.id, total_bytes_received, packets_received);
     }
 
-    // async fn response(&mut self) {
-    //     info!("开始发送握手请求");
+    // 从累积缓冲区中提取完整数据包
+    // 使用原始的trailer解析策略
+    async fn extract_complete_packet(&mut self, accum_buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
+        // 需要至少4字节才能开始解析trailer
+        if accum_buffer.len() < 4 {
+            return None;
+        }
+
+        // 使用read_trailer函数解析预告信息
+        if let Some((left, right)) = read_trailer(accum_buffer, 0) {
+            if accum_buffer.len() >= right {
+                // 提取完整数据包
+                let packet_data = accum_buffer[left..right].to_vec();
+                
+                // 从累积缓冲区中移除已处理的数据
+                accum_buffer.drain(..right);
+                
+                return Some(packet_data);
+            } else {
+                // 数据不足，等待更多数据
+                return None;
+            }
+        }
+        //  else {
+        //     // trailer解析失败，可能是数据损坏，移除第一个字节继续尝试
+        //     accum_buffer.remove(0);
+        //     self.extract_complete_packet(accum_buffer).await
+        // }
+        None
+    }
+
+    // 发送数据到通道的辅助函数
+    async fn send_data(&mut self, data: Vec<u8>, sender: &mut Option<mpsc::Sender<Vec<u8>>>) -> bool {
+        // 首先尝试使用现有sender发送数据
+        if let Some(s) = sender {
+            if s.send(data.clone()).await.is_ok() {
+                return true;
+            }
+        }
         
-    //     // 发送握手请求，带重试机制
-    //     let mut attempts = 0;
-    //     let max_attempts = 3;
-    //     while attempts < max_attempts {
-    //         info!("尝试发送握手请求 (尝试 {}/{})", attempts + 1, max_attempts);
-    //         if let Err(e) = self.sender.send("Ready?".as_bytes().to_vec()).await {
-    //             error!("发送握手请求失败 (尝试 {}/{}): {}", attempts + 1, max_attempts, e);
-    //             attempts += 1;
-    //             tokio::time::sleep(Duration::from_millis(100)).await;
-    //             continue;
-    //         }
-    //         info!("握手请求已发送");
-    //         break;
-    //     }
+        // 如果发送失败或sender为None，尝试获取新通道
+        if let Ok(ws) = self.wosh.lock() {
+            *sender = ws.get_channel();
+        }
         
-    //     if attempts >= max_attempts {
-    //         info!("达到最大重试次数，跳过握手");
-    //         return;
-    //     }
-        
-    //     info!("等待RDForwarder响应");
-        
-    //     // 使用超时机制避免无限等待
-    //     match timeout(Duration::from_secs(5), self.receiver.recv()).await {
-    //         Ok(Some(data)) => {
-    //             info!("RDForwarder响应: {}", String::from_utf8_lossy(&data));
-    //             if data == "Ready".as_bytes() {
-    //                 info!("握手成功");
-    //             } else {
-    //                 warn!("握手响应错误: 期望 'Ready'，收到 '{}'", String::from_utf8_lossy(&data));
-    //             }
-    //         }
-    //         Ok(None) => {
-    //             warn!("握手响应为空");
-    //         }
-    //         Err(_) => {
-    //             warn!("握手超时，客户端可能直接发送数据");
-    //         }
-    //     }
-    // }
+        // 尝试使用新获取的通道发送
+        if let Some(s) = sender {
+            if s.send(data).await.is_ok() {
+                return true;
+            }
+        } else {
+            self.expand_request.send(self.id).await.expect("请求扩容失败");
+        }
+        false
+    }
 }

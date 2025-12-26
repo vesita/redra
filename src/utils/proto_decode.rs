@@ -4,20 +4,27 @@ use prost::Message;
 
 use crate::proto::{declare, rd::{self, Pack}};
 
-pub fn auto_decode(buffer: &[u8]) -> Result<Vec<Pack>, String> { 
-    let mut base = 0;
-    let mut result = vec![];
-    while let Some((left, right)) = read_trailer(&buffer, base) {
-        if let Ok(pack) = rd::Pack::decode(&buffer[left..right]) {
+// 解析单个Pack消息
+pub fn decode_pack(buffer: &[u8]) -> Result<Pack, String> {
+    match rd::Pack::decode(buffer) {
+        Ok(pack) => {
             info!("协议数据包解码成功，类型: {:?}", pack.data_type);
-            result.push(pack);
-            base = right;
-        } else {
-            error!("协议数据包解码失败，位置: {} 到 {}", left, right);
-            return Err("decode error".to_string());
+            Ok(pack)
+        },
+        Err(e) => {
+            error!("协议数据包解码失败: {}", e);
+            Err("decode error".to_string())
         }
     }
-    Ok(result)
+}
+
+// 保留原有的auto_decode函数，但修改为只解析Pack消息（如果需要兼容性）
+pub fn auto_decode(buffer: &[u8]) -> Result<Vec<Pack>, String> { 
+    // 这个函数现在只解析一个Pack消息，因为linker已经处理了trailer
+    match decode_pack(buffer) {
+        Ok(pack) => Ok(vec![pack]),
+        Err(e) => Err(e),
+    }
 }
 
 pub fn read_trailer(buffer: &[u8], base: usize) -> Option<(usize, usize)> {
