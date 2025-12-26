@@ -1,12 +1,14 @@
 use bevy::prelude::*;
-use redra::{module::resource::RDResource, net::listener::RDListener, parser::core::RDPack, setup::rd_setup, update::rd_update};
-use tokio::sync::{broadcast, mpsc};
-use std::sync::{Arc, Mutex, OnceLock};
 use redra::module::resource::channel::RDChannel;
-use smooth_bevy_cameras::{
-    LookTransformPlugin,
-    controllers::fps::{FpsCameraPlugin},
+use redra::{
+    graph::{setup::rd_setup, update::rd_update},
+    module::resource::RDResource,
+    net::listener::RDListener,
+    parser::core::RDPack,
 };
+use smooth_bevy_cameras::{LookTransformPlugin, controllers::fps::FpsCameraPlugin};
+use std::sync::{Arc, Mutex};
+use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug)]
 enum AppState {
@@ -14,16 +16,15 @@ enum AppState {
     Playing,
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), AppState> {
     // // 初始化 shutdown channel
     // let (shutdown_tx, shutdown_rx) = broadcast::channel::<()>(1);
-    
+
     // 加载资源
     let (engine_sender, net_receiver) = broadcast::channel::<RDPack>(1024);
     let (net_sender, engine_receiver) = mpsc::channel::<RDPack>(1024);
-    
+
     let channel = RDChannel {
         sender: engine_sender,
         receiver: engine_receiver,
@@ -38,7 +39,7 @@ async fn main() -> Result<(), AppState> {
         channel: Arc::new(Mutex::new(channel)),
         materials: std::collections::HashMap::new(),
     };
-    
+
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
         .add_plugins(DefaultPlugins)

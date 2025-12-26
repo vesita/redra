@@ -1,17 +1,22 @@
+#[cfg(feature = "exec")]
 pub mod geometry;
-pub mod graph;
-pub mod proto;
+#[cfg(feature = "exec")]
 pub mod utils;
+#[cfg(feature = "exec")]
 pub mod module;
+#[cfg(feature = "exec")]
 pub mod net;
+#[cfg(feature = "exec")]
 pub mod parser;
+
+pub mod proto;
+#[cfg(feature = "graph")]
+pub mod graph;
+
+#[cfg(feature = "client")]
 pub mod client;
 
 
 // 别名
+#[cfg(feature = "exec")]
 pub use module::alias::*;
-
-pub use graph::*;
-
-// 导出client模块的公共API
-pub use client::*;
