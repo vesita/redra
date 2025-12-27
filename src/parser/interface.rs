@@ -1,11 +1,11 @@
 use nalgebra::{Matrix4, Vector3};
 
-use crate::{geometry::{base::*, pose::RDRPose, shape::{line::RDSegment, *}}, proto::{rd::*, shape::*}};
+use crate::{geometry::{base::*, pose::RDRPose, shape::{line::RDSegment, *}}, proto::{command::*, shape::*, transform::{Rotation, Scale, Translation}}};
 
 
 
-pub fn position_rd(position: &Position) -> RDRPosition {
-    RDRPosition {
+pub fn position_rd(position: &Translation) -> RDTranslation {
+    RDTranslation {
         x: position.x,
         y: position.y,
         z: position.z,
@@ -53,15 +53,15 @@ pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
 
 pub fn cube_rd(cube: &Cube) -> RDCube {
     // 获取旋转矩阵，如果没有提供旋转信息，则使用单位矩阵
-    let rot_mat = cube.rot.as_ref().map(|r| rotate_rd(r).to_matrix()).unwrap_or_else(|| {
+    let rot_mat = cube.rotation.as_ref().map(|r| rotate_rd(r).to_matrix()).unwrap_or_else(|| {
         RDRRotation { rx: 0.0, ry: 0.0, rz: 0.0 }.to_matrix()
     });
     
     // 创建带有位置和旋转的姿态矩阵
     let pose_matrix = Matrix4::new(
-        rot_mat.m11, rot_mat.m12, rot_mat.m13, cube.pos.as_ref().map_or(0.0, |p| p.x),
-        rot_mat.m21, rot_mat.m22, rot_mat.m23, cube.pos.as_ref().map_or(0.0, |p| p.y),
-        rot_mat.m31, rot_mat.m32, rot_mat.m33, cube.pos.as_ref().map_or(0.0, |p| p.z),
+        rot_mat.m11, rot_mat.m12, rot_mat.m13, cube.translation.as_ref().map_or(0.0, |p| p.x),
+        rot_mat.m21, rot_mat.m22, rot_mat.m23, cube.translation.as_ref().map_or(0.0, |p| p.y),
+        rot_mat.m31, rot_mat.m32, rot_mat.m33, cube.translation.as_ref().map_or(0.0, |p| p.z),
         0.0, 0.0, 0.0, 1.0,
     );
     

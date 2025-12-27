@@ -54,7 +54,7 @@ pub async fn send_point(x: f32, y: f32, z: f32) -> Result<(), Box<dyn std::error
             }
         )
     };
-    let pack = rd::Pack {
+    let pack = command::Command {
         data_type: "point".to_string(),
         data: point.encode_to_vec(),
     };
@@ -86,7 +86,7 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
             }
         )
     };
-    let pack = rd::Pack {
+    let pack = command::Command {
         data_type: "segment".to_string(),
         data: segment.encode_to_vec(),
     };
