@@ -13,13 +13,13 @@ fn main() -> Result<()> {
         .compile_protos(
             &[
                 "proto/declare.proto", 
-                "proto/command/core.proto", 
-                "proto/command/transform.proto", 
-                "proto/command/conception.proto", 
-                "proto/command/designation.proto",
-                "proto/resource/shape.proto",
-                "proto/resource/core.proto",
-                "proto/resource/formats.proto"
+                "proto/cmd.proto", 
+                "proto/rsrc.proto",
+                "proto/transform.proto", 
+                "proto/conception.proto", 
+                "proto/designation.proto",
+                "proto/shape.proto",
+                "proto/formats.proto"
             ], 
             &["proto/"]  // 设置 proto 目录作为根搜索路径，这样所有相对导入都能正确解析
         )?;

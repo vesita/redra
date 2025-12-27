@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package designation;
 
-import "command/transform.proto";
-import "command/conception.proto";
-import "resource/shape.proto";
+import "transform.proto";
+import "conception.proto";
+import "shape.proto";
 
 message DesignCMD {
   oneof cmd {

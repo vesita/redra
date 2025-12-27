@@ -3,7 +3,7 @@ syntax = "proto3";
 package shape;
 
 
-import "command/transform.proto";
+import "transform.proto";
 
 // Shape定义了可用的几何形状类型
 message Shape { 

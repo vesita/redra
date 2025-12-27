@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 package command;
-import "command/conception.proto";
-import "command/designation.proto";
-import "command/transform.proto";
+import "conception.proto";
+import "designation.proto";
+import "transform.proto";
 
 
 
