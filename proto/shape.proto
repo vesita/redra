@@ -7,7 +7,7 @@ import "transform.proto";
 
 // Shape定义了可用的几何形状类型
 message Shape { 
-    oneof shape {
+    oneof shape_pack {
         Point point = 1;
         Segment segment = 2;
         Sphere sphere = 3;

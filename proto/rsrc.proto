@@ -5,7 +5,7 @@ import "formats.proto";
 import "shape.proto";
 
 message Resource {
-  oneof rsrc {
+  oneof rsrc_pack {
     formats.Format  format = 1;
      shape.Shape     shape = 2;
   }

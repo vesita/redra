@@ -11,7 +11,7 @@ pub mod parser;
 #[cfg(feature = "graph")]
 pub mod graph;
 
-#[cfg(feature = "client")]
+// #[cfg(feature = "client")]
 pub mod client;
 
 

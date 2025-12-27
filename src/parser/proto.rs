@@ -16,12 +16,12 @@ async fn send_spawn_pack(spawn_pack: SpawnPack, sender: mpsc::Sender<RDPack>) {
 
 /// 处理Pack消息
 pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
-    match pack.cmd {
-        Some(command::command::Cmd::Conception(ref conception_cmd)) => {
+    match pack.cmd_pack {
+        Some(command::command::CmdPack::Conception(ref conception_cmd)) => {
             // 处理Conception命令
             info!("处理Conception命令: {:?}", conception_cmd);
         }
-        Some(command::command::Cmd::Designation(ref designation)) => {
+        Some(command::command::CmdPack::Designation(ref designation)) => {
             // 处理Designation命令
             if let Some(designation::design_cmd::Cmd::Spawn(spawn)) = &designation.cmd {
                 // 如果是Spawn命令，处理其中的shape

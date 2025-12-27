@@ -4,7 +4,7 @@ use tokio::{io::AsyncWriteExt, net::TcpStream};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 
-use crate::proto::{declare, shape, command::{self, command::Cmd}};
+use crate::proto::{command, declare, shape::{self, Point, Shape}, transform::Translation};
 
 static CLIENT_TCPLINK: OnceLock<Mutex<Option<TcpStream>>> = OnceLock::new();
 
@@ -47,32 +47,24 @@ pub async fn send_bytes(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 pub async fn send_point(x: f32, y: f32, z: f32) -> Result<(), Box<dyn std::error::Error>> {
     let point = shape::Point {
         pos: Some(
-            crate::proto::transform::Translation {
+            Translation {
                 x,
                 y,
                 z,
             }
         )
     };
-
-    // 使用新的Command结构，包含Spawn命令
-    let spawn_cmd = crate::proto::designation::Spawn {
-        id: Some(crate::proto::target::TargetID {
-            has_set: true,
-            id: 1,
-        }),
-        shape: Some(shape::Shape {
-            shape: Some(shape::shape::Shape::Point(point)),
-        }),
+    let spawn = crate::proto::designation::Spawn {
+        id: None, // TargetID is optional
+        shape: Some(Shape { shape: Some(shape::shape::Shape::Point(point)) }),
     };
-
-    let cmd = command::Command {
-        cmd: Some(Cmd::Designation(crate::proto::designation::DesignCMD {
-            cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn_cmd)),
-        })),
+    let design_cmd = crate::proto::designation::DesignCmd {
+        cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn)),
     };
-
-    let encoded_data: Vec<u8> = cmd.encode_to_vec();
+    let pack = command::Command {
+        cmd: Some(command::command::Cmd::Designation(design_cmd))
+    };
+    let encoded_data: Vec<u8> = pack.encode_to_vec(); // 明确类型注解
     send_bytes(&encoded_data).await?;
     Ok(())
 }
@@ -81,7 +73,7 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
     let segment = shape::Segment {
         start: Some(shape::Point {
             pos: Some(
-                crate::proto::transform::Translation {
+                Translation {
                     x: start[0],
                     y: start[1],
                     z: start[2],
@@ -91,7 +83,7 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
         end: Some(
             shape::Point {
                 pos: Some(
-                    crate::proto::transform::Translation {
+                    Translation {
                         x: end[0],
                         y: end[1],
                         z: end[2],
@@ -100,25 +92,17 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
             }
         )
     };
-
-    // 使用新的Command结构，包含Spawn命令
-    let spawn_cmd = crate::proto::designation::Spawn {
-        id: Some(crate::proto::target::TargetID {
-            has_set: true,
-            id: 2,
-        }),
-        shape: Some(shape::Shape {
-            shape: Some(shape::shape::Shape::Segment(segment)),
-        }),
+    let spawn = crate::proto::designation::Spawn {
+        id: None, // TargetID is optional
+        shape: Some(Shape { shape: Some(shape::shape::Shape::Segment(segment)) }),
     };
-
-    let cmd = command::Command {
-        cmd: Some(Cmd::Designation(crate::proto::designation::DesignCMD {
-            cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn_cmd)),
-        })),
+    let design_cmd = crate::proto::designation::DesignCmd {
+        cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn)),
     };
-
-    let encoded_data: Vec<u8> = cmd.encode_to_vec();
+    let pack = command::Command {
+        cmd: Some(command::command::Cmd::Designation(design_cmd))
+    };
+    let encoded_data: Vec<u8> = pack.encode_to_vec();
     send_bytes(&encoded_data).await?;
 
     Ok(())
