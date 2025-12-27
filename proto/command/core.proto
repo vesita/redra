@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package command;
+import "command/conception.proto";
+import "command/designation.proto";
+import "command/transform.proto";
+
+
+
+// Command定义了对特定目标执行的命令
+message Command {
+  oneof cmd {
+    target.ConceptionCMD conception = 1;
+    designation.DesignCMD designation = 2;
+    transform.Translation translation = 3;
+  }
+}
