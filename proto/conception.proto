@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package target;
+
+
+// DesignID定义了设计元素的唯一标识符
+message TargetID {
+    bool has_set = 1; // 标识是否设置了ID
+    uint32 id = 2; // 实际ID值
+}
+
+message ConceptionCMD {
+  oneof cmd {
+    TargetID  id = 1;
+  }
+}

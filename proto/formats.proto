@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package formats;
+
+
+message Format {
+  oneof fmt_pack {
+    Image image = 1;
+  }
+}
+
+// Image消息用于传输图像数据
+message Image {
+    bytes data = 1; // 图像数据
+}

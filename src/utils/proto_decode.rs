@@ -2,13 +2,12 @@ use log::{error, info};
 use nalgebra::base;
 use prost::Message;
 
-use crate::proto::{declare, rd::{self, Pack}};
+use crate::proto::{command::Command, declare};
 
 // 解析单个Pack消息
-pub fn decode_pack(buffer: &[u8]) -> Result<Pack, String> {
-    match rd::Pack::decode(buffer) {
+pub fn decode_pack(buffer: &[u8]) -> Result<Command, String> {
+    match Command::decode(buffer) {
         Ok(pack) => {
-            info!("协议数据包解码成功，类型: {:?}", pack.data_type);
             Ok(pack)
         },
         Err(e) => {
@@ -19,7 +18,7 @@ pub fn decode_pack(buffer: &[u8]) -> Result<Pack, String> {
 }
 
 // 保留原有的auto_decode函数，但修改为只解析Pack消息（如果需要兼容性）
-pub fn auto_decode(buffer: &[u8]) -> Result<Vec<Pack>, String> { 
+pub fn auto_decode(buffer: &[u8]) -> Result<Vec<Command>, String> { 
     // 这个函数现在只解析一个Pack消息，因为linker已经处理了trailer
     match decode_pack(buffer) {
         Ok(pack) => Ok(vec![pack]),

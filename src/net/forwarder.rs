@@ -11,7 +11,6 @@ use std::collections::VecDeque;
 
 use crate::{
     parser::{core::RDPack, proto::process_pack},
-    proto::rd::{self, Pack}, 
     utils::proto_decode::decode_pack,  // 修改导入
 };
 
@@ -54,7 +53,6 @@ impl RDForwarder {
                             match decode_pack(&buffer) {
                                 Ok(pack) => {
                                     // 处理数据包
-                                    info!("处理接收到的协议数据包，类型: {:?}, ID: {}", pack.data_type, self.id);
                                     process_pack(pack, self.forward_sender.clone());
                                     packets_processed += 1;
                                     // 清空已处理的数据
@@ -79,7 +77,6 @@ impl RDForwarder {
                     if !buffer.is_empty() {
                         match decode_pack(&buffer) {
                             Ok(pack) => {
-                                info!("处理累积的协议数据包，类型: {:?}, ID: {}", pack.data_type, self.id);
                                 process_pack(pack, self.forward_sender.clone());
                                 packets_processed += 1;
                                 buffer.clear();

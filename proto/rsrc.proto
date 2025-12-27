@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package resource;
+import "formats.proto";
+import "shape.proto";
+
+message Resource {
+  oneof rsrc {
+    formats.Format  format = 1;
+    shape.ShapePack     shape = 2;
+  }
+}
