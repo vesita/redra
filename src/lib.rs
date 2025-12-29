@@ -7,8 +7,6 @@ pub mod net;
 pub mod geometry;
 #[cfg(feature = "exec")]
 pub mod utils;
-#[cfg(feature = "exec")]
-pub mod parser;
 #[cfg(feature = "graph")]
 pub mod graph;
 

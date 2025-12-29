@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{parser::core::RDPack, module::resource::RDResource};
+use crate::{module::parser::core::RDPack, module::resource::RDResource};
 
 pub fn general_spawn(
     mut commands: Commands,

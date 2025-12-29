@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::BinaryHeap};
 use tokio::sync::{broadcast, mpsc};
 use std::sync::{Arc, Mutex};
 
-use crate::{ThLc, parser::core::RDPack};
+use crate::ThLc;
 
 // 用于负载均衡的追踪发送器包装器
 #[derive(Debug, Clone)]

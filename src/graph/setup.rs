@@ -1,10 +1,7 @@
-use core::net;
 
 use bevy::prelude::*;
-use tokio::sync::{broadcast, mpsc};
 
-use crate::{parser::core::RDPack, module::resource::RDResource, net::listener::RDListener};
-use smooth_bevy_cameras::controllers::fps::*;
+use crate::module::{camera::fps::*, resource::RDResource};
 
 pub fn rd_setup (
     mut commands: Commands,
