@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package declare;
 
+// Trailer消息用于在网络协议中标识消息长度和结构
 message Trailer {
-  uint32 me = 1;
-  uint32 next = 2;
+  uint32 me = 1;    // 当前消息长度
+  uint32 next = 2;  // 下一消息长度预期
 }

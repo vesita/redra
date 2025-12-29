@@ -1,15 +1,14 @@
+pub mod module;
+pub mod proto;
+
+#[cfg(feature = "exec")]
+pub mod net;
 #[cfg(feature = "exec")]
 pub mod geometry;
 #[cfg(feature = "exec")]
 pub mod utils;
 #[cfg(feature = "exec")]
-pub mod module;
-#[cfg(feature = "exec")]
-pub mod net;
-#[cfg(feature = "exec")]
 pub mod parser;
-
-pub mod proto;
 #[cfg(feature = "graph")]
 pub mod graph;
 

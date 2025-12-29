@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package transform;
+
+message TransCMD {
+    oneof trans {
+      Translation translation = 1;
+      Rotation rotation = 2;
+      Scale scale = 3;
+    }
+}
+
+// Translation定义了三维空间中的平移变换
+message Translation {
+  float x = 1; // X轴坐标
+  float y = 2; // Y轴坐标
+  float z = 3; // Z轴坐标
+}
+
+// Rotation定义了三维空间中的旋转变换（欧拉角）
+message Rotation {
+  float rx = 1; // 绕X轴旋转角度
+  float ry = 2; // 绕Y轴旋转角度
+  float rz = 3; // 绕Z轴旋转角度
+}
+
+// Scale定义了三维空间中的缩放变换
+message Scale {
+  float sx = 1; // X轴缩放因子
+  float sy = 2; // Y轴缩放因子
+  float sz = 3; // Z轴缩放因子
+}

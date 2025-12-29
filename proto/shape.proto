@@ -1,24 +1,52 @@
 syntax = "proto3";
 
 package shape;
-import "rd.proto";
 
+
+import "transform.proto";
+
+// Shape定义了可用的几何形状类型
+message ShapePack { 
+    oneof data {
+        Point point = 1;
+        Segment segment = 2;
+        Sphere sphere = 3;
+        Cube cube = 4;
+    }
+}
+
+// Pose定义了物体的位置、旋转和缩放信息
+message Pose {
+    transform.Translation translation = 1;
+    transform.Rotation rotation = 2;
+    transform.Scale scale = 3;
+}
+
+// PoseMatrix使用矩阵表示姿态变换
+message PoseMatrix {
+    repeated float matrix = 1; // 使用repeated代替array语法，更符合protobuf规范
+}
+
+// Point表示一个三维点
 message Point {
-    rd.Position pos = 1;
+    transform.Translation pos = 1;
 }
 
+// Segment表示一条线段
 message Segment {
-  Point start = 1;
-  Point end = 2;
+    Point start = 1;
+    Point end = 2;
 }
 
+// Sphere表示一个球体
 message Sphere {
-    rd.Position pos = 1;
+    transform.Translation pos = 1;
     float radius = 2;
 }
 
+// Cube表示一个立方体
 message Cube {
-    rd.Position pos = 1;
-    rd.Rotation rot = 2;
-    rd.Scale scale = 3;
+    transform.Translation translation = 1; // 统一使用translation字段名
+    transform.Rotation rotation = 2; // 统一使用rotation字段名
+    transform.Scale scale = 3; // 统一使用scale字段名
 }

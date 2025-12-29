@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{module::resource::RDResource, parser::spawn::general_spawn};
+use crate::{graph::spawn::general_spawn, module::resource::RDResource};
 
 
 

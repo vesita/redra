@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package designation;
+
+import "transform.proto";
+import "conception.proto";
+import "shape.proto";
+
+message DesignCMD {
+  oneof cmd {
+    Spawn spawn = 1;
+  }
+}
+
+
+message Spawn {
+    target.TargetID id = 1;
+    shape.ShapePack shape = 2;
+}
