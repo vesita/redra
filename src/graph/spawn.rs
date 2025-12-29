@@ -13,7 +13,7 @@ pub fn general_spawn(
         while let Ok(pack) = channel.receiver.try_recv() {
             match pack {
                 RDPack::Message(_) => todo!(),
-                RDPack::Spawn(spw) => {
+                RDPack::SpawnShape(spw) => {
                     debug!("{:?}", spw.transform);
                     // 通过字符串标识符查找材质
                     let material = if let Some(handle) = resources.materials.get(&spw.material) {
@@ -28,6 +28,9 @@ pub fn general_spawn(
                         MeshMaterial3d(material),
                         spw.transform,
                     ));
+                },
+                RDPack::SpawnFormat(spw) => {
+                    
                 }
             }
         }

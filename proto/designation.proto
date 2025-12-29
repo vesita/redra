@@ -5,6 +5,7 @@ package designation;
 import "transform.proto";
 import "conception.proto";
 import "shape.proto";
+import "formats.proto";
 
 message DesignCMD {
   oneof cmd {
@@ -15,5 +16,8 @@ message DesignCMD {
 
 message Spawn {
     target.TargetID id = 1;
-    shape.ShapePack shape = 2;
+    oneof data {
+      formats.FormatPack format_data = 2;
+      shape.ShapePack shape_data = 3;
+    }
 }

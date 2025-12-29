@@ -4,7 +4,7 @@ use tokio::{io::AsyncWriteExt, net::TcpStream};
 use std::sync::OnceLock;
 use tokio::sync::Mutex;
 
-use crate::proto::{command, declare, shape::{self, Point, ShapePack, shape_pack}, transform::Translation};
+use crate::proto::{command, declare, designation::{self, spawn::Data}, shape::{self, Point, ShapePack, shape_pack}, transform::Translation};
 
 static CLIENT_TCPLINK: OnceLock<Mutex<Option<TcpStream>>> = OnceLock::new();
 
@@ -56,7 +56,7 @@ pub async fn send_point(x: f32, y: f32, z: f32) -> Result<(), Box<dyn std::error
     };
     let spawn = crate::proto::designation::Spawn {
         id: None, // TargetID is optional
-        shape: Some(ShapePack { data: Some(shape_pack::Data::Point(point)) }),
+        data: Some(designation::spawn::Data::ShapeData(ShapePack { data: Some(shape_pack::Data::Point(point)) })),
     };
     let design_cmd = crate::proto::designation::DesignCmd {
         cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn)),
@@ -94,7 +94,7 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
     };
     let spawn = crate::proto::designation::Spawn {
         id: None, // TargetID is optional
-        shape: Some(ShapePack { data: Some(shape_pack::Data::Segment(segment)) }),
+        data: Some(designation::spawn::Data::ShapeData(ShapePack { data: Some(shape_pack::Data::Segment(segment)) })),
     };
     let design_cmd = crate::proto::designation::DesignCmd {
         cmd: Some(crate::proto::designation::design_cmd::Cmd::Spawn(spawn)),
@@ -104,6 +104,12 @@ pub async fn send_segment(start: [f32; 3], end: [f32; 3]) -> Result<(), Box<dyn 
     };
     let encoded_data: Vec<u8> = pack.encode_to_vec();
     send_bytes(&encoded_data).await?;
+
+    Ok(())
+}
+
+pub fn send_image(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+
 
     Ok(())
 }

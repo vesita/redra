@@ -3,8 +3,8 @@ syntax = "proto3";
 package formats;
 
 
-message Format {
-  oneof fmt_pack {
+message FormatPack {
+  oneof data {
     Image image = 1;
   }
 }
