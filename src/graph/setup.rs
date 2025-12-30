@@ -1,7 +1,6 @@
-
 use bevy::prelude::*;
 
-use crate::module::{camera::fps::*, resource::RDResource};
+use crate::{module::{camera::fps::*, resource::RDResource}, graph::axis};
 
 pub fn rd_setup (
     mut commands: Commands,
@@ -32,4 +31,7 @@ pub fn rd_setup (
             Vec3::new(0.0, 0.0, 0.0),    // 看向的目标点
             Vec3::Y,
         ));
+    
+    // 添加坐标轴
+    axis::spawn_axis(&mut commands, &mut meshes, &mut materials, 3.0);
 }
