@@ -6,6 +6,7 @@ use redra::{
     module::{resource::RDResource, camera::fps::*,parser::core::RDPack},
     net::listener::RDListener,
 };
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, mpsc};
 
@@ -36,8 +37,8 @@ async fn main() -> Result<(), AppState> {
     });
 
     let resource = RDResource {
-        channel: Arc::new(Mutex::new(channel)),
-        materials: std::collections::HashMap::new(),
+        channel: channel,
+        materials: HashMap::new(),
     };
 
     App::new()

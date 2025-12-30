@@ -82,11 +82,7 @@ impl RDLinker {
         
         // 将当前sender放回wosh
         if let Some(s) = sender {
-            {
-                if let Ok(ws) = self.wosh.lock() {
-                    ws.add_channel(s, self.id);
-                }
-            } // 在这里显式结束锁的作用域
+            self.wosh.lock().await.add_channel(s, self.id).await;
         }
         
         release.send(self.id).await.expect("释放资源失败");
@@ -135,14 +131,8 @@ impl RDLinker {
             }
             
             // 如果发送失败或sender为None，尝试获取新通道
-            let channel_option = {
-            if let Ok(ws) = self.wosh.lock() {
-                ws.get_channel()
-            } else {
-                None
-            }
-        };
-        *sender = channel_option;
+            let channel_option = self.wosh.lock().await.get_channel().await;
+            *sender = channel_option;
         
         // 尝试使用新获取的通道发送
         if let Some(s) = sender {
@@ -151,13 +141,7 @@ impl RDLinker {
             }
         } else {
             // 没有可用通道，先尝试获取一个通道
-            let new_sender_option = {
-                if let Ok(ws) = self.wosh.lock() {
-                    ws.get_channel()
-                } else {
-                    None
-                }
-            };
+            let new_sender_option = self.wosh.lock().await.get_channel().await;
             
             if let Some(new_sender) = new_sender_option {
                 // 成功获取通道，保存并尝试发送
@@ -170,13 +154,7 @@ impl RDLinker {
                 self.expand_request.send(self.id).await.expect("请求扩容失败");
                 
                 // 再次尝试获取通道并发送（扩容可能已经创建了新通道）
-                let final_sender_option = {
-                    if let Ok(ws) = self.wosh.lock() {
-                        ws.get_channel()
-                    } else {
-                        None
-            }
-                };
+                let final_sender_option = self.wosh.lock().await.get_channel().await;
                 
                 if let Some(new_sender) = final_sender_option {
                     if new_sender.send(data).await.is_ok() {

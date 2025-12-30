@@ -10,14 +10,14 @@ pub mod handle;
 
 #[derive(Resource)]
 pub struct RDResource {
-    pub channel: ThLc<RDChannel>,
+    pub channel: RDChannel,
     // pub handle: ThLc<RDHandle>,
-    pub materials: HashMap<String, ThLc<Handle<StandardMaterial>>>,
+    pub materials: HashMap<String, Handle<StandardMaterial>>,
 }
 
 impl RDResource {
     pub fn new(
-        channel: ThLc<RDChannel>,
+        channel: RDChannel,
         // handle: ThLc<RDHandle>,
     ) -> RDResource {
         RDResource {
