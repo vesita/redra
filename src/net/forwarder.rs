@@ -1,16 +1,11 @@
-use log::{info, trace};
-use std::time::Duration;
+use log::{debug, info, warn};
 use tokio::{
     self,
-    sync::mpsc, 
-    time::sleep,
+    sync::mpsc,
 };
 
 
-use crate::{
-    module::parser::{core::RDPack, proto::process_pack},
-    utils::proto_decode::decode_pack,  // 修改导入
-};
+use crate::module::parser::{core::RDPack, proto::process_pack, proto_decode::decode_pack};
 
 pub struct RDForwarder {
     pub id: usize,
@@ -33,7 +28,6 @@ impl RDForwarder {
 
     pub async fn run(&mut self, release: mpsc::Sender<usize>) {
         let mut packets_processed = 0;
-        let mut buffer: Vec<u8> = Vec::new(); // 使用单个缓冲区累积数据
         
         info!("启动数据转发任务 - ID: {}", self.id);
         
@@ -43,22 +37,19 @@ impl RDForwarder {
                 recv_data = self.receiver.recv() => {
                     match recv_data {
                         Some(data) => {
-                            // 将新接收的数据追加到累积缓冲区
-                            buffer.extend(data);
-                            trace!("从链接器接收到数据，累积缓冲区大小: {}", buffer.len());
+                            debug!("从链接器接收到数据，数据大小: {}", data.len());
                             
                             // 直接解析protobuf Pack消息
-                            match decode_pack(&buffer) {
+                            match decode_pack(&data) {
                                 Ok(pack) => {
                                     // 处理数据包
                                     process_pack(pack, self.forward_sender.clone());
+                                    debug!("数据包处理完成，当前累积数据包数量: {}", packets_processed);
                                     packets_processed += 1;
-                                    // 清空已处理的数据
-                                    buffer.clear();
                                 },
-                                Err(_) => {
-                                    // 如果解析失败，继续累积更多数据
-                                    trace!("当前累积数据无法解析，继续等待更多数据");
+                                Err(e) => {
+                                    // 如果解析失败，记录错误但不中断处理
+                                    warn!("数据包解析失败: {:?}，数据长度: {}", e, data.len());
                                 }
                             }
                         },
@@ -66,22 +57,6 @@ impl RDForwarder {
                             // 接收器已关闭，退出循环
                             info!("接收器已关闭，退出转发器 ID: {}", self.id);
                             break;
-                        }
-                    }
-                }
-                // 添加一个间隔以避免繁忙等待
-                _ = sleep(Duration::from_millis(10)) => {
-                    // 检查是否有剩余数据可以解析
-                    if !buffer.is_empty() {
-                        match decode_pack(&buffer) {
-                            Ok(pack) => {
-                                process_pack(pack, self.forward_sender.clone());
-                                packets_processed += 1;
-                                buffer.clear();
-                            },
-                            Err(_) => {
-                                // 解析失败，继续等待更多数据
-                            }
                         }
                     }
                 }

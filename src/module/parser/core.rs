@@ -1,5 +1,5 @@
 use bevy::{
-    mesh::{Mesh, Mesh3d},
+    mesh::Mesh,
     transform::components::Transform,
 };
 use std::sync::Arc;

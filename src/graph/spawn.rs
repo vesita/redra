@@ -11,9 +11,11 @@ pub fn general_spawn(
     if let Ok(mut channel) = resources.channel.lock() {
         // 循环处理所有可用的数据包
         while let Ok(pack) = channel.receiver.try_recv() {
+            debug!("接收数据包");
             match pack {
                 RDPack::Message(_) => todo!(),
                 RDPack::SpawnShape(spw) => {
+                    info!("处理SpawnShape数据包");
                     debug!("{:?}", spw.transform);
                     // 通过字符串标识符查找材质
                     let material = if let Some(handle) = resources.materials.get(&spw.material) {

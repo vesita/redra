@@ -66,51 +66,99 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
     match pack.cmd_pack {
         Some(command::command::CmdPack::Conception(ref conception_cmd)) => {
             // 处理Conception命令
-            info!("处理Conception命令: {:?}", conception_cmd);
-        }
+            debug!("处理Conception命令: {:?}", conception_cmd);
+        },
         Some(command::command::CmdPack::Designation(ref designation_cmd)) => {
-            // 处理Designation命令
-            if let Some(designation::design_cmd::Cmd::Spawn(spawn)) = &designation_cmd.cmd {
-                // 如果是Spawn命令，处理其中的shape_data
-                if let Some(ref data) = spawn.data {
-                    match data {
-                        designation::spawn::Data::ShapeData(shape_pack) => {
-                            if let Some(ref shape_oneof) = shape_pack.data {
-                                match shape_oneof {
-                                    shape::shape_pack::Data::Point(point) => {
-                                        // 处理Point数据
-                                        handle_point_shape(&point, sender);
+            match &designation_cmd.cmd {
+                Some(cmd) => {
+                    match cmd {
+                        designation::design_cmd::Cmd::Spawn(spawn) => {
+                            match &spawn.data {
+                                Some(data) => {
+                                    match data {
+                                        designation::spawn::Data::FormatData(format_pack) => {
+                                            // todo
+                                            info!("FormatData数据包");
+                                        },
+                                        designation::spawn::Data::ShapeData(shape_pack) => {
+                                            match shape_pack.data {
+                                                Some(pack) => {
+                                                    info!("ShapeData数据包");
+                                                    match pack {
+                                                        shape::shape_pack::Data::Point(point) =>{
+                                                            handle_point_shape(&point, sender);
+                                                        },
+                                                        shape::shape_pack::Data::Segment(segment) => {
+                                                            handle_segment_shape(&segment, sender);
+                                                        },
+                                                        shape::shape_pack::Data::Sphere(sphere) => {
+                                                            handle_sphere_shape(&sphere, sender);
+                                                        },
+                                                        shape::shape_pack::Data::Cube(cube) => {
+                                                            handle_cube_shape(&cube, sender);
+                                                        },
+                                                    }
+                                                },
+                                                None => {
+                                                    info!("Designation: 无数据包");
+                                                },
+                                            }
+                                        },
                                     }
-                                    shape::shape_pack::Data::Segment(segment) => {
-                                        // 处理Segment数据
-                                        handle_segment_shape(&segment, sender);
-                                    }
-                                    shape::shape_pack::Data::Sphere(sphere) => {
-                                        handle_sphere_shape(&sphere, sender);
-                                    },
-                                    shape::shape_pack::Data::Cube(cube) => {
-                                        handle_cube_shape(&cube, sender);
-                                    },
-                                }
-                            } else {
-                                error!("ShapePack消息中没有定义任何形状");
+                                },
+                                None => {
+                                    info!("Designation: 无数据包");
+                                },
                             }
-                        }
-                        designation::spawn::Data::FormatData(fmt) => {
-                            if let Some(ref data) = fmt.data {
-                                match data {
-                                    formats::format_pack::Data::Image(image) => {
-
-                                    },
-                                }
-                            }
-                        }
+                        },
                     }
-                }
+                },
+                None => todo!(),
             }
-        }
+            // 处理Designation命令
+            // if let Some(designation::design_cmd::Cmd::Spawn(spawn)) = &designation_cmd.cmd {
+            //     // 如果是Spawn命令，处理其中的shape_data
+            //     if let Some(ref data) = spawn.data {
+            //         debug!("Spawn数据包");
+            //         match data {
+            //             designation::spawn::Data::ShapeData(shape_pack) => {
+            //                 if let Some(ref shape_oneof) = shape_pack.data {
+            //                     match shape_oneof {
+            //                         shape::shape_pack::Data::Point(point) => {
+            //                             info!("Point数据包");
+            //                             // 处理Point数据
+            //                             handle_point_shape(&point, sender);
+            //                         }
+            //                         shape::shape_pack::Data::Segment(segment) => {
+            //                             // 处理Segment数据
+            //                             handle_segment_shape(&segment, sender);
+            //                         }
+            //                         shape::shape_pack::Data::Sphere(sphere) => {
+            //                             handle_sphere_shape(&sphere, sender);
+            //                         },
+            //                         shape::shape_pack::Data::Cube(cube) => {
+            //                             handle_cube_shape(&cube, sender);
+            //                         },
+            //                     }
+            //                 } else {
+            //                     error!("ShapePack消息中没有定义任何形状");
+            //                 }
+            //             },
+            //             designation::spawn::Data::FormatData(fmt) => {
+            //                 if let Some(ref data) = fmt.data {
+            //                     match data {
+            //                         formats::format_pack::Data::Image(image) => {
+
+            //                         },
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+        },
         Some(command::command::CmdPack::Transform(ref translation)) => {
-        }
+        },
         None => {
             error!("Command消息中没有定义任何命令");
         }
