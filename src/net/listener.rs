@@ -58,6 +58,8 @@ impl RDListener {
 
         let wosh = Arc::new(Mutex::new(RDWosh::new()));
 
+        self.init(forwarder_rls_tx.clone(), wosh.clone());
+
         loop {
             tokio::select! {
                 // 接受新连接
@@ -90,7 +92,6 @@ impl RDListener {
                     wosh.lock().unwrap().add_channel(sender, expand_request);
                     self.create_forwarder(
                         receiver,
-                        self.to_engine.clone(),
                         forwarder_rls_tx.clone(),
                     );
                 }
@@ -98,6 +99,18 @@ impl RDListener {
         }
     }
     
+    fn init(
+        &mut self,
+        release: mpsc::Sender<usize>,
+        wosh: ThLc<RDWosh>,
+    ) {
+        for _ in 0..3 {
+            let (sender, receiver) = mpsc::channel::<Vec<u8>>(32);
+            let id = self.create_forwarder(receiver, release.clone());
+            wosh.lock().unwrap().add_channel(sender, id);
+        }
+    }
+
     fn create_linker(
         &mut self,
         socket: TcpStream,
@@ -118,16 +131,16 @@ impl RDListener {
     fn create_forwarder(
         &mut self,
         sender: mpsc::Receiver<Vec<u8>>,
-        to_engine: mpsc::Sender<RDPack>,
         release: mpsc::Sender<usize>,
-    ) {
+    ) -> usize {
         let forwarder_id = self.available_forwarder_id();
-        let mut forwarder = RDForwarder::new(forwarder_id, sender, to_engine);
+        let mut forwarder = RDForwarder::new(forwarder_id, sender, self.to_engine.clone());
         let forwarder_task = task::spawn(async move {
             info!("启动转发任务 - 转发ID: {}", forwarder_id);
             forwarder.run(release).await;
         });
         self.forwarders[forwarder_id] = Some(forwarder_task);
+        forwarder_id
     }
     
     // 释放连接并回收ID

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::{cmp::Ordering, collections::{BinaryHeap, HashMap}};
 use tokio::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
@@ -42,25 +42,38 @@ impl AutoChannel {
         }
         false
     }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }
 
 pub struct RDWosh { 
     pub channels: ThLc<BinaryHeap<AutoChannel>>,
+    pub id_map: ThLc<HashMap<usize, usize>>,
 }
 
 impl RDWosh {
     pub fn new() -> RDWosh {
         RDWosh {
             channels: Arc::new(Mutex::new(BinaryHeap::new())),
+            id_map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn add_channel(&self, sender: mpsc::Sender<Vec<u8>>, id: usize) {
-        self.channels.lock().unwrap().push(AutoChannel {
+        let mut channels_lock = self.channels.lock().unwrap();
+        channels_lock.push(AutoChannel {
             sender,
             id,
             send_count: 0,
         });
+        // 使用当前通道数量作为索引
+        let channel_count = channels_lock.len();
+        drop(channels_lock); // 释放 channels 锁
+        
+        // 现在可以安全地锁定 id_map
+        self.id_map.lock().unwrap().insert(id, channel_count);
     }
 
     pub fn get_channel(&self) -> Option<mpsc::Sender<Vec<u8>>> {
