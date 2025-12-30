@@ -1,8 +1,8 @@
 use std::{cmp::Ordering, collections::BinaryHeap};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
-use crate::{ThLc, parser::core::RDPack};
+use crate::ThLc;
 
 // 用于负载均衡的追踪发送器包装器
 #[derive(Debug, Clone)]
@@ -32,10 +32,15 @@ impl AutoChannel {
     }
     
     pub fn channel_alarms(&self) -> bool {
-        if self.sender.capacity() / 2 < self.sender.max_capacity() / 3 {
+        // 检查通道是否接近容量上限
+        // 当剩余容量少于总容量的1/4时，认为通道接近满载
+        let remaining_capacity = self.sender.capacity();
+        let max_capacity = self.sender.max_capacity();
+        
+        if remaining_capacity < max_capacity / 4 {
             return true;
         }
-        return false;
+        false
     }
 }
 

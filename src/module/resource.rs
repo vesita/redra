@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::{asset::Handle, pbr::StandardMaterial, prelude::Resource};
-use crate::{ThLc, module::resource::{channel::RDChannel, handle::RDHandle}};
+use crate::{ThLc, module::resource::channel::RDChannel};
 
 
 

@@ -6,7 +6,7 @@ import "shape.proto";
 
 message Resource {
   oneof rsrc {
-    formats.Format  format = 1;
+    formats.FormatPack  format = 1;
     shape.ShapePack     shape = 2;
   }
 }

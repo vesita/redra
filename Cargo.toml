@@ -9,8 +9,10 @@ log = "0.*"
 nalgebra = "0.*"
 prost = "0.*"
 ringbuf = "0.*"
-smooth-bevy-cameras = { git = "https://github.com/vesita/smooth-bevy-cameras.git", optional = true }
 tokio = { version = "1.*", features = ["full"] }
+approx = "0.*"
+serde = { version = "1.*", optional = true }
+bevy_egui = { version = "0.*", optional = true }
 
 [build-dependencies]
 prost-build = "0.*"
@@ -19,4 +21,4 @@ prost-build = "0.*"
 default = ["exec"]
 exec = ["graph"]
 client = []
-graph = ["dep:bevy", "dep:smooth-bevy-cameras"]
+graph = ["dep:bevy", "dep:bevy_egui"]

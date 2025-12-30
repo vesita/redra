@@ -1,5 +1,5 @@
 use bevy::{
-    mesh::{Mesh, Mesh3d},
+    mesh::Mesh,
     transform::components::Transform,
 };
 use std::sync::Arc;
@@ -7,12 +7,18 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub enum RDPack {
     Message(String),
-    Spawn(Box<SpawnPack>),
+    SpawnShape(Box<ShapePack>),
+    SpawnFormat(Box<FormatPack>),
 }
 
 #[derive(Clone)]
-pub struct SpawnPack {
+pub struct ShapePack {
     pub mesh: Arc<Mesh>,
     pub transform: Transform,
     pub material: String,
+}
+
+#[derive(Clone)]
+pub struct FormatPack {
+
 }

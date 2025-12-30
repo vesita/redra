@@ -1,14 +1,14 @@
 use bevy::prelude::*;
+use redra::module::camera::LookTransformPlugin;
 use redra::module::resource::channel::RDChannel;
 use redra::{
     graph::{setup::rd_setup, update::rd_update},
-    module::resource::RDResource,
+    module::{resource::RDResource, camera::fps::*,parser::core::RDPack},
     net::listener::RDListener,
-    parser::core::RDPack,
 };
-use smooth_bevy_cameras::{LookTransformPlugin, controllers::fps::FpsCameraPlugin};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, mpsc};
+
 
 #[derive(Debug)]
 enum AppState {

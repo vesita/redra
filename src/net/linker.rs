@@ -1,10 +1,8 @@
-use std::time::Duration;
 
-use log::{error, info, warn};
-use prost::Message;
-use tokio::{io::AsyncReadExt, net::TcpStream, sync::{broadcast, mpsc}, time::{sleep, timeout}};
+use log::{debug, error, info, warn};
+use tokio::{io::AsyncReadExt, net::TcpStream, sync::mpsc};
 
-use crate::{ThLc, proto::declare, utils::proto_decode::read_trailer};
+use crate::{ThLc, module::parser::proto_decode::read_trailer};
 use super::work_share::{RDWosh};
 
 pub struct RDLinker {
@@ -44,7 +42,8 @@ impl RDLinker {
         let mut sender = None;
 
         loop {
-            match self.socket.read(&mut buffer).await {
+            let result = self.socket.read(&mut buffer).await;
+            match result {
                 Ok(0) => {
                     info!("接收到0字节，连接可能已关闭，退出链接处理器 ID: {}", self.id);
                     break;
@@ -53,7 +52,7 @@ impl RDLinker {
                     total_bytes_received += len;
                     packets_received += 1;
                     
-                    info!("从TCP连接 ID: {} 接收到 {} 字节数据，累计接收: {} 字节，数据包序号: {}", 
+                    debug!("从TCP连接 ID: {} 接收到 {} 字节数据，累计接收: {} 字节，数据包序号: {}", 
                             self.id, len, total_bytes_received, packets_received);
                     
                     // 将新接收的数据追加到累积缓冲区
@@ -87,9 +86,11 @@ impl RDLinker {
         
         // 将当前sender放回wosh
         if let Some(s) = sender {
-            if let Ok(ws) = self.wosh.lock() {
-                ws.add_channel(s, self.id);
-            }
+            {
+                if let Ok(ws) = self.wosh.lock() {
+                    ws.add_channel(s, self.id);
+                }
+            } // 在这里显式结束锁的作用域
         }
         
         release.send(self.id).await.expect("释放资源失败");
@@ -138,9 +139,14 @@ impl RDLinker {
         }
         
         // 如果发送失败或sender为None，尝试获取新通道
-        if let Ok(ws) = self.wosh.lock() {
-            *sender = ws.get_channel();
-        }
+        let channel_option = {
+            if let Ok(ws) = self.wosh.lock() {
+                ws.get_channel()
+            } else {
+                None
+            }
+        };
+        *sender = channel_option;
         
         // 尝试使用新获取的通道发送
         if let Some(s) = sender {
@@ -148,7 +154,43 @@ impl RDLinker {
                 return true;
             }
         } else {
+            // 在请求扩容前先尝试发送到新获取的通道，如果还是失败，将数据暂存
+            // 重新获取通道（因为之前的lock已经结束）
+            let new_sender_option = {
+                if let Ok(ws) = self.wosh.lock() {
+                    ws.get_channel()
+                } else {
+                    None
+                }
+            };
+            
+            if let Some(new_sender) = new_sender_option {
+                // 尝试发送到这个新获取的通道
+                if new_sender.send(data.clone()).await.is_ok() {
+                    // 发送成功，将此sender保存供后续使用
+                    *sender = Some(new_sender);
+                    return true;
+                }
+            }
+            
+            // 如果仍无法发送，发送扩容请求
             self.expand_request.send(self.id).await.expect("请求扩容失败");
+            
+            // 再次尝试获取通道并发送（扩容可能已经创建了新通道）
+            let final_sender_option = {
+                if let Ok(ws) = self.wosh.lock() {
+                    ws.get_channel()
+                } else {
+                    None
+                }
+            };
+            
+            if let Some(new_sender) = final_sender_option {
+                if new_sender.send(data).await.is_ok() {
+                    *sender = Some(new_sender);
+                    return true;
+                }
+            }
         }
         false
     }
