@@ -15,7 +15,7 @@ pub fn general_spawn(
             match pack {
                 RDPack::Message(_) => todo!(),
                 RDPack::SpawnShape(spw) => {
-                    info!("处理SpawnShape数据包");
+                    debug!("处理SpawnShape数据包");
                     debug!("{:?}", spw.transform);
                     // 通过字符串标识符查找材质
                     let material = if let Some(handle) = resources.materials.get(&spw.material) {
