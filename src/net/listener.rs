@@ -17,17 +17,35 @@ use crate::{
     net::{forwarder::RDForwarder, linker::RDLinker, work_share::RDWosh},
 };
 
+/// 网络监听器，负责处理客户端连接、管理连接任务和转发任务
+/// 
+/// 该结构体管理所有TCP连接和数据转发任务，并提供ID重用机制以优化资源使用
 pub struct RDListener {
+    /// 存储连接任务的向量，使用Option包装以支持任务的动态创建和释放
     pub linkers: Vec<Option<tokio::task::JoinHandle<()>>>,
+    /// 存储转发任务的向量，使用Option包装以支持任务的动态创建和释放
     pub forwarders: Vec<Option<tokio::task::JoinHandle<()>>>,
-    pub linker_ids: VecDeque<usize>, // 存储可用ID的有序集合
+    /// 存储可用连接ID的有序集合，用于ID重用
+    pub linker_ids: VecDeque<usize>,
+    /// 存储可用转发ID的有序集合，用于ID重用
     pub forwarder_ids: VecDeque<usize>,
+    /// 发送数据到引擎的通道发送器
     pub to_engine: mpsc::Sender<RDPack>,
+    /// 从引擎接收广播数据的接收器
     pub engine_broadcast: broadcast::Receiver<RDPack>,
+    /// 监听的网络地址
     address: String,
 }
 
 impl RDListener {
+    /// 创建一个新的网络监听器实例
+    /// 
+    /// # 参数
+    /// * `to_engine` - 用于向引擎发送数据的发送器
+    /// * `engine_broadcast` - 用于从引擎接收广播的接收器
+    /// 
+    /// # 返回值
+    /// * `RDListener` - 新创建的监听器实例
     pub fn new(
         to_engine: mpsc::Sender<RDPack>,
         engine_broadcast: broadcast::Receiver<RDPack>,
@@ -43,6 +61,10 @@ impl RDListener {
         }
     }
 
+    /// 启动网络监听器，开始接受客户端连接
+    /// 
+    /// 该方法会创建必要的通道和共享资源，然后进入事件循环，
+    /// 处理新连接、连接释放和任务扩展等事件
     pub async fn run(&mut self) {
         let socket_addr: SocketAddr = match self.address.parse() {
             Ok(addr) => addr,
@@ -63,12 +85,16 @@ impl RDListener {
             }
         };
 
+        // 创建用于处理连接释放的通道
         let (linker_rls_tx, mut release_rx) = mpsc::channel::<usize>(32); // 使用有界通道，容量为32
         let (forwarder_rls_tx, mut forwarder_rls_rx) = mpsc::channel::<usize>(32);
+        // 创建用于扩展连接的通道
         let (expand_tx, mut expand_rx) = mpsc::channel::<usize>(32);
 
+        // 创建共享的工作分配器
         let wosh = Arc::new(Mutex::new(RDWosh::new()));
 
+        // 初始化转发器
         self.init(forwarder_rls_tx.clone(), wosh.clone()).await;
 
         loop {
@@ -110,6 +136,13 @@ impl RDListener {
         }
     }
 
+    /// 初始化转发器
+    /// 
+    /// 创建指定数量的转发器任务，并将它们与工作分配器关联
+    /// 
+    /// # 参数
+    /// * `release` - 用于发送转发器释放通知的发送器
+    /// * `wosh` - 工作分配器的共享引用
     async fn init(&mut self, release: mpsc::Sender<usize>, wosh: ThLc<RDWosh>) {
         for _ in 0..3 {
             let (sender, receiver) = mpsc::channel::<Vec<u8>>(32);
@@ -118,6 +151,15 @@ impl RDListener {
         }
     }
 
+    /// 创建新的连接处理任务
+    /// 
+    /// 为新接受的TCP连接创建一个连接处理任务，并将其存储在管理向量中
+    /// 
+    /// # 参数
+    /// * `socket` - TCP连接的套接字
+    /// * `wosh` - 工作分配器的共享引用
+    /// * `release_tx` - 用于发送连接释放通知的发送器
+    /// * `expand_tx` - 用于发送扩展请求的发送器
     fn create_linker(
         &mut self,
         socket: TcpStream,
@@ -135,6 +177,16 @@ impl RDListener {
         self.linkers[linker_id] = Some(linker_task);
     }
 
+    /// 创建新的数据转发任务
+    /// 
+    /// 创建一个转发器任务，负责将数据从接收器转发到引擎
+    /// 
+    /// # 参数
+    /// * `sender` - 接收待转发数据的接收器
+    /// * `release` - 用于发送转发器释放通知的发送器
+    /// 
+    /// # 返回值
+    /// * `usize` - 新创建的转发器的ID
     fn create_forwarder(
         &mut self,
         sender: mpsc::Receiver<Vec<u8>>,
@@ -150,7 +202,12 @@ impl RDListener {
         forwarder_id
     }
 
-    // 释放连接并回收ID
+    /// 释放指定ID的连接任务并回收ID
+    /// 
+    /// 将指定ID的连接任务标记为None，并将ID添加到可用ID集合中以供重用
+    /// 
+    /// # 参数
+    /// * `id` - 要释放的连接任务的ID
     fn release_linker(&mut self, id: usize) {
         // 检查是否是linker被释放
         self.linkers[id] = None;
@@ -158,6 +215,12 @@ impl RDListener {
         self.linker_ids.push_back(id);
     }
 
+    /// 获取一个可用的连接ID
+    /// 
+    /// 如果有已释放的ID可用，则重用它；否则，扩展向量并返回新ID
+    /// 
+    /// # 返回值
+    /// * `usize` - 可用的连接ID
     fn available_linker_id(&mut self) -> usize {
         if let Some(id) = self.linker_ids.pop_front() {
             id
@@ -167,6 +230,12 @@ impl RDListener {
         }
     }
 
+    /// 释放指定ID的转发任务并回收ID
+    /// 
+    /// 将指定ID的转发任务标记为None，并将ID添加到可用ID集合中以供重用
+    /// 
+    /// # 参数
+    /// * `id` - 要释放的转发任务的ID
     fn release_forwarder(&mut self, id: usize) {
         // 检查是否是forwarder被释放
         self.forwarders[id] = None;
@@ -175,6 +244,12 @@ impl RDListener {
         self.forwarder_ids.push_back(id);
     }
 
+    /// 获取一个可用的转发ID
+    /// 
+    /// 如果有已释放的ID可用，则重用它；否则，扩展向量并返回新ID
+    /// 
+    /// # 返回值
+    /// * `usize` - 可用的转发ID
     fn available_forwarder_id(&mut self) -> usize {
         if let Some(id) = self.forwarder_ids.pop_front() {
             id

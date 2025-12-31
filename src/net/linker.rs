@@ -5,14 +5,32 @@ use tokio::{io::AsyncReadExt, net::TcpStream, sync::mpsc};
 use crate::{ThLc, module::parser::proto_decode::read_trailer};
 use super::work_share::{RDWosh};
 
+/// 连接处理器，负责处理单个TCP连接的数据读取和转发
+/// 
+/// 该结构体管理一个TCP连接，持续从连接中读取数据，
+/// 解析数据包并将其转发到工作分配器
 pub struct RDLinker {
+    /// 连接的唯一标识ID
     pub id: usize,
+    /// TCP连接套接字
     pub socket: TcpStream,
+    /// 工作分配器的共享引用，用于分发数据到转发任务
     pub wosh: ThLc<RDWosh>,
+    /// 用于请求扩展转发任务的发送器
     pub expand_request: mpsc::Sender<usize>,
 }
 
 impl RDLinker {
+    /// 创建一个新的连接处理器实例
+    /// 
+    /// # 参数
+    /// * `id` - 连接的唯一标识ID
+    /// * `socket` - TCP连接套接字
+    /// * `wosh` - 工作分配器的共享引用
+    /// * `expand_request` - 用于请求扩展转发任务的发送器
+    /// 
+    /// # 返回值
+    /// * `RDLinker` - 新创建的连接处理器实例
     pub fn new(
         id: usize,
         socket: TcpStream,
@@ -27,6 +45,13 @@ impl RDLinker {
         }
     }
     
+    /// 启动连接处理器，开始处理TCP连接数据
+    /// 
+    /// 该方法进入一个循环，持续从TCP连接中读取数据，
+    /// 解析完整数据包并将其发送到转发任务
+    /// 
+    /// # 参数
+    /// * `release` - 用于发送连接释放通知的发送器
     pub async fn run(&mut self, release: mpsc::Sender<usize>) {
         info!("启动TCP链接处理器 ID: {}", self.id);
         
@@ -39,6 +64,7 @@ impl RDLinker {
         // 累积缓冲区，用于处理跨包数据
         let mut accum_buffer = Vec::new();
 
+        // 用于发送数据的通道发送器，延迟获取以减少不必要的锁操作
         let mut sender = None;
 
         loop {
@@ -90,8 +116,15 @@ impl RDLinker {
               self.id, total_bytes_received, packets_received);
     }
 
-    // 从累积缓冲区中提取完整数据包
-    // 使用原始的trailer解析策略
+    /// 从累积缓冲区中提取完整数据包
+    /// 
+    /// 使用trailer解析策略检查缓冲区中是否存在完整数据包
+    /// 
+    /// # 参数
+    /// * `accum_buffer` - 包含累积数据的可变引用缓冲区
+    /// 
+    /// # 返回值
+    /// * `Option<Vec<u8>>` - 如果找到完整数据包则返回其数据，否则返回None
     fn extract_complete_packet(&mut self, accum_buffer: &mut Vec<u8>) -> Option<Vec<u8>> {
         // 需要至少4字节才能开始解析trailer
         if accum_buffer.len() < 4 {
@@ -121,7 +154,16 @@ impl RDLinker {
         None
     }
 
-    // 发送数据到通道的辅助函数
+    /// 发送数据到通道的辅助函数
+    /// 
+    /// 尝试使用现有的发送器发送数据，如果失败则从工作分配器获取新的发送器
+    /// 
+    /// # 参数
+    /// * `data` - 要发送的数据
+    /// * `sender` - 指向发送器的可变引用
+    /// 
+    /// # 返回值
+    /// * `bool` - 发送成功返回true，失败返回false
     async fn send_data(&mut self, data: Vec<u8>, sender: &mut Option<mpsc::Sender<Vec<u8>>>) -> bool {
             // 首先尝试使用现有sender发送数据
             if let Some(s) = sender {

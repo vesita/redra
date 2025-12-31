@@ -12,6 +12,13 @@ use crate::{
     },
 };
 
+/// 将protobuf中的Translation转换为内部的RDTranslation类型
+/// 
+/// # 参数
+/// * `position` - protobuf定义的Translation对象
+/// 
+/// # 返回值
+/// * `RDTranslation` - 内部定义的平移数据结构
 pub fn position_rd(position: &Translation) -> RDTranslation {
     RDTranslation {
         x: position.x,
@@ -20,6 +27,13 @@ pub fn position_rd(position: &Translation) -> RDTranslation {
     }
 }
 
+/// 将protobuf中的Rotation转换为内部的RDRRotation类型
+/// 
+/// # 参数
+/// * `rotate` - protobuf定义的Rotation对象
+/// 
+/// # 返回值
+/// * `RDRRotation` - 内部定义的旋转数据结构
 pub fn rotate_rd(rotate: &Rotation) -> RDRRotation {
     RDRRotation {
         rx: rotate.rx,
@@ -28,6 +42,13 @@ pub fn rotate_rd(rotate: &Rotation) -> RDRRotation {
     }
 }
 
+/// 将protobuf中的Scale转换为内部的RDRScale类型
+/// 
+/// # 参数
+/// * `scale` - protobuf定义的Scale对象
+/// 
+/// # 返回值
+/// * `RDRScale` - 内部定义的缩放数据结构
 pub fn scale_rd(scale: &Scale) -> RDRScale {
     RDRScale {
         sx: scale.sx,
@@ -36,6 +57,13 @@ pub fn scale_rd(scale: &Scale) -> RDRScale {
     }
 }
 
+/// 将protobuf中的Point转换为内部的RDPoint类型
+/// 
+/// # 参数
+/// * `point` - protobuf定义的Point对象
+/// 
+/// # 返回值
+/// * `RDPoint` - 内部定义的点数据结构
 pub fn point_rd(point: &Point) -> RDPoint {
     RDPoint {
         position: Vector3::new(
@@ -46,6 +74,13 @@ pub fn point_rd(point: &Point) -> RDPoint {
     }
 }
 
+/// 将protobuf中的Sphere转换为内部的RDSphere类型
+/// 
+/// # 参数
+/// * `sphere` - protobuf定义的Sphere对象
+/// 
+/// # 返回值
+/// * `RDSphere` - 内部定义的球体数据结构
 pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
     RDSphere {
         pose: RDRPosVec {
@@ -59,6 +94,15 @@ pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
     }
 }
 
+/// 将protobuf中的Cube转换为内部的RDCube类型
+/// 
+/// 该函数将protobuf定义的立方体信息转换为内部表示，包括位置、旋转和缩放
+/// 
+/// # 参数
+/// * `cube` - protobuf定义的Cube对象
+/// 
+/// # 返回值
+/// * `RDCube` - 内部定义的立方体数据结构
 pub fn cube_rd(cube: &Cube) -> RDCube {
     // 获取旋转矩阵，如果没有提供旋转信息，则使用单位矩阵
     let rot_mat = cube
@@ -107,6 +151,13 @@ pub fn cube_rd(cube: &Cube) -> RDCube {
     }
 }
 
+/// 将protobuf中的Segment转换为内部的RDSegment类型
+/// 
+/// # 参数
+/// * `segment` - protobuf定义的Segment对象
+/// 
+/// # 返回值
+/// * `RDSegment` - 内部定义的线段数据结构
 pub fn segment_rd(segment: &Segment) -> RDSegment {
     RDSegment {
         start: point_rd(segment.start.as_ref().unwrap()),

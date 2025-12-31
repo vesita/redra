@@ -7,13 +7,28 @@ use tokio::{
 
 use crate::module::parser::{core::RDPack, proto::process_pack, proto_decode::decode_pack};
 
+/// 数据转发器，负责接收解码后的数据并将其转发到引擎
+/// 
+/// 该结构体接收来自连接处理器的数据，解析协议包并将其发送到引擎
 pub struct RDForwarder {
+    /// 转发器的唯一标识ID
     pub id: usize,
+    /// 接收待处理数据的接收器
     pub receiver: mpsc::Receiver<Vec<u8>>,
+    /// 用于向引擎发送解析后数据包的发送器
     pub forward_sender: mpsc::Sender<RDPack>,
 }
 
 impl RDForwarder {
+    /// 创建一个新的数据转发器实例
+    /// 
+    /// # 参数
+    /// * `id` - 转发器的唯一标识ID
+    /// * `receiver` - 接收待处理数据的接收器
+    /// * `forward_sender` - 用于向引擎发送解析后数据包的发送器
+    /// 
+    /// # 返回值
+    /// * `RDForwarder` - 新创建的数据转发器实例
     pub fn new(
         id: usize,
         receiver: mpsc::Receiver<Vec<u8>>,
@@ -26,6 +41,13 @@ impl RDForwarder {
         }
     }
 
+    /// 启动数据转发器，开始处理接收到的数据
+    /// 
+    /// 该方法进入一个循环，持续接收数据，解析协议包，
+    /// 然后将其发送到引擎进行进一步处理
+    /// 
+    /// # 参数
+    /// * `release` - 用于发送转发器释放通知的发送器
     pub async fn run(&mut self, release: mpsc::Sender<usize>) {
         let mut packets_processed = 0;
         
@@ -67,6 +89,10 @@ impl RDForwarder {
         info!("数据转发任务结束，ID: {}，共处理 {} 个数据包", self.id, packets_processed);
     }
 
+    /// 获取转发器的ID
+    /// 
+    /// # 返回值
+    /// * `usize` - 转发器的唯一标识ID
     pub fn get_id(&self) -> usize {
         self.id
     }
