@@ -10,7 +10,7 @@ pub struct RDPoint {
 
 impl RDPoint {
     pub fn to_mesh(&self) -> Mesh {
-        Mesh::from(Sphere::new(0.1))
+        Mesh::from(Sphere::new(0.07))
     }
 
     pub fn pose(&self) -> Transform {

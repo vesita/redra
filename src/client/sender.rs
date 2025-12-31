@@ -58,7 +58,7 @@ pub async fn send_point(x: f32, y: f32, z: f32) -> Result<(), Box<dyn std::error
         pos: Some(Translation { x, y, z }),
     };
     let spawn = Spawn {
-        id: None, // TargetID is optional
+        id: None,
         data: Some(spawn::Data::ShapeData(ShapePack {
             data: Some(shape_pack::Data::Point(point)),
         })),
@@ -95,7 +95,7 @@ pub async fn send_segment(
         }),
     };
     let spawn = Spawn {
-        id: None, // TargetID is optional
+        id: None,
         data: Some(spawn::Data::ShapeData(ShapePack {
             data: Some(shape_pack::Data::Segment(segment)),
         })),

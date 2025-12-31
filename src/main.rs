@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use redra::graph::communicate::channels::RDChannel;
 use redra::graph::init::material::initialize_materials;
+use redra::graph::ui::UiModule;
 use redra::module::camera::LookTransformPlugin;
 use redra::{
     graph::{setup::rd_setup, update::rd_update},
@@ -9,6 +10,7 @@ use redra::{
 };
 use tokio::sync::{broadcast, mpsc};
 
+use log::info;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -21,7 +23,7 @@ async fn main() -> Result<(), std::io::Error> {
         sender: engine_sender,
         receiver: engine_receiver,
     };
-    println!("启动网络任务...");
+    info!("启动网络任务...");
     tokio::spawn(async move {
         let mut net = RDListener::new(net_sender, net_receiver);
         net.run().await;
@@ -32,6 +34,7 @@ async fn main() -> Result<(), std::io::Error> {
         .add_plugins(DefaultPlugins)
         .add_plugins(FpsCameraPlugin::default())
         .add_plugins(LookTransformPlugin)
+        .add_plugins(UiModule)
         .insert_resource(channel)
         .add_systems(Startup, (rd_setup, initialize_materials))
         .add_systems(Update, rd_update)
