@@ -4,7 +4,7 @@ import socket
 import struct
 
 # 添加proto目录到路径
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'proto'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'proto'))
 
 # 导入生成的protobuf模块
 import declare_pb2

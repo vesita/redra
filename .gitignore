@@ -8,8 +8,9 @@ Cargo.lock
 .venv
 uv.lock
 __pycache__/
-script/build/
-
+packs/dist/
+*.egg-info/
+packs/rdsend/proto/
 
 src/proto/
 script/proto/

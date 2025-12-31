@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package designation;
 
-import "transform.proto";
 import "conception.proto";
 import "shape.proto";
 import "formats.proto";

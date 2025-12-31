@@ -5,7 +5,7 @@ import time
 # 添加proto目录到路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'proto'))
 
-from client_sender import ClientSender
+from packs.rdsend.client import ClientSender
 
 
 def example_send_shapes():

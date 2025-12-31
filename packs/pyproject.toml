@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redra"
+version = "0.1.0"
+authors = [
+  { name="vesita", email="vesita164872@iutloo.com" },
+]
+requires-python = ">=3.12"
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+readme = "README.md"
