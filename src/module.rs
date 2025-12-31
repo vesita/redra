@@ -2,9 +2,6 @@ pub mod alias;
 pub mod task;
 
 #[cfg(feature = "exec")]
-pub mod resource;
-
-#[cfg(feature = "exec")]
 pub mod camera;
 
 #[cfg(feature = "exec")]

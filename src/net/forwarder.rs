@@ -66,4 +66,8 @@ impl RDForwarder {
         release.send(self.id).await.expect("释放资源失败");
         info!("数据转发任务结束，ID: {}，共处理 {} 个数据包", self.id, packets_processed);
     }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }

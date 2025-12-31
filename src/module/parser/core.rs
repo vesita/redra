@@ -7,12 +7,12 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub enum RDPack {
     Message(String),
-    SpawnShape(Box<ShapePack>),
+    SpawnShape(Box<RDShapePack>),
     SpawnFormat(Box<FormatPack>),
 }
 
 #[derive(Clone)]
-pub struct ShapePack {
+pub struct RDShapePack {
     pub mesh: Arc<Mesh>,
     pub transform: Transform,
     pub material: String,

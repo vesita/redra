@@ -1,14 +1,26 @@
-use std::{collections::VecDeque, net::SocketAddr, sync::{Arc, Mutex}};
+use std::{
+    collections::VecDeque,
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use log::{error, info};
-use tokio::{net::{TcpListener as TokioTcpListener, TcpStream}, sync::{broadcast, mpsc}, task};
+use tokio::{
+    net::{TcpListener as TokioTcpListener, TcpStream},
+    sync::{Mutex, broadcast, mpsc},
+    task,
+};
 
-use crate::{ThLc, net::{forwarder::RDForwarder, linker::RDLinker, work_share::{RDWosh}}, module::parser::core::RDPack};
+use crate::{
+    ThLc,
+    module::parser::core::RDPack,
+    net::{forwarder::RDForwarder, linker::RDLinker, work_share::RDWosh},
+};
 
 pub struct RDListener {
     pub linkers: Vec<Option<tokio::task::JoinHandle<()>>>,
     pub forwarders: Vec<Option<tokio::task::JoinHandle<()>>>,
-    pub linker_ids: VecDeque<usize>,    // 存储可用ID的有序集合
+    pub linker_ids: VecDeque<usize>, // 存储可用ID的有序集合
     pub forwarder_ids: VecDeque<usize>,
     pub to_engine: mpsc::Sender<RDPack>,
     pub engine_broadcast: broadcast::Receiver<RDPack>,
@@ -19,11 +31,11 @@ impl RDListener {
     pub fn new(
         to_engine: mpsc::Sender<RDPack>,
         engine_broadcast: broadcast::Receiver<RDPack>,
-    ) -> Self {        
+    ) -> Self {
         RDListener {
             linkers: Vec::new(),
             forwarders: Vec::new(),
-            linker_ids: VecDeque::new(),  // 初始化可用ID集合
+            linker_ids: VecDeque::new(), // 初始化可用ID集合
             forwarder_ids: VecDeque::new(),
             to_engine,
             engine_broadcast,
@@ -39,24 +51,25 @@ impl RDListener {
                 return;
             }
         };
-        
+
         let listener = match TokioTcpListener::bind(socket_addr).await {
             Ok(listener) => {
                 info!("开始监听网络地址: {}", self.address);
                 listener
-            },
+            }
             Err(e) => {
                 error!("绑定网络地址失败: {}", e);
                 return;
             }
         };
-        
+
         let (linker_rls_tx, mut release_rx) = mpsc::channel::<usize>(32); // 使用有界通道，容量为32
         let (forwarder_rls_tx, mut forwarder_rls_rx) = mpsc::channel::<usize>(32);
         let (expand_tx, mut expand_rx) = mpsc::channel::<usize>(32);
 
-
         let wosh = Arc::new(Mutex::new(RDWosh::new()));
+
+        self.init(forwarder_rls_tx.clone(), wosh.clone()).await;
 
         loop {
             tokio::select! {
@@ -72,7 +85,7 @@ impl RDListener {
                         }
                     }
                 },
-                
+
                 // 处理连接释放
                 Some(released_id) = release_rx.recv() => {
                     info!("释放连接 - ID: {}", released_id);
@@ -83,21 +96,28 @@ impl RDListener {
                     info!("释放转发任务 - ID: {}", released_id);
                     self.release_forwarder(released_id);
                 },
-                
+
                 Some(expand_request) = expand_rx.recv() => {
                     info!("扩展连接 - ID: {}", expand_request);
                     let (sender, receiver) = mpsc::channel::<Vec<u8>>(32);
-                    wosh.lock().unwrap().add_channel(sender, expand_request);
+                    wosh.lock().await.add_channel(sender, expand_request).await;
                     self.create_forwarder(
                         receiver,
-                        self.to_engine.clone(),
                         forwarder_rls_tx.clone(),
                     );
                 }
             }
         }
     }
-    
+
+    async fn init(&mut self, release: mpsc::Sender<usize>, wosh: ThLc<RDWosh>) {
+        for _ in 0..3 {
+            let (sender, receiver) = mpsc::channel::<Vec<u8>>(32);
+            let id = self.create_forwarder(receiver, release.clone());
+            wosh.lock().await.add_channel(sender, id).await;
+        }
+    }
+
     fn create_linker(
         &mut self,
         socket: TcpStream,
@@ -114,22 +134,22 @@ impl RDListener {
         });
         self.linkers[linker_id] = Some(linker_task);
     }
-    
+
     fn create_forwarder(
         &mut self,
         sender: mpsc::Receiver<Vec<u8>>,
-        to_engine: mpsc::Sender<RDPack>,
         release: mpsc::Sender<usize>,
-    ) {
+    ) -> usize {
         let forwarder_id = self.available_forwarder_id();
-        let mut forwarder = RDForwarder::new(forwarder_id, sender, to_engine);
+        let mut forwarder = RDForwarder::new(forwarder_id, sender, self.to_engine.clone());
         let forwarder_task = task::spawn(async move {
             info!("启动转发任务 - 转发ID: {}", forwarder_id);
             forwarder.run(release).await;
         });
         self.forwarders[forwarder_id] = Some(forwarder_task);
+        forwarder_id
     }
-    
+
     // 释放连接并回收ID
     fn release_linker(&mut self, id: usize) {
         // 检查是否是linker被释放
@@ -137,7 +157,7 @@ impl RDListener {
         // 将ID加入可用ID集合，以便重用
         self.linker_ids.push_back(id);
     }
-    
+
     fn available_linker_id(&mut self) -> usize {
         if let Some(id) = self.linker_ids.pop_front() {
             id
@@ -150,7 +170,7 @@ impl RDListener {
     fn release_forwarder(&mut self, id: usize) {
         // 检查是否是forwarder被释放
         self.forwarders[id] = None;
-        
+
         // 将ID加入可用ID集合，以便重用
         self.forwarder_ids.push_back(id);
     }
@@ -159,7 +179,8 @@ impl RDListener {
         if let Some(id) = self.forwarder_ids.pop_front() {
             id
         } else {
-            self.forwarders.resize_with(self.forwarders.len() + 1, || None);
+            self.forwarders
+                .resize_with(self.forwarders.len() + 1, || None);
             self.forwarders.len() - 1
         }
     }

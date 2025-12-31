@@ -1,6 +1,7 @@
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::{cmp::Ordering, collections::{BinaryHeap, HashMap}};
 use tokio::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use tokio::sync::{Mutex, RwLock};
+use std::sync::Arc;
 
 use crate::ThLc;
 
@@ -24,11 +25,13 @@ impl AutoChannel {
     pub async fn send(&mut self, data: Vec<u8>) -> bool {
         // 检查通道是否已满（背压状态）
         if self.channel_alarms() {
-            false;
+            return false;
         }
         self.send_count += 1;
-        self.sender.send(data).await;
-        true
+        match self.sender.send(data).await {
+            Ok(_) => true,
+            Err(_) => false, // 发送失败，通道可能已关闭
+        }
     }
     
     pub fn channel_alarms(&self) -> bool {
@@ -42,32 +45,48 @@ impl AutoChannel {
         }
         false
     }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }
 
 pub struct RDWosh { 
-    pub channels: ThLc<BinaryHeap<AutoChannel>>,
+    pub channels: Arc<Mutex<BinaryHeap<AutoChannel>>>,
+    pub id_map: Arc<Mutex<HashMap<usize, usize>>>,
 }
 
 impl RDWosh {
     pub fn new() -> RDWosh {
         RDWosh {
             channels: Arc::new(Mutex::new(BinaryHeap::new())),
+            id_map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub fn add_channel(&self, sender: mpsc::Sender<Vec<u8>>, id: usize) {
-        self.channels.lock().unwrap().push(AutoChannel {
+    pub async fn add_channel(&self, sender: mpsc::Sender<Vec<u8>>, id: usize) {
+        let auto_channel = AutoChannel {
             sender,
             id,
             send_count: 0,
-        });
+        };
+        
+        let mut channels_lock = self.channels.lock().await;
+        channels_lock.push(auto_channel);
+        // 使用当前通道数量作为索引
+        let channel_count = channels_lock.len();
+        drop(channels_lock);
+        
+        let mut id_map_lock = self.id_map.lock().await;
+        id_map_lock.insert(id, channel_count);
+        drop(id_map_lock);
     }
 
-    pub fn get_channel(&self) -> Option<mpsc::Sender<Vec<u8>>> {
-        self.channels.lock().unwrap().pop().map(|link| link.sender)
+    pub async fn get_channel(&self) -> Option<mpsc::Sender<Vec<u8>>> {
+        let mut channels_lock = self.channels.lock().await;
+        channels_lock.pop().map(|link| link.sender)
     }
 }
-
 
 
 // 实现基于 send_count 的排序，用于最小堆（BinaryHeap 需要最大堆，所以我们反转比较）
