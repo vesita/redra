@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 
-use crate::{module::{camera::fps::*, resource::RDResource}, graph::axis};
+use crate::{module::{camera::fps::*}, graph::axis};
 
 pub fn rd_setup (
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut resources: ResMut<RDResource>
 ) {
     // 添加环境光
     commands.insert_resource(AmbientLight {

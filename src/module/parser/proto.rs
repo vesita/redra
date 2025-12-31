@@ -1,9 +1,20 @@
 use bevy::transform::components::Transform;
-use tokio::sync::mpsc;
+use log::{debug, error, info};
 use std::sync::Arc;
-use log::{error, info, debug};
+use tokio::sync::mpsc;
 
-use crate::{module::parser::{core::{RDPack, RDShapePack}, interface::*}, proto::{command, designation::{self, DesignCmd}, formats::{self, FormatPack}, shape::{self, ShapePack}}};
+use crate::{
+    module::parser::{
+        core::{RDPack, RDShapePack},
+        interface::*,
+    },
+    proto::{
+        command,
+        designation::{self, DesignCmd},
+        formats::{self, FormatPack},
+        shape::{self, ShapePack},
+    },
+};
 
 /// 发送SpawnPack到Bevy
 async fn send_spawn_pack(spawn_pack: RDShapePack, sender: mpsc::Sender<RDPack>) {
@@ -17,6 +28,7 @@ async fn send_spawn_pack(spawn_pack: RDShapePack, sender: mpsc::Sender<RDPack>) 
 fn create_and_send_spawn_pack<T, F>(
     geometry: T,
     to_mesh_fn: F,
+    material: String,
     sender: mpsc::Sender<RDPack>,
 ) where
     F: FnOnce(&T) -> (Arc<bevy::mesh::Mesh>, Transform) + Send + 'static,
@@ -26,7 +38,7 @@ fn create_and_send_spawn_pack<T, F>(
     let spawn_pack = RDShapePack {
         mesh,
         transform,
-        material: "default".to_string(),
+        material,
     };
     tokio::spawn(send_spawn_pack(spawn_pack, sender));
 }
@@ -34,19 +46,34 @@ fn create_and_send_spawn_pack<T, F>(
 /// 处理Point形状
 fn handle_point_shape(point: &shape::Point, sender: mpsc::Sender<RDPack>) {
     let point = point_rd(point);
-    create_and_send_spawn_pack(point, |p| (Arc::new(p.to_mesh()), p.pose()), sender);
+    create_and_send_spawn_pack(
+        point,
+        |p| (Arc::new(p.to_mesh()), p.pose()),
+        "blue".to_string(),
+        sender,
+    );
 }
 
 /// 处理Segment形状
 fn handle_segment_shape(segment: &shape::Segment, sender: mpsc::Sender<RDPack>) {
     let segment = segment_rd(segment);
-    create_and_send_spawn_pack(segment, |s| (Arc::new(s.to_mesh()), Transform::default()), sender);
+    create_and_send_spawn_pack(
+        segment,
+        |s| (Arc::new(s.to_mesh()), Transform::default()),
+        "white".to_string(),
+        sender,
+    );
 }
 
 /// 处理Sphere形状
 fn handle_sphere_shape(sphere: &shape::Sphere, sender: mpsc::Sender<RDPack>) {
     let rd_sphere = sphere_rd(sphere);
-    create_and_send_spawn_pack(rd_sphere, |s| (Arc::new(s.to_mesh()), s.pose()), sender);
+    create_and_send_spawn_pack(
+        rd_sphere,
+        |s| (Arc::new(s.to_mesh()), s.pose()),
+        "default".to_string(),
+        sender,
+    );
 }
 
 /// 处理Cube形状
@@ -54,7 +81,12 @@ fn handle_cube_shape(cube: &shape::Cube, sender: mpsc::Sender<RDPack>) {
     debug!("创建SpawnPack");
     debug!("Cube: {:?}", cube);
     let rd_cube = cube_rd(cube);
-    create_and_send_spawn_pack(rd_cube, |c| (Arc::new(c.to_mesh()), c.pose()), sender);
+    create_and_send_spawn_pack(
+        rd_cube,
+        |c| (Arc::new(c.to_mesh()), c.pose()),
+        "default".to_string(),
+        sender,
+    );
 }
 
 /// 处理图像格式
@@ -71,19 +103,19 @@ fn match_shape_data(shape_pack: &ShapePack, sender: mpsc::Sender<RDPack>) {
             shape::shape_pack::Data::Point(point) => {
                 debug!("Point数据包");
                 handle_point_shape(point, sender);
-            },
+            }
             shape::shape_pack::Data::Segment(segment) => {
                 debug!("Segment数据包");
                 handle_segment_shape(segment, sender);
-            },
+            }
             shape::shape_pack::Data::Sphere(sphere) => {
                 debug!("Sphere数据包");
                 handle_sphere_shape(sphere, sender);
-            },
+            }
             shape::shape_pack::Data::Cube(cube) => {
                 debug!("Cube数据包");
                 handle_cube_shape(cube, sender);
-            },
+            }
         }
     } else {
         debug!("ShapePack消息中没有定义任何形状");
@@ -99,7 +131,7 @@ fn match_format_data(format_pack: &FormatPack, sender: mpsc::Sender<RDPack>) {
             formats::format_pack::Data::Image(image) => {
                 debug!("Image数据包");
                 handle_image_fmt(image, sender);
-            },
+            }
         }
     }
 }
@@ -112,10 +144,10 @@ fn match_designation_cmd(designation_cmd: &DesignCmd, sender: mpsc::Sender<RDPac
             match data {
                 designation::spawn::Data::ShapeData(shape_pack) => {
                     match_shape_data(&shape_pack, sender);
-                },
+                }
                 designation::spawn::Data::FormatData(format_pack) => {
                     match_format_data(format_pack, sender);
-                },
+                }
             }
         } else {
             info!("Designation: 无数据包");
@@ -129,13 +161,13 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
         Some(command::command::CmdPack::Conception(ref conception_cmd)) => {
             // 处理Conception命令
             debug!("处理Conception命令: {:?}", conception_cmd);
-        },
+        }
         Some(command::command::CmdPack::Designation(ref designation_cmd)) => {
             match_designation_cmd(&designation_cmd, sender);
-        },
+        }
         Some(command::command::CmdPack::Transform(ref translation)) => {
             // 处理Transform命令
-        },
+        }
         None => {
             error!("Command消息中没有定义任何命令");
         }

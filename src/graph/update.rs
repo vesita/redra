@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{graph::spawn::general_spawn, module::resource::RDResource};
+use crate::graph::{MaterialManager, communicate::channels, spawn::general_spawn};
 
 
 
@@ -8,7 +8,8 @@ pub fn rd_update (
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut resources: ResMut<RDResource>
+    mut material_manager: ResMut<MaterialManager>,
+    mut channel: ResMut<channels::RDChannel>,
 ) {
-    general_spawn(commands, meshes, materials, resources);
+    general_spawn(commands, meshes, materials, material_manager, channel);
 }

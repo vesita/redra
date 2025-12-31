@@ -34,7 +34,7 @@ impl RDLinker {
         let mut packets_received = 0;
 
         // 使用更大的缓冲区来减少系统调用
-        let mut buffer = [0; 4096];
+        let mut buffer = [0; 1024];
         
         // 累积缓冲区，用于处理跨包数据
         let mut accum_buffer = Vec::new();

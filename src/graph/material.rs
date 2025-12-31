@@ -9,6 +9,7 @@ pub enum PredefinedMaterial {
 }
 
 /// 材质管理器
+#[derive(Resource)]
 pub struct MaterialManager {
     predefined_materials: HashMap<String, PredefinedMaterial>,
 }
