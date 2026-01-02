@@ -5,7 +5,6 @@ use bevy::{
     ecs::prelude::*,
     input::{mouse::MouseMotion, prelude::*},
     math::prelude::*,
-    prelude::ReflectDefault,
     reflect::Reflect,
     time::Time,
     transform::components::Transform,
@@ -13,6 +12,32 @@ use bevy::{
 };
 
 use crate::module::camera::{LookAngles, LookTransform, LookTransformBundle, Smoother};
+
+/// Defines the cursor toggle mode for the FPS camera
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Reflect)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[reflect(PartialEq, Debug)]
+pub enum CursorToggleMode {
+    /// Release cursor when Alt is pressed, lock when released
+    Trigger,
+    /// Toggle cursor lock state when Alt is pressed
+    Flip,
+}
+
+impl Default for CursorToggleMode {
+    fn default() -> Self {
+        Self::Trigger
+    }
+}
+
+/// Event to change the cursor toggle mode at runtime
+#[derive(Event, Message)]
+pub struct ChangeCursorModeMessage {
+    pub mode: CursorToggleMode,
+    /// If specified, changes the mode for a specific camera entity
+    /// Otherwise, changes the mode for any enabled camera
+    pub camera_entity: Option<Entity>,
+}
 
 #[derive(Default)]
 pub struct FpsCameraPlugin {
@@ -33,7 +58,9 @@ impl Plugin for FpsCameraPlugin {
             .add_systems(PreUpdate, on_controller_enabled_changed)
             .add_systems(Startup, init)
             .add_systems(Update, (control_system, reset_cursor_system))
-            .add_message::<ControlMessage>();
+            .add_message::<ControlMessage>()
+            .add_message::<ChangeCursorModeMessage>()
+            .add_systems(Update, change_cursor_mode_message_system);
 
         if !self.override_input_system {
             app.add_systems(Update, default_input_map);
@@ -67,7 +94,7 @@ impl FpsCameraBundle {
 /// Your typical first-person camera controller.
 #[derive(Clone, Component, Copy, Debug, Reflect)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[reflect(Component, Default, Debug)]
+#[reflect(Component, Debug)]
 pub struct FpsCameraController {
     pub enabled: bool,
     pub mouse_rotate_sensitivity: Vec2,
@@ -75,6 +102,8 @@ pub struct FpsCameraController {
     pub smoothing_weight: f32,
     /// If set to true, the cursor will be locked and hidden when the camera is active.
     pub auto_hide_cursor: bool,
+    /// The mode to use for toggling cursor visibility/locking
+    pub cursor_toggle_mode: CursorToggleMode,
 }
 
 impl Default for FpsCameraController {
@@ -85,6 +114,7 @@ impl Default for FpsCameraController {
             translate_sensitivity: 2.0,
             smoothing_weight: 0.9,
             auto_hide_cursor: true,
+            cursor_toggle_mode: CursorToggleMode::default(),
         }
     }
 }
@@ -152,23 +182,27 @@ pub fn default_input_map(
         }
     }
 
-    messages.write(ControlMessage::Rotate(
-        mouse_rotate_sensitivity * cursor_delta,
-    ));
+    if cursor_delta != Vec2::ZERO {
+        messages.write(ControlMessage::Rotate(
+            mouse_rotate_sensitivity * cursor_delta,
+        ));
+    }
 
-    for (key, dir) in [
+    // Precompute translation vectors to avoid repeated calculations
+    let translation_keys = [
         (KeyCode::KeyW, Vec3::Z),
         (KeyCode::KeyA, Vec3::X),
         (KeyCode::KeyS, -Vec3::Z),
         (KeyCode::KeyD, -Vec3::X),
         (KeyCode::ShiftLeft, -Vec3::Y),
         (KeyCode::Space, Vec3::Y),
-    ]
-    .iter()
-    .cloned()
-    {
-        if keyboard.pressed(key) {
-            messages.write(ControlMessage::TranslateEye(translate_sensitivity * dir));
+    ];
+
+    let dt = 1.0; // Using 1.0 since the translation is already time-adjusted in the control system
+    for (key, dir) in &translation_keys {
+        if keyboard.pressed(*key) {
+            let translation = dt * translate_sensitivity * *dir;
+            messages.write(ControlMessage::TranslateEye(translation));
         }
     }
 }
@@ -188,50 +222,107 @@ pub fn control_system(
         return;
     };
 
-    // Handle cursor locking
+    // Handle cursor locking based on the selected mode
     if controller.auto_hide_cursor {
-        if key_input.just_pressed(KeyCode::AltLeft) || key_input.just_pressed(KeyCode::AltRight) {
-            // Release cursor
-            cursor_options.grab_mode = CursorGrabMode::None;
-            cursor_options.visible = true;
-        } else if key_input.just_released(KeyCode::AltLeft) || key_input.just_released(KeyCode::AltRight) {
-            // Lock cursor and mark for reset
-            cursor_options.grab_mode = CursorGrabMode::Locked;
-            cursor_options.visible = false;
-            
-            // Mark cursor to be reset in the next frame
-            commands.entity(entity).insert(ResetCursorNextFrame);
+        match controller.cursor_toggle_mode {
+            CursorToggleMode::Trigger => {
+                if key_input.just_pressed(KeyCode::AltLeft) || key_input.just_pressed(KeyCode::AltRight) {
+                    // Release cursor
+                    cursor_options.grab_mode = CursorGrabMode::None;
+                    cursor_options.visible = true;
+                } else if key_input.just_released(KeyCode::AltLeft) || key_input.just_released(KeyCode::AltRight) {
+                    // Lock cursor and mark for reset
+                    cursor_options.grab_mode = CursorGrabMode::Locked;
+                    cursor_options.visible = false;
+                        
+                    // Mark cursor to be reset in the next frame
+                    commands.entity(entity).insert(ResetCursorNextFrame);
+                }
+            }
+            CursorToggleMode::Flip => {
+                if key_input.just_pressed(KeyCode::AltLeft) || key_input.just_pressed(KeyCode::AltRight) {
+                    if cursor_options.grab_mode == CursorGrabMode::Locked {
+                        // Release cursor
+                        cursor_options.grab_mode = CursorGrabMode::None;
+                        cursor_options.visible = true;
+                    } else {
+                        // Lock cursor and mark for reset
+                        cursor_options.grab_mode = CursorGrabMode::Locked;
+                        cursor_options.visible = false;
+                        
+                        // Mark cursor to be reset in the next frame
+                        commands.entity(entity).insert(ResetCursorNextFrame);
+                    }
+                }
+            }
         }
     }
 
-    let look_vector = transform.look_direction().unwrap();
+    let look_vector = match transform.look_direction() {
+        Some(v) => v,
+        None => return, // Early return if look direction is invalid
+    };
+    
     let mut look_angles = LookAngles::from_vector(look_vector);
 
+    // Precompute rotation vectors to avoid repeated calculations
     let yaw_rot = Quat::from_axis_angle(Vec3::Y, look_angles.get_yaw());
     let rot_x = yaw_rot * Vec3::X;
     let rot_y = yaw_rot * Vec3::Y;
     let rot_z = yaw_rot * Vec3::Z;
 
     let dt = time.delta_secs();
+    let mut needs_target_update = false;
+    let mut eye_translation = Vec3::ZERO;
+
     for event in messages.read() {
         match event {
             ControlMessage::Rotate(delta) => {
                 // Rotates with pitch and yaw.
                 look_angles.add_yaw(dt * -delta.x);
                 look_angles.add_pitch(dt * -delta.y);
+                needs_target_update = true;
             }
             ControlMessage::TranslateEye(delta) => {
-                // Translates up/down (Y) left/right (X) and forward/back (Z).
-                transform.eye += dt * delta.x * rot_x + dt * delta.y * rot_y + dt * delta.z * rot_z;
+                // Accumulate translations to apply them all at once
+                eye_translation += dt * delta.x * rot_x + dt * delta.y * rot_y + dt * delta.z * rot_z;
+                needs_target_update = true;
             }
         }
     }
 
-    look_angles.assert_not_looking_up();
+    // Apply translation after processing all messages
+    if eye_translation != Vec3::ZERO {
+        transform.eye += eye_translation;
+    }
 
-    transform.target = transform.eye + transform.radius() * look_angles.unit_vector();
+    if needs_target_update {
+        look_angles.assert_not_looking_up();
+        transform.target = transform.eye + transform.radius() * look_angles.unit_vector();
+    }
 }
 
+/// System that handles changing cursor toggle mode via events
+fn change_cursor_mode_message_system(
+    mut messages: MessageReader<ChangeCursorModeMessage>,
+    mut cameras: Query<(Entity, &mut FpsCameraController)>,
+) {
+    for message in messages.read() {
+        if let Some(target_entity) = message.camera_entity {
+            // Change mode for specific camera
+            if let Ok((_, mut controller)) = cameras.get_mut(target_entity) {
+                controller.cursor_toggle_mode = message.mode;
+            }
+        } else {
+            // Change mode for all enabled cameras
+            for (_, mut controller) in cameras.iter_mut() {
+                if controller.enabled {
+                    controller.cursor_toggle_mode = message.mode;
+                }
+            }
+        }
+    }
+}
 
 /// System that resets the cursor position on the frame after locking
 fn reset_cursor_system(
@@ -249,3 +340,6 @@ fn reset_cursor_system(
         commands.entity(entity).remove::<ResetCursorNextFrame>();
     }
 }
+
+// The functions change_by_trigger and change_by_flip are no longer needed as their logic is now
+// integrated into the control_system using the CursorToggleMode enum
