@@ -2,6 +2,10 @@ use bevy::prelude::*;
 
 use crate::{graph::{MaterialManager, communicate::channels}, module::parser::core::RDPack};
 
+// 为动态生成的实体定义标记组件
+#[derive(Component)]
+pub struct SpawnedEntity;
+
 pub fn general_spawn(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -29,6 +33,7 @@ pub fn general_spawn(
                     Mesh3d(meshes.add(spw.mesh.as_ref().clone())),
                     MeshMaterial3d(material),
                     spw.transform,
+                    SpawnedEntity,  // 添加标记组件
                 ));
             },
             RDPack::SpawnFormat(spw) => {
