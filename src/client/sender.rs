@@ -8,7 +8,7 @@ use crate::proto::{
     command::{self, Command, command::CmdPack},
     declare,
     designation::{DesignCmd, Spawn, design_cmd::Cmd, spawn},
-    shape::{self, Point, ShapePack, shape_pack},
+    shape::{self, ShapePack, shape_pack},
     transform::Translation,
 };
 

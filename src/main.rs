@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use redra::graph::communicate::channels::RDChannel;
 use redra::graph::init::material::initialize_materials;
-use redra::graph::ui::UiModule;
+use redra::graph::GraphPlugin;
 use redra::module::camera::LookTransformPlugin;
 use redra::{
     graph::{setup::rd_setup, update::rd_update},
@@ -45,9 +45,10 @@ async fn main() -> Result<(), std::io::Error> {
         .add_plugins(DefaultPlugins) // 添加默认插件
         .add_plugins(FpsCameraPlugin::default()) // 添加FPS相机插件
         .add_plugins(LookTransformPlugin) // 添加相机变换插件
-        .add_plugins(UiModule) // 添加UI模块
+        .add_plugins(GraphPlugin) // 使用 GraphPlugin 替代 UiModule
         .insert_resource(channel) // 插入通信通道资源
-        .add_systems(Startup, (rd_setup, initialize_materials)) // 添加启动系统
+        .add_systems(Startup, rd_setup) // 添加rd_setup系统
+        .add_systems(Startup, initialize_materials) // 添加initialize_materials系统
         .add_systems(Update, rd_update) // 添加更新系统
         .run();
     Ok(())
