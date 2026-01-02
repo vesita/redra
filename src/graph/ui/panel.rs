@@ -2,7 +2,7 @@ use bevy::{
     camera::{CameraOutputMode, Viewport, visibility::RenderLayers}, 
     prelude::*, 
     render::render_resource::BlendState, 
-    window::PrimaryWindow
+    window::PrimaryWindow,
 };
 use bevy_egui::{
     EguiContext, EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass,
@@ -26,7 +26,7 @@ impl Plugin for PanelPlugin {
         app
             .init_resource::<PanelState>()
             .add_systems(Startup, setup_ui_camera)
-            .add_systems(Update, ui_panel_system);
+            .add_systems(EguiPrimaryContextPass, ui_panel_system);
     }
 }
 
@@ -34,9 +34,12 @@ impl Plugin for PanelPlugin {
 fn setup_ui_camera(
     mut commands: Commands,
     mut egui_global_settings: ResMut<EguiGlobalSettings>,
+    asset_server: Res<AssetServer>
 ) {
     // 禁用自动创建主上下文，以便手动设置我们需要的相机
     egui_global_settings.auto_create_primary_context = false;
+
+    let _ = asset_server.load::<Font>("fonts/JetBrainsMapleMono-XX-XX-XX-XX/JetBrainsMapleMono-Light.ttf");
 
     // 主世界相机
     commands.spawn((
@@ -64,6 +67,11 @@ fn setup_ui_camera(
     ));
 }
 
+// fn ui_setup(
+//     mut egui_context: EguiContexts,
+// ) { 
+// }
+
 // UI面板系统，每帧运行，更新viewport以适应面板
 fn ui_panel_system(
     mut contexts: EguiContexts,
@@ -71,15 +79,11 @@ fn ui_panel_system(
     mut camera: Query<&mut Camera, (With<PrimaryEguiContext>, Without<EguiContext>)>,
     window: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let ctx = contexts.ctx_mut();
-    let ctx = match ctx {
+
+    let ctx = match contexts.ctx_mut() {
         Ok(ctx) => ctx,
-        Err(_) => return,
+        Err(_) => return,  // 如果无法获取上下文，直接返回
     };
-    
-    if !ctx.wants_pointer_input() {
-        return;
-    }
 
     let Ok(window) = window.single() else {
         return;
@@ -90,15 +94,15 @@ fn ui_panel_system(
         .resizable(true)
         .default_width(200.0)
         .min_width(100.0)
-        .show(ctx, |ui| {
+        .show(&ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("左侧边栏");
                 ui.separator();
                 
                 ui.collapsing("场景控制", |ui| {
                     ui.label("控制场景的参数");
-                    ui.button("重置视角");
-                    ui.button("切换视角");
+                    let _ = ui.button("重置视角");
+                    let _ = ui.button("切换视角");
                 });
                 
                 ui.collapsing("对象列表", |ui| {
@@ -122,7 +126,7 @@ fn ui_panel_system(
         .resizable(true)
         .default_width(250.0)
         .min_width(150.0)
-        .show(ctx, |ui| {
+        .show(&ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("右侧边栏");
                 ui.separator();
@@ -159,56 +163,37 @@ fn ui_panel_system(
         .resizable(true)
         .default_height(40.0)
         .min_height(30.0)
-        .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.menu_button("文件", |ui| {
-                    if ui.button("新建").clicked() {
-                        ui.close();
-                    }
-                    if ui.button("打开").clicked() {
-                        ui.close();
-                    }
-                    if ui.button("保存").clicked() {
-                        ui.close();
-                    }
-                });
-                ui.menu_button("编辑", |ui| {
-                    if ui.button("撤销").clicked() {
-                        ui.close();
-                    }
-                    if ui.button("重做").clicked() {
-                        ui.close();
-                    }
-                    if ui.button("复制").clicked() {
-                        ui.close();
-                    }
-                });
-                ui.menu_button("视图", |ui| {
-                    ui.checkbox(&mut true, "显示网格");
-                    ui.checkbox(&mut true, "显示坐标轴");
-                });
-                ui.separator();
-                ui.label("Redra - 3D可视化系统");
-            });
-        })
-        .response
-        .rect
-        .height();
-
-    let mut bottom = egui::TopBottomPanel::bottom("bottom_panel")
-        .resizable(true)
-        .default_height(100.0)
-        .min_height(50.0)
-        .show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.label("状态信息");
-                ui.separator();
+        .show(&ctx, |ui| {
+            egui::Frame::new().show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(format!("FPS: {:.1}", 60.0));
+                    ui.menu_button("文件", |ui| {
+                        if ui.button("新建").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("打开").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("保存").clicked() {
+                            ui.close();
+                        }
+                    });
+                    ui.menu_button("编辑", |ui| {
+                        if ui.button("撤销").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("重做").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("复制").clicked() {
+                            ui.close();
+                        }
+                    });
+                    ui.menu_button("视图", |ui| {
+                        ui.checkbox(&mut true, "显示网格");
+                        ui.checkbox(&mut true, "显示坐标轴");
+                    });
                     ui.separator();
-                    ui.label(format!("对象数: {}", 10));
-                    ui.separator();
-                    ui.label(format!("内存: {:.1} MB", 128.5));
+                    ui.heading("Redra - 3D可视化系统"); // 使用heading控件，它会应用全局字体设置
                 });
             });
         })
@@ -220,19 +205,17 @@ fn ui_panel_system(
     panel_state.left_width = left;
     panel_state.right_width = right;
     panel_state.top_height = top;
-    panel_state.bottom_height = bottom;
 
     // 将尺寸从逻辑单位转换为物理单位
     left *= window.scale_factor();
     right *= window.scale_factor();
     top *= window.scale_factor();
-    bottom *= window.scale_factor();
 
     // 计算主视口位置和尺寸
     let pos = UVec2::new(left as u32, top as u32);
     let size = UVec2::new(
         (window.physical_width() as f32 - left - right) as u32,
-        (window.physical_height() as f32 - top - bottom) as u32,
+        (window.physical_height() as f32 - top) as u32,
     );
 
     // 更新相机视口

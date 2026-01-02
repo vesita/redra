@@ -1,9 +1,8 @@
 use std::{cmp::Ordering, collections::{BinaryHeap, HashMap}};
 use tokio::sync::mpsc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use std::sync::Arc;
 
-use crate::ThLc;
 
 /// 用于负载均衡的自动通道包装器
 /// 

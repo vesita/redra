@@ -47,7 +47,8 @@ async fn main() -> Result<(), std::io::Error> {
         .add_plugins(LookTransformPlugin) // 添加相机变换插件
         .add_plugins(UiModule) // 添加UI模块
         .insert_resource(channel) // 插入通信通道资源
-        .add_systems(Startup, (rd_setup, initialize_materials)) // 添加启动系统
+        .add_systems(Startup, rd_setup) // 添加rd_setup系统
+        .add_systems(Startup, initialize_materials) // 添加initialize_materials系统
         .add_systems(Update, rd_update) // 添加更新系统
         .run();
     Ok(())
