@@ -87,7 +87,7 @@ fn ui_panel_system(
 
     let ctx = match contexts.ctx_mut() {
         Ok(ctx) => ctx,
-        Err(_) => return,
+        Err(_) => return,  // 如果无法获取上下文，直接返回
     };
 
     let Ok(window) = window.single() else {
