@@ -1,4 +1,3 @@
-pub mod clear;
 pub mod panel;
 pub mod font;
 
@@ -6,9 +5,6 @@ use bevy::prelude::*;
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 
 use panel::PanelPlugin;
-use crate::graph::clear::ClearAllEvent;  // 导入清除事件
-use crate::graph::ui::font::replace_fonts;
-
 use crate::graph::ui::font::replace_fonts;
 
 pub struct UiModule;

@@ -4,14 +4,9 @@ use bevy::{
     render::render_resource::BlendState, 
     window::PrimaryWindow,
 };
+use bevy_egui::{EguiContext, EguiContexts, EguiGlobalSettings, EguiPrimaryContextPass, PrimaryEguiContext};
 
-// 定义清除所有对象的事件
-#[derive(Event)]
-pub struct ClearAllEvent;
-use bevy_egui::{
-    EguiContext, EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass,
-    PrimaryEguiContext, egui,
-};
+use crate::graph::action::clear::ClearAllMessage;
 
 // 定义面板资源，用于存储面板的尺寸信息
 #[derive(Resource, Default)]
@@ -29,6 +24,7 @@ impl Plugin for PanelPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<PanelState>()
+            .add_message::<ClearAllMessage>()  // 初始化ClearAllMessage消息
             .add_systems(Startup, setup_ui_camera)
             .add_systems(EguiPrimaryContextPass, ui_panel_system);
     }
@@ -44,12 +40,6 @@ fn setup_ui_camera(
     egui_global_settings.auto_create_primary_context = false;
 
     let _ = asset_server.load::<Font>("fonts/JetBrainsMapleMono-XX-XX-XX-XX/JetBrainsMapleMono-Light.ttf");
-
-    // 主世界相机
-    commands.spawn((
-        Camera2d,
-        Name::new("Main Camera")
-    ));
 
     // EGUI相机，用于渲染UI
     commands.spawn((
@@ -82,7 +72,7 @@ fn ui_panel_system(
     mut panel_state: ResMut<PanelState>,
     mut camera: Query<&mut Camera, (With<PrimaryEguiContext>, Without<EguiContext>)>,
     window: Query<&Window, With<PrimaryWindow>>,
-    mut clear_events: EventWriter<ClearAllEvent>,
+    mut clear_message: MessageWriter<ClearAllMessage>,
 ) {
 
     let ctx = match contexts.ctx_mut() {
@@ -112,7 +102,8 @@ fn ui_panel_system(
                 
                 ui.collapsing("对象列表", |ui| {
                     if ui.button("clear all").clicked() {
-                        clear_events.send(ClearAllEvent);
+                        info!("发送清除所有对象消息");
+                        clear_message.write(ClearAllMessage);
                     }
                 });
                 
