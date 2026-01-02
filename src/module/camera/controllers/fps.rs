@@ -26,7 +26,7 @@ pub enum CursorToggleMode {
 
 impl Default for CursorToggleMode {
     fn default() -> Self {
-        Self::Trigger
+        Self::Flip
     }
 }
 
