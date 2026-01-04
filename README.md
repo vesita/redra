@@ -48,7 +48,16 @@ git clone https://github.com/vesita/redra
 cd redra
 
 # 构建项目
-cargo build
+cargo build --release
+# 或者
+
+# windows
+rustup target add x86_64-pc-windows-gnu
+cargo build --target x86_64-pc-windows-gnu --release
+
+# linux
+rustup target add x86_64-unknown-linux-gnu
+cargo build --target x86_64-unknown-linux-gnu --release
 ```
 
 ### 模块说明

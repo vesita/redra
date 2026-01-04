@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
   { name="vesita", email="vesita164872@iutloo.com" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.8"
 classifiers=[
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
