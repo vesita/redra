@@ -5,11 +5,11 @@ use crate::graph::{MaterialManager, action::spawn::general_spawn, communicate::c
 
 
 pub fn rd_update (
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut material_manager: ResMut<MaterialManager>,
-    mut channel: ResMut<channels::RDChannel>,
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+    material_manager: ResMut<MaterialManager>,
+    channel: ResMut<channels::RDChannel>,
 ) {
     general_spawn(commands, meshes, materials, material_manager, channel);
 }

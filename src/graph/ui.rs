@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 
 use panel::PanelPlugin;
-use crate::graph::ui::{font::replace_fonts, share::toggle_camera_mode_system};
+use crate::graph::ui::font::replace_fonts;
 
 pub struct UiModule;
 

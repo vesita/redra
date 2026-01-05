@@ -6,14 +6,12 @@ pub fn rd_setup (
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut global_ambient: ResMut<GlobalAmbientLight>,  // 添加全局环境光资源
 ) {
-    // 添加环境光 - 降低亮度使更自然
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 1000.0,
-        ..default()
-    });
+
+    // 注意：Bevy 0.18 中环境光已默认集成到 PBR 渲染管线中
+    // 无需手动添加 AmbientLight，可通过修改 World Environment 或使用 HDR 贴图来控制全局光照
+    // 当前默认环境光强度和颜色由渲染器自动管理
 
     // let cascade_shadow_config = CascadeShadowConfigBuilder {
     //     first_cascade_far_bound: 0.3,
@@ -45,6 +43,13 @@ pub fn rd_setup (
     //         ..default()
     //     },
     // ));
+
+    // 设置全局环境光
+    *global_ambient = GlobalAmbientLight {
+        color: Color::WHITE,
+        brightness: 1000.0,  // 调整亮度值
+        affects_lightmapped_meshes: true,
+    };
 
 
     // 添加FPS相机控制器 (设置较高的渲染顺序，作为主相机)
