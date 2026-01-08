@@ -10,7 +10,7 @@ pub fn general_spawn(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut material_manager: ResMut<MaterialManager>,
+    material_manager: ResMut<MaterialManager>,
     mut channel: ResMut<channels::RDChannel>,
 ) {
     // 先处理所有来自channel的数据包，避免借用冲突
@@ -36,8 +36,8 @@ pub fn general_spawn(
                     SpawnedEntity,  // 添加标记组件
                 ));
             },
-            RDPack::SpawnFormat(spw) => {
-                
+            RDPack::SpawnFormat(_spw) => {
+                // TODO: 处理SpawnFormat数据包
             }
         }
     }

@@ -138,7 +138,7 @@ fn handle_cube_shape(cube: &shape::Cube, sender: mpsc::Sender<RDPack>) {
 /// # 参数
 /// * `image` - protobuf定义的Image对象
 /// * `sender` - 用于发送数据到Bevy的异步发送器
-fn handle_image_fmt(image: &formats::Image, sender: mpsc::Sender<RDPack>) {
+fn handle_image_fmt(image: &formats::Image, _sender: mpsc::Sender<RDPack>) {
     // todo
     debug!("处理图像数据: {:?}", image);
 }
@@ -237,8 +237,9 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
         Some(command::command::CmdPack::Designation(ref designation_cmd)) => {
             match_designation_cmd(&designation_cmd, sender);
         }
-        Some(command::command::CmdPack::Transform(ref translation)) => {
+        Some(command::command::CmdPack::Transform(_translation)) => {
             // 处理Transform命令
+            // TODO
         }
         None => {
             error!("Command消息中没有定义任何命令");

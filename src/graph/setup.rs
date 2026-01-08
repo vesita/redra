@@ -6,7 +6,6 @@ pub fn rd_setup (
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     // 添加环境光 - 降低亮度使更自然
     commands.insert_resource(AmbientLight {
