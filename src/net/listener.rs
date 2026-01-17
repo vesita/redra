@@ -2,6 +2,7 @@ use std::{
     collections::VecDeque,
     net::SocketAddr,
     sync::Arc,
+    time::Duration,
 };
 
 use log::{error, info};
@@ -9,6 +10,7 @@ use tokio::{
     net::{TcpListener as TokioTcpListener, TcpStream},
     sync::{Mutex, broadcast, mpsc},
     task,
+    time::sleep,
 };
 
 use crate::{
@@ -131,6 +133,13 @@ impl RDListener {
                         receiver,
                         forwarder_rls_tx.clone(),
                     );
+                }
+                
+                // 添加一个定时器，防止在没有事件时过度占用CPU
+                _ = sleep(Duration::from_millis(100)) => {
+                    // 这个分支会在每毫秒触发一次，确保循环不会阻塞在select上
+                    // 在高负载情况下，其他分支会更频繁地被触发
+                    // 在低负载情况下，这个分支会定期触发，允许其他异步任务运行
                 }
             }
         }

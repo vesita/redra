@@ -237,9 +237,9 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
         Some(command::command::CmdPack::Designation(ref designation_cmd)) => {
             match_designation_cmd(&designation_cmd, sender);
         }
-        Some(command::command::CmdPack::Transform(ref translation)) => {
-            let _ = translation;
+        Some(command::command::CmdPack::Transform(_translation)) => {
             // 处理Transform命令
+            // TODO
         }
         None => {
             error!("Command消息中没有定义任何命令");

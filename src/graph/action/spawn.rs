@@ -36,9 +36,8 @@ pub fn general_spawn(
                     SpawnedEntity,  // 添加标记组件
                 ));
             },
-            RDPack::SpawnFormat(spw) => {
-                let _ = spw;
-                // todo
+            RDPack::SpawnFormat(_spw) => {
+                // TODO: 处理SpawnFormat数据包
             }
         }
     }
