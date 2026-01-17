@@ -112,6 +112,6 @@ pub async fn send_segment(
     Ok(())
 }
 
-// pub fn send_image(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-//     Ok(())
-// }
+pub fn send_image(_data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}

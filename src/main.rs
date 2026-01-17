@@ -12,6 +12,8 @@ use tokio::sync::{broadcast, mpsc};
 
 use log::info;
 
+use redra::render::frame::{toggle_frame_rate, FrameRateState};
+
 /// 程序主入口函数
 /// 
 /// 此函数启动应用程序，初始化网络通信、图形渲染系统和UI组件
@@ -39,6 +41,8 @@ async fn main() -> Result<(), std::io::Error> {
         net.run().await;
     });
 
+
+
     // 构建并运行Bevy应用程序
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
@@ -49,7 +53,9 @@ async fn main() -> Result<(), std::io::Error> {
         .insert_resource(channel) // 插入通信通道资源
         .add_systems(Startup, rd_setup) // 添加rd_setup系统
         .add_systems(Startup, initialize_materials) // 添加initialize_materials系统
-        .add_systems(Update, rd_update) // 添加更新系统
+        .insert_resource(FrameRateState { change: true, frame_rate: 60.0 }) // 添加帧率状态资源
+        .add_systems(Update, (rd_update, toggle_frame_rate)) // 添加更新系统和帧率切换系统
         .run();
     Ok(())
 }
+

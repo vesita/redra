@@ -8,6 +8,9 @@ pub mod geometry;
 #[cfg(feature = "graph")]
 pub mod graph;
 
+#[cfg(feature = "graph")]
+pub mod render;
+
 // #[cfg(feature = "client")]
 pub mod client;
 

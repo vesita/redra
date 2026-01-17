@@ -28,6 +28,19 @@ impl Default for PanelVisibility {
     }
 }
 
+// 定义UI状态资源
+#[derive(Resource, Default)]
+pub struct UiState {
+    pub show_grid: bool,
+    pub show_axis: bool,
+    pub show_bbox: bool,
+    pub material_type: usize,
+    pub position: Vec3,
+    pub rotation: Vec3,
+    pub scale: Vec3,
+    pub color: Color,
+}
+
 // 定义面板插件
 pub struct PanelPlugin;
 
@@ -36,6 +49,7 @@ impl Plugin for PanelPlugin {
         app
             .init_resource::<PanelState>()
             .init_resource::<PanelVisibility>()
+            .init_resource::<UiState>()
             .add_message::<ClearAllMessage>()  // 初始化ClearAllMessage消息
             .add_systems(Startup, setup_ui_camera)
             .add_systems(EguiPrimaryContextPass, (ui_panel_system, update_panel_visibility))
@@ -47,12 +61,10 @@ impl Plugin for PanelPlugin {
 fn setup_ui_camera(
     mut commands: Commands,
     mut egui_global_settings: ResMut<EguiGlobalSettings>,
-    asset_server: Res<AssetServer>
 ) {
+    // commands.spawn(Camera2d);
     // 禁用自动创建主上下文，以便手动设置我们需要的相机
     egui_global_settings.auto_create_primary_context = false;
-
-    let _ = asset_server.load::<Font>("fonts/JetBrainsMapleMono-XX-XX-XX-XX/JetBrainsMapleMono-Light.ttf");
 
     // EGUI相机，用于渲染UI
     commands.spawn((
@@ -114,6 +126,7 @@ fn update_panel_visibility(
 fn ui_panel_system(
     mut contexts: EguiContexts,
     mut panel_state: ResMut<PanelState>,
+    mut ui_state: ResMut<UiState>,
     panel_visibility: Res<PanelVisibility>,
     mut camera: Query<&mut Camera, (With<PrimaryEguiContext>, Without<EguiContext>)>,
     window: Query<&Window, With<PrimaryWindow>>,
@@ -136,30 +149,59 @@ fn ui_panel_system(
     // 创建可调整大小的边方面板
     let mut left = egui::SidePanel::left("left_panel")
         .resizable(true)
-        .default_width(200.0)
-        .min_width(100.0)
+        .default_width(250.0)
+        .min_width(200.0)
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.panel_fill,
+            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            ..Default::default()
+        })
         .show(&ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.heading("左侧边栏");
+                ui.heading("场景控制");
                 ui.separator();
                 
-                ui.collapsing("场景控制", |ui| {
-                    ui.label("控制场景的参数");
-                    let _ = ui.button("重置视角");
-                    let _ = ui.button("切换视角");
+                ui.collapsing("视图控制", |ui| {
+                    if ui.button("重置视角").clicked() {
+                        // 重置视角逻辑
+                    }
+                    if ui.button("切换视角").clicked() {
+                        // 切换视角逻辑
+                    }
+                    
+                    ui.add_space(10.0);
+                    ui.checkbox(&mut ui_state.show_grid, "显示网格");
+                    ui.checkbox(&mut ui_state.show_axis, "显示坐标轴");
+                    ui.checkbox(&mut ui_state.show_bbox, "显示边界框");
                 });
                 
-                ui.collapsing("对象列表", |ui| {
-                    if ui.button("clear all").clicked() {
+                ui.collapsing("对象管理", |ui| {
+                    if ui.button("清除所有对象").clicked() {
                         info!("发送清除所有对象消息");
                         clear_message.write(ClearAllMessage);
                     }
+                    
+                    ui.separator();
+                    ui.label("对象列表");
+                    // 这里可以添加对象列表
+                    for i in 0..5 {
+                        let _ = ui.selectable_label(false, format!("对象 {}", i));
+                    }
                 });
                 
-                ui.collapsing("设置", |ui| {
-                    ui.checkbox(&mut true, "显示网格");
-                    ui.checkbox(&mut true, "显示坐标轴");
-                    ui.checkbox(&mut false, "显示边界框");
+                ui.collapsing("渲染设置", |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("渲染质量:");
+                        ui.radio_value(&mut 0, 0, "高");
+                        ui.radio_value(&mut 0, 1, "中");
+                        ui.radio_value(&mut 0, 2, "低");
+                    });
+                    
+                    ui.add_space(5.0);
+                    ui.horizontal(|ui| {
+                        ui.label("帧率限制:");
+                        ui.add(egui::Slider::new(&mut 30.0f32, 5.0..=60.0).text("FPS"));
+                    });
                 });
             });
         })
@@ -169,34 +211,86 @@ fn ui_panel_system(
 
     let mut right = egui::SidePanel::right("right_panel")
         .resizable(true)
-        .default_width(250.0)
-        .min_width(150.0)
+        .default_width(300.0)
+        .min_width(200.0)
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.panel_fill,
+            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            ..Default::default()
+        })
         .show(&ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.heading("右侧边栏");
-                ui.separator();
+                ui.heading("属性编辑器");
                 
-                ui.collapsing("属性编辑器", |ui| {
+                ui.separator();
+                ui.collapsing("变换", |ui| {
                     ui.label("位置");
                     ui.horizontal(|ui| {
                         ui.label("X:");
-                        ui.add(egui::DragValue::new(&mut 0.0).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut ui_state.position.x).speed(0.1).prefix("x: "));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Y:");
-                        ui.add(egui::DragValue::new(&mut 0.0).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut ui_state.position.y).speed(0.1).prefix("y: "));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Z:");
-                        ui.add(egui::DragValue::new(&mut 0.0).speed(0.1));
+                        ui.add(egui::DragValue::new(&mut ui_state.position.z).speed(0.1).prefix("z: "));
+                    });
+                    
+                    ui.add_space(10.0);
+                    ui.label("旋转 (度)");
+                    ui.horizontal(|ui| {
+                        ui.label("X:");
+                        ui.add(egui::DragValue::new(&mut ui_state.rotation.x).speed(1.0).suffix("°"));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Y:");
+                        ui.add(egui::DragValue::new(&mut ui_state.rotation.y).speed(1.0).suffix("°"));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Z:");
+                        ui.add(egui::DragValue::new(&mut ui_state.rotation.z).speed(1.0).suffix("°"));
+                    });
+                    
+                    ui.add_space(10.0);
+                    ui.label("缩放");
+                    ui.horizontal(|ui| {
+                        ui.label("X:");
+                        ui.add(egui::DragValue::new(&mut ui_state.scale.x).speed(0.05).range(0.1..=10.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Y:");
+                        ui.add(egui::DragValue::new(&mut ui_state.scale.y).speed(0.05).range(0.1..=10.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Z:");
+                        ui.add(egui::DragValue::new(&mut ui_state.scale.z).speed(0.05).range(0.1..=10.0));
                     });
                 });
                 
-                ui.collapsing("材质", |ui| {
+                ui.separator();
+                ui.collapsing("外观", |ui| {
+                    ui.label("颜色");                    
+                    ui.add_space(10.0);
                     ui.label("材质类型");
-                    ui.radio_value(&mut 0, 0, "基础颜色");
-                    ui.radio_value(&mut 1, 1, "发光材质");
-                    ui.radio_value(&mut 2, 2, "金属材质");
+                    ui.radio_value(&mut ui_state.material_type, 0, "基础材质");
+                    ui.radio_value(&mut ui_state.material_type, 1, "发光材质");
+                    ui.radio_value(&mut ui_state.material_type, 2, "金属材质");
+                    ui.radio_value(&mut ui_state.material_type, 3, "透明材质");
+                });
+                
+                ui.separator();
+                ui.collapsing("灯光控制", |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("环境光强度:");
+                        ui.add(egui::Slider::new(&mut 0.3f32, 0.0..=1.0).step_by(0.01));
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("主光源强度:");
+                        ui.add(egui::Slider::new(&mut 1.0f32, 0.0..=5.0).step_by(0.01));
+                    });
                 });
             });
         })
@@ -206,8 +300,13 @@ fn ui_panel_system(
 
     let mut top = egui::TopBottomPanel::top("top_panel")
         .resizable(true)
-        .default_height(40.0)
-        .min_height(30.0)
+        .default_height(50.0)
+        .min_height(40.0)
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.panel_fill,
+            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            ..Default::default()
+        })
         .show(&ctx, |ui| {
             egui::Frame::new().show(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -221,6 +320,9 @@ fn ui_panel_system(
                         if ui.button("保存").clicked() {
                             ui.close();
                         }
+                        if ui.button("导出").clicked() {
+                            ui.close();
+                        }
                     });
                     ui.menu_button("编辑", |ui| {
                         if ui.button("撤销").clicked() {
@@ -232,13 +334,31 @@ fn ui_panel_system(
                         if ui.button("复制").clicked() {
                             ui.close();
                         }
+                        if ui.button("粘贴").clicked() {
+                            ui.close();
+                        }
                     });
                     ui.menu_button("视图", |ui| {
-                        ui.checkbox(&mut true, "显示网格");
-                        ui.checkbox(&mut true, "显示坐标轴");
+                        ui.checkbox(&mut ui_state.show_grid, "显示网格");
+                        ui.checkbox(&mut ui_state.show_axis, "显示坐标轴");
+                    });
+                    ui.menu_button("帮助", |ui| {
+                        if ui.button("文档").clicked() {
+                            ui.close();
+                        }
+                        if ui.button("关于").clicked() {
+                            ui.close();
+                        }
                     });
                     ui.separator();
                     ui.heading("Redra - 3D可视化系统"); // 使用heading控件，它会应用全局字体设置
+                    
+                    // 添加状态指示器
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.colored_label(egui::Color32::GREEN, "●").on_hover_text("就绪");
+                        ui.separator();
+                        ui.label(format!("FPS: {:.1}", 60.0)); // 这里应该从实际FPS数据获取
+                    });
                 });
             });
         })
