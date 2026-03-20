@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::graph::{MaterialManager, action::spawn::general_spawn, communicate::channels};
+use crate::graph::{MaterialManager, action::spawn::recv_and_spawn, communicate::channels};
 
 
 
@@ -11,5 +11,5 @@ pub fn rd_update (
     material_manager: ResMut<MaterialManager>,
     channel: ResMut<channels::RDChannel>,
 ) {
-    general_spawn(commands, meshes, materials, material_manager, channel);
+    recv_and_spawn(commands, meshes, materials, material_manager, channel);
 }
