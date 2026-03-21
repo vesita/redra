@@ -6,6 +6,7 @@ pub mod init;
 pub mod communicate;
 pub mod ui;
 pub mod component;
+pub mod wheel_menu;
 
 // 导入材质模块
 pub mod material;
@@ -19,6 +20,7 @@ pub struct GraphPlugin;
 impl Plugin for GraphPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(action::ActionPlugin)
-            .add_plugins(ui::UiModule);
+            .add_plugins(ui::UiModule)
+            .add_plugins(wheel_menu::WheelMenuGraphPlugin);
     }
 }

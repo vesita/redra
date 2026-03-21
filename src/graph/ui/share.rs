@@ -1,7 +1,6 @@
 use bevy::{ecs::{message::MessageWriter, system::{Local, Res}}, input::{ButtonInput, keyboard::KeyCode}};
 use log::info;
-
-use crate::module::camera::fps::{ChangeCursorModeMessage, CursorToggleMode};
+use smooth_bevy_cameras::controllers::fps::{ChangeCursorModeMessage, CursorToggleMode};
 
 
 
