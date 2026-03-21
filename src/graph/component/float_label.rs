@@ -112,7 +112,7 @@ pub fn spawn_float_label_graphics(
 /// 
 /// 每帧更新所有浮动标签的旋转，使其 Z 轴指向摄像头
 pub fn update_float_label_facing_camera(
-    mut query: Query<&mut Transform, With<FloatLabelGraphics>>,
+    mut query: Query<&mut Transform, (With<FloatLabelGraphics>, Without<MainCamera3d>)>,
     camera_query: Query<&Transform, With<MainCamera3d>>,
 ) {
     // 获取主相机的位置和方向

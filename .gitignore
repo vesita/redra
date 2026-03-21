@@ -15,3 +15,6 @@ packs/rdsend/proto/
 src/proto/
 script/proto/
 assets/
+
+// test logs
+tests/log/
