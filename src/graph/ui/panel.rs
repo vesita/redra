@@ -1,5 +1,5 @@
 use bevy::{
-    camera::{CameraOutputMode, Viewport, visibility::RenderLayers}, 
+    camera::{CameraOutputMode, Viewport}, 
     prelude::*, 
     render::render_resource::BlendState, 
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
@@ -57,24 +57,22 @@ impl Plugin for PanelPlugin {
     }
 }
 
-// 设置UI相机
+// 设置 UI 相机
 fn setup_ui_camera(
     mut commands: Commands,
     mut egui_global_settings: ResMut<EguiGlobalSettings>,
 ) {
-    // commands.spawn(Camera2d);
     // 禁用自动创建主上下文，以便手动设置我们需要的相机
     egui_global_settings.auto_create_primary_context = false;
 
-    // EGUI相机，用于渲染UI
+    // EGUI 相机，用于渲染 UI（同时支持 Mesh2d/Text2d 如轮盘菜单）
     commands.spawn((
-        // PrimaryEguiContext组件需要渲染主上下文的所有内容
+        // PrimaryEguiContext 组件需要渲染主上下文的所有内容
         PrimaryEguiContext,
         Camera2d::default(),
-        // 设置渲染层为无，确保我们只渲染UI
-        RenderLayers::none(),
+        // 不要限制 RenderLayers，这样 Mesh2d/Text2d 也能被此相机渲染
         Camera {
-            order: 2,  // 设置更高的渲染顺序，确保UI在主相机之上渲染
+            order: 2,  // 设置更高的渲染顺序，确保 UI 在主相机之上渲染
             output_mode: CameraOutputMode::Write {
                 blend_state: Some(BlendState::ALPHA_BLENDING),
                 clear_color: ClearColorConfig::None,
