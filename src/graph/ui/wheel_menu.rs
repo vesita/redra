@@ -8,6 +8,7 @@
 
 use bevy::prelude::*;
 use bevy_wheel_menu::*;
+use super::font::FontAssets;
 
 /// 轮盘菜单插件
 pub struct WheelMenuGraphPlugin;
@@ -17,7 +18,6 @@ impl Plugin for WheelMenuGraphPlugin {
         app
             .add_plugins(WheelMenuPlugin)
             .init_resource::<WheelMenuState>()
-            .add_systems(Startup, load_wheel_menu_font)
             .add_systems(Update, (
                 toggle_wheel_menu,
                 handle_wheel_select,
@@ -25,10 +25,6 @@ impl Plugin for WheelMenuGraphPlugin {
             ));
     }
 }
-
-/// 轮盘菜单字体资源
-#[derive(Resource)]
-pub struct WheelMenuFont(pub Handle<bevy::text::Font>);
 
 /// 轮盘菜单状态资源
 #[derive(Resource, Default)]
@@ -83,21 +79,6 @@ mod wheel_theme {
     pub const CENTER_BG: Color = Color::srgba(0.08, 0.10, 0.14, 0.98);
 }
 
-/// 系统：加载轮盘菜单字体（在 Startup 阶段运行）
-fn load_wheel_menu_font(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    // 尝试加载自定义字体文件
-    // 注意：请确保 assets/fonts/serif/SourceHanSerifCN-VF.otf 文件存在
-    // 如果文件不存在，Bevy 会使用默认字体
-    let font_handle = asset_server.load("fonts/serif/SourceHanSerifCN-VF.otf");
-    
-    commands.insert_resource(WheelMenuFont(font_handle));
-    
-    info!("轮盘菜单字体已加载");
-}
-
 /// 系统：使用 Tab 键切换轮盘菜单的显示/隐藏
 pub fn toggle_wheel_menu(
     mut commands: Commands,
@@ -107,7 +88,7 @@ pub fn toggle_wheel_menu(
     wheel_query: Query<Entity, With<WheelMenuRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<ColorMaterial>>,
-    font_handle: Option<Res<WheelMenuFont>>,
+    font_assets: Option<Res<FontAssets>>,
 ) {
     // 检测 Tab 键按下
     if keyboard.just_pressed(KeyCode::Tab) {
@@ -120,8 +101,8 @@ pub fn toggle_wheel_menu(
         
         if state.visible {
             // 创建新的轮盘菜单（如果有字体则使用自定义字体，否则使用默认）
-            let menu_entity = match font_handle {
-                Some(font) => spawn_wheel_menu(&mut commands, &mut meshes, &mut mats, &font.0),
+            let menu_entity = match font_assets {
+                Some(font) => spawn_wheel_menu(&mut commands, &mut meshes, &mut mats, &font.bevy_font),
                 None => spawn_wheel_menu_default(&mut commands, &mut meshes, &mut mats),
             };
             state.active_menu = Some(menu_entity);
