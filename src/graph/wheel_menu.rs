@@ -17,6 +17,7 @@ impl Plugin for WheelMenuGraphPlugin {
         app
             .add_plugins(WheelMenuPlugin)
             .init_resource::<WheelMenuState>()
+            .add_systems(Startup, load_wheel_menu_font)
             .add_systems(Update, (
                 toggle_wheel_menu,
                 handle_wheel_select,
@@ -24,6 +25,10 @@ impl Plugin for WheelMenuGraphPlugin {
             ));
     }
 }
+
+/// 轮盘菜单字体资源
+#[derive(Resource)]
+pub struct WheelMenuFont(pub Handle<bevy::text::Font>);
 
 /// 轮盘菜单状态资源
 #[derive(Resource, Default)]
@@ -78,6 +83,21 @@ mod wheel_theme {
     pub const CENTER_BG: Color = Color::srgba(0.08, 0.10, 0.14, 0.98);
 }
 
+/// 系统：加载轮盘菜单字体（在 Startup 阶段运行）
+fn load_wheel_menu_font(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    // 尝试加载自定义字体文件
+    // 注意：请确保 assets/fonts/serif/SourceHanSerifCN-VF.otf 文件存在
+    // 如果文件不存在，Bevy 会使用默认字体
+    let font_handle = asset_server.load("fonts/serif/SourceHanSerifCN-VF.otf");
+    
+    commands.insert_resource(WheelMenuFont(font_handle));
+    
+    info!("轮盘菜单字体已加载");
+}
+
 /// 系统：使用 Tab 键切换轮盘菜单的显示/隐藏
 pub fn toggle_wheel_menu(
     mut commands: Commands,
@@ -87,6 +107,7 @@ pub fn toggle_wheel_menu(
     wheel_query: Query<Entity, With<WheelMenuRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<ColorMaterial>>,
+    font_handle: Option<Res<WheelMenuFont>>,
 ) {
     // 检测 Tab 键按下
     if keyboard.just_pressed(KeyCode::Tab) {
@@ -98,8 +119,11 @@ pub fn toggle_wheel_menu(
         }
         
         if state.visible {
-            // 创建新的轮盘菜单
-            let menu_entity = spawn_wheel_menu(&mut commands, &mut meshes, &mut mats);
+            // 创建新的轮盘菜单（如果有字体则使用自定义字体，否则使用默认）
+            let menu_entity = match font_handle {
+                Some(font) => spawn_wheel_menu(&mut commands, &mut meshes, &mut mats, &font.0),
+                None => spawn_wheel_menu_default(&mut commands, &mut meshes, &mut mats),
+            };
             state.active_menu = Some(menu_entity);
             
             visibility_writer.write(WheelMenuVisibilityChanged {
@@ -121,8 +145,13 @@ pub fn toggle_wheel_menu(
     }
 }
 
-/// 生成轮盘菜单（带完整渲染）
-fn spawn_wheel_menu(commands: &mut Commands, meshes: &mut Assets<Mesh>, mats: &mut Assets<ColorMaterial>) -> Entity {
+/// 生成轮盘菜单（带完整渲染，使用自定义字体）
+fn spawn_wheel_menu(
+    commands: &mut Commands, 
+    meshes: &mut Assets<Mesh>, 
+    mats: &mut Assets<ColorMaterial>,
+    font_handle: &Handle<bevy::text::Font>,
+) -> Entity {
     // 定义菜单项（示例：8 个选项）
     let menu_items = vec![
         ("选项 1", "🔵"),
@@ -175,7 +204,133 @@ fn spawn_wheel_menu(commands: &mut Commands, meshes: &mut Assets<Mesh>, mats: &m
         
         commands.entity(root).add_child(slice_entity);
         
-        // 图标文本
+        // 图标文本（使用自定义字体）
+        let icon_entity = commands
+            .spawn((
+                SliceIcon { index: i },
+                Text2d::new(icon.to_string()),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: 28.0,
+                    ..default()
+                },
+                TextColor(wheel_theme::ICON_NORMAL),
+                Transform::from_translation(Vec3::new(center_pos.x, center_pos.y + 12.0, 1.0)),
+            ))
+            .id();
+        
+        commands.entity(root).add_child(icon_entity);
+        
+        // 标签文本（使用自定义字体）
+        let label_entity = commands
+            .spawn((
+                SliceLabel { index: i },
+                Text2d::new(label.to_string()),
+                TextFont {
+                    font: font_handle.clone(),
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(wheel_theme::TEXT_NORMAL),
+                Transform::from_translation(Vec3::new(center_pos.x, center_pos.y - 10.0, 1.0)),
+            ))
+            .id();
+        
+        commands.entity(root).add_child(label_entity);
+    }
+    
+    // 中心圆背景
+    let center_mesh = meshes.add(Circle::new(menu_config.inner_radius - 5.0));
+    let center_mat = mats.add(ColorMaterial::from_color(wheel_theme::BACKGROUND));
+    let center_entity = commands
+        .spawn((
+            Mesh2d(center_mesh),
+            MeshMaterial2d(center_mat),
+            Transform::from_translation(Vec3::Z * 2.0),
+        ))
+        .id();
+    
+    commands.entity(root).add_child(center_entity);
+    
+    // 中心提示文本（使用自定义字体）
+    let center_text = commands
+        .spawn((
+            WheelCenter,
+            Text2d::new("MENU"),
+            TextFont {
+                font: font_handle.clone(),
+                font_size: 16.0,
+                ..default()
+            },
+            TextColor(wheel_theme::TEXT_HOVER),
+            Transform::from_translation(Vec3::Z * 3.0),
+        ))
+        .id();
+    
+    commands.entity(root).add_child(center_text);
+    
+    root
+}
+
+/// 生成轮盘菜单（使用默认字体，当自定义字体加载失败时使用）
+fn spawn_wheel_menu_default(
+    commands: &mut Commands, 
+    meshes: &mut Assets<Mesh>, 
+    mats: &mut Assets<ColorMaterial>,
+) -> Entity {
+    // 定义菜单项（示例：8 个选项）
+    let menu_items = vec![
+        ("选项 1", "🔵"),
+        ("选项 2", "🟢"),
+        ("选项 3", "🔴"),
+        ("选项 4", "🟡"),
+        ("选项 5", "🟣"),
+        ("选项 6", "🟠"),
+        ("选项 7", "⚪"),
+        ("选项 8", "⚫"),
+    ];
+    
+    let menu_config = WheelMenu {
+        slices: menu_items.len(),
+        radius: 150.0,
+        inner_radius: 50.0,
+        deadzone: 0.3,
+        gap: 0.03,
+    };
+    
+    let root = commands
+        .spawn((
+            WheelMenuRoot,
+            menu_config.clone(),
+            WheelState::default(),
+            Transform::default(),
+            Visibility::Visible,
+        ))
+        .id();
+    
+    // 为每个菜单项生成内容（包括扇形网格和文本）
+    for (i, (label, icon)) in menu_items.iter().enumerate() {
+        let center_pos = slice_center(&menu_config, i);
+        
+        // 生成扇形网格
+        let (a0, a1) = slice_angles(&menu_config, i);
+        let mesh_handle = meshes.add(bevy_wheel_menu::mesh::wedge(menu_config.inner_radius, menu_config.radius, a0, a1));
+        let mat_handle = mats.add(ColorMaterial::from_color(wheel_theme::SLICE_BASE));
+        
+        // 扇形视觉组件标记
+        let slice_entity = commands
+            .spawn((
+                WheelSlice { index: i },
+                SliceVisual { index: i },
+                Mesh2d(mesh_handle),
+                MeshMaterial2d(mat_handle),
+                Transform::from_translation(Vec3::Z * 0.0),
+            ))
+            .id();
+        
+        commands.entity(root).add_child(slice_entity);
+        
+        // 图标文本（使用默认字体）
         let icon_entity = commands
             .spawn((
                 SliceIcon { index: i },
@@ -191,7 +346,7 @@ fn spawn_wheel_menu(commands: &mut Commands, meshes: &mut Assets<Mesh>, mats: &m
         
         commands.entity(root).add_child(icon_entity);
         
-        // 标签文本
+        // 标签文本（使用默认字体）
         let label_entity = commands
             .spawn((
                 SliceLabel { index: i },
@@ -221,7 +376,7 @@ fn spawn_wheel_menu(commands: &mut Commands, meshes: &mut Assets<Mesh>, mats: &m
     
     commands.entity(root).add_child(center_entity);
     
-    // 中心提示文本
+    // 中心提示文本（使用默认字体）
     let center_text = commands
         .spawn((
             WheelCenter,

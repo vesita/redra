@@ -17,5 +17,5 @@ version = "0.*"
 default-features = false
 
 [dev-dependencies.bevy]
-version = "0.*"
+version = "0.18"
 default-features = true
