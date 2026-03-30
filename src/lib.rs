@@ -11,9 +11,6 @@ pub mod graph;
 #[cfg(feature = "graph")]
 pub mod render;
 
-// #[cfg(feature = "client")]
-pub mod client;
-
 
 // 别名
 #[cfg(feature = "exec")]

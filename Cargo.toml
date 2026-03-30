@@ -7,6 +7,7 @@ edition = "2024"
 smooth-bevy-cameras = { path = "crates/smooth-bevy-cameras" }
 bevy_wheel_menu = { path = "crates/bevy_wheel_menu" }
 pyri_tooltip = { path = "crates/pyri_tooltip" }
+redra_client = { path = "crates/redra_client", optional = true }
 
 bevy = { version = "0.18", optional = true }
 log = "0.4"
@@ -20,6 +21,14 @@ bevy_egui = { version = "0.39", optional = true }
 spin_sleep = "1.3"
 rusqlite = "0.39"
 
+[workspace]
+members = [
+    "crates/pyri_tooltip",
+    "crates/bevy_wheel_menu",
+    "crates/smooth-bevy-cameras",
+    "crates/redra_client",
+]
+
 
 [build-dependencies]
 prost-build = "0.14"
@@ -27,5 +36,5 @@ prost-build = "0.14"
 [features]
 default = ["exec"]
 exec = ["graph"]
-client = []
+client = ["redra_client"]
 graph = ["dep:bevy", "dep:bevy_egui"]
