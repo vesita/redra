@@ -1,0 +1,306 @@
+use bevy::prelude::*;
+use std::time::{SystemTime, UNIX_EPOCH};
+use crate::module::parser::core::RDPack;
+use crate::graph::communicate::channels::RDChannel;
+
+/// 数据帧 - 带有完整元数据的帧结构
+#[derive(Clone, Debug)]
+pub struct DataFrame {
+    pub frame_id: u32,              // 帧 ID
+    pub sequence_number: u64,       // 全局序列号
+    pub timestamp: u64,             // 时间戳（毫秒）
+    pub points: Vec<RDPack>,        // 帧包含的所有点/形状数据
+    pub is_complete: bool,          // 帧是否完整
+    pub frame_type: FrameType,      // 帧类型
+}
+
+/// 帧类型枚举
+#[derive(Clone, Debug, PartialEq)]
+pub enum FrameType {
+    PCD,           // PCD 文件数据
+    REALTIME,      // 实时传感器数据
+    MANUAL,        // 手动标记的帧
+}
+
+impl Default for FrameType {
+    fn default() -> Self {
+        FrameType::REALTIME
+    }
+}
+
+/// 帧构建器 - 用于累积点数据直到帧完成
+#[derive(Debug)]
+pub struct FrameBuilder {
+    pub frame_id: u32,
+    pub start_time: u64,
+    pub points: Vec<RDPack>,
+    pub expected_points: Option<u32>,  // 如果知道总点数
+}
+
+impl FrameBuilder {
+    pub fn new(frame_id: u32) -> Self {
+        Self {
+            frame_id,
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+            points: Vec::new(),
+            expected_points: None,
+        }
+    }
+
+    pub fn add_point(&mut self, pack: RDPack) {
+        self.points.push(pack);
+    }
+
+    pub fn is_complete(&self) -> bool {
+        match self.expected_points {
+            Some(expected) => self.points.len() >= expected as usize,
+            None => false,  // 如果没有指定期望点数，需要显式标记完成
+        }
+    }
+
+    pub fn build(self) -> DataFrame {
+        let timestamp = self.start_time;
+        DataFrame {
+            frame_id: self.frame_id,
+            sequence_number: 0,  // 将由 Recorder 设置
+            timestamp,
+            points: self.points,
+            is_complete: true,
+            frame_type: FrameType::PCD,
+        }
+    }
+}
+
+/// 记录器资源 - 管理数据帧的录制
+#[derive(Resource)]
+pub struct DataRecorder {
+    pub frames: Vec<DataFrame>,     // 已记录的完整帧
+    pub current_builder: Option<FrameBuilder>,  // 当前正在构建的帧
+    pub is_recording: bool,         // 是否正在录制
+    pub current_sequence: u64,      // 当前序列号
+    pub current_frame_id: u32,      // 当前帧 ID
+    pub recording_start_time: u64,  // 录制开始时间
+    pub total_points_received: u64, // 接收到的总点数
+}
+
+impl Default for DataRecorder {
+    fn default() -> Self {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        
+        Self {
+            frames: Vec::new(),
+            current_builder: None,
+            is_recording: true,
+            current_sequence: 0,
+            current_frame_id: 0,
+            recording_start_time: now,
+            total_points_received: 0,
+        }
+    }
+}
+
+impl DataRecorder {
+    /// 创建新的记录器
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 开始新帧
+    pub fn start_frame(&mut self, frame_id: u32, expected_points: Option<u32>) {
+        let mut builder = FrameBuilder::new(frame_id);
+        builder.expected_points = expected_points;
+        self.current_builder = Some(builder);
+        self.current_frame_id = frame_id;
+        debug!("开始记录帧 #{}", frame_id);
+    }
+
+    /// 添加点到当前帧
+    pub fn add_point_to_frame(&mut self, pack: RDPack) {
+        if !self.is_recording {
+            return;
+        }
+
+        self.total_points_received += 1;
+
+        // 如果没有活动的帧，创建一个
+        if self.current_builder.is_none() {
+            self.start_frame(self.current_frame_id, None);
+        }
+
+        if let Some(ref mut builder) = self.current_builder {
+            builder.add_point(pack);
+            
+            // 检查帧是否完成
+            if builder.is_complete() {
+                self.finish_current_frame();
+            }
+        }
+    }
+
+    /// 完成当前帧
+    pub fn finish_current_frame(&mut self) {
+        // 先获取 frame_id（在 take 之前）
+        let frame_id = self.current_builder.as_ref().map(|b| b.frame_id);
+        
+        if let Some(builder) = self.current_builder.take() {
+            let mut frame = builder.build();
+            frame.sequence_number = self.current_sequence;
+            
+            if let Some(id) = frame_id {
+                debug!(
+                    "完成帧 #{} (序列号：{}), 点数：{}",
+                    id,
+                    frame.sequence_number,
+                    frame.points.len()
+                );
+            }
+            
+            self.frames.push(frame);
+            self.current_sequence += 1;
+            self.current_frame_id += 1;
+        }
+    }
+
+    /// 强制完成当前帧（即使点数未达到期望）
+    pub fn force_finish_frame(&mut self) {
+        if let Some(builder) = self.current_builder.take() {
+            if !builder.points.is_empty() {
+                let mut frame = builder.build();
+                frame.sequence_number = self.current_sequence;
+                self.frames.push(frame);
+                self.current_sequence += 1;
+            }
+        }
+    }
+
+    /// 清除所有记录的帧
+    pub fn clear(&mut self) {
+        self.frames.clear();
+        self.current_builder = None;
+        self.current_sequence = 0;
+        self.current_frame_id = 0;
+        self.recording_start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        self.total_points_received = 0;
+    }
+
+    /// 获取总帧数
+    pub fn total_frames(&self) -> usize {
+        self.frames.len()
+    }
+
+    /// 获取总点数
+    pub fn total_points(&self) -> u64 {
+        self.total_points_received
+    }
+
+    /// 获取录制时长（秒）
+    pub fn recording_duration(&self) -> f64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        ((now - self.recording_start_time) as f64) / 1000.0
+    }
+}
+
+/// 回放管理器资源 - 控制数据帧的回放
+#[derive(Resource)]
+pub struct PlaybackManager {
+    pub is_playing: bool,           // 是否正在播放
+    pub playback_speed: f32,        // 播放速度（1.0 = 正常速度）
+    pub current_frame_index: usize, // 当前帧索引
+    pub last_update_time: u64,      // 上次更新时间
+    pub frame_interval_ms: u64,     // 帧间隔（毫秒）
+    pub loop_playback: bool,        // 是否循环播放
+}
+
+impl Default for PlaybackManager {
+    fn default() -> Self {
+        Self {
+            is_playing: false,
+            playback_speed: 1.0,
+            current_frame_index: 0,
+            last_update_time: 0,
+            frame_interval_ms: 33, // 默认约 30FPS
+            loop_playback: false,
+        }
+    }
+}
+
+impl PlaybackManager {
+    /// 创建新的回放管理器
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 开始播放
+    pub fn play(&mut self) {
+        self.is_playing = true;
+        self.last_update_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+    }
+
+    /// 暂停播放
+    pub fn pause(&mut self) {
+        self.is_playing = false;
+    }
+
+    /// 停止播放并重置到开始
+    pub fn stop(&mut self) {
+        self.is_playing = false;
+        self.current_frame_index = 0;
+    }
+
+    /// 设置播放速度
+    pub fn set_speed(&mut self, speed: f32) {
+        self.playback_speed = speed.max(0.1).min(10.0);
+    }
+
+    /// 跳转到指定帧
+    pub fn seek_to(&mut self, frame_index: usize) {
+        self.current_frame_index = frame_index;
+    }
+
+    /// 前进一帧
+    pub fn next_frame(&mut self, total_frames: usize) {
+        if self.current_frame_index < total_frames.saturating_sub(1) {
+            self.current_frame_index += 1;
+        } else if self.loop_playback {
+            self.current_frame_index = 0;
+        }
+    }
+
+    /// 后退一帧
+    pub fn previous_frame(&mut self) {
+        if self.current_frame_index > 0 {
+            self.current_frame_index -= 1;
+        }
+    }
+}
+
+/// 记录数据帧系统
+/// 从 channel 接收数据并按照帧结构组织
+pub fn record_data_frames(
+    mut recorder: ResMut<DataRecorder>,
+    mut channel: ResMut<RDChannel>,
+) {
+    if !recorder.is_recording {
+        return;
+    }
+
+    // 接收所有可用的数据包并记录到当前帧
+    while let Ok(pack) = channel.receiver.try_recv() {
+        recorder.add_point_to_frame(pack);
+    }
+}

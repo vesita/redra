@@ -12,7 +12,7 @@ pub mod material;
 pub use material::{MaterialManager, PredefinedMaterial};
 
 use bevy::prelude::*;
-use ui::UiModule;
+use ui::{UiModule, playback_control::PlaybackUiPlugin};
 
 // 定义 GraphPlugin 来整合所有图形相关的插件和系统
 pub struct GraphPlugin;
@@ -20,6 +20,7 @@ pub struct GraphPlugin;
 impl Plugin for GraphPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(action::ActionPlugin)
-            .add_plugins(UiModule);
+            .add_plugins(UiModule)
+            .add_plugins(PlaybackUiPlugin);
     }
 }

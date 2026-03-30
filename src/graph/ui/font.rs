@@ -53,7 +53,7 @@ fn load_all_fonts(
 }
 
 /// 系统：设置 egui 字体（每帧检查，确保上下文准备好后设置）
-fn setup_egui_fonts(
+pub fn setup_egui_fonts(
     mut contexts: EguiContexts,
     font_assets: Option<Res<FontAssets>>,
 ) {

@@ -1,7 +1,9 @@
-pub mod panel;
+pub mod control;
 pub mod font;
+pub mod panel;
 pub mod share;
 pub mod wheel_menu;
+pub mod playback_control;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;

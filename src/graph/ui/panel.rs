@@ -111,13 +111,13 @@ fn update_panel_visibility(
         return;
     }
 
-    let ctx = match contexts.ctx_mut() {
-        Ok(ctx) => ctx,
-        Err(_) => return,  // 如果无法获取上下文，直接返回
+    let Ok(_ctx) = contexts.ctx_mut() else {
+        return;
     };
 
-    // 更新egui上下文的显示状态
-    ctx.set_pixels_per_point(if panel_visibility.visible { 1.0 } else { 0.1 });
+    // 不再通过修改 pixels_per_point 来控制面板可见性
+    // 而是保持 DPI 不变，让面板系统自己处理显示/隐藏
+    // ctx.set_pixels_per_point(1.0); // 始终保持正常 DPI
 }
 
 // UI面板系统，每帧运行，更新viewport以适应面板
