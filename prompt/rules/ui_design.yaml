@@ -1,0 +1,127 @@
+# ============================================================================
+# UI设计规则 - 定义用户界面的设计和实现规范
+# ============================================================================
+# 优先级：P1 (高) | mandatory: true (必须遵守)
+# 依赖：lang_001 (语言偏好), fmt_001 (格式偏好)
+# ============================================================================
+
+rule_index:
+  id: "ui_001"
+  category: "ui_design"
+  mandatory: true
+  depends_on: ["lang_001", "fmt_001"]
+
+# 🎨 UI设计原则
+principles:
+  # 简洁性原则
+  minimal_ui: true
+  # 数据驱动原则
+  data_driven_ui: true
+  # 用户体验优先
+  user_experience_priority: true
+  # 一致性原则
+  consistency_across_components: true
+
+# 🏗️ UI架构规范
+architecture:
+  # 核心系统：数据播放系统
+  primary_system: "data_playback_system"
+  # 辅助系统：实验性质的轮盘菜单
+  experimental_features:
+    - "wheel_menu"
+  # 禁用的UI组件
+  disabled_components:
+    - "control"
+    - "panel"
+    - "share"
+    - "font"
+    - "playback_control"
+  # UI插件结构
+  plugin_structure: "modular_ui_system"
+  # UI状态管理
+  state_management: "ecs_based"
+
+# 📱 UI组件分类
+components:
+  # 主要功能组件（必须有）
+  primary_components:
+    data_play_control: 
+      purpose: "数据播放控制面板，简化版UI"
+      required: true
+      location: "top_left_corner"
+      
+  # 实验性组件（可选）
+  experimental_components:
+    wheel_menu:
+      purpose: "实验性轮盘菜单，未来可能实现"
+      required: false
+      location: "center_screen_on_activation"
+      activation_key: "Tab"
+      
+  # 辅助功能组件（可选）
+  auxiliary_components:
+    timeline_view:
+      purpose: "时间轴可视化"
+      required: false
+      depends_on: "data_play_control"
+    frame_list:
+      purpose: "帧列表显示"
+      required: false
+      depends_on: "data_play_control"
+
+# 🎯 UI实现要求
+implementation_requirements:
+  # 使用egui作为主要UI框架
+  primary_framework: "egui"
+  # UI响应方式
+  input_handling: "keyboard_and_mouse"
+  # 主题风格
+  theme_style: "dark_mode_preferred"
+  # 性能要求
+  performance_constraint: "low_cpu_usage"
+  # 资源管理
+  resource_efficiency: "minimal_memory_footprint"
+
+# 🧭 UI布局规范
+layout_guidelines:
+  # 主控制面板位置
+  main_control_position: "fixed_top_left"
+  # 尺寸规范
+  default_panel_size: "300x150_px"
+  # 窗口行为
+  window_behavior: "collapsible_non_resizable"
+  # 辅助窗口
+  secondary_windows: "can_be_resized_and_moved"
+
+# 🚫 禁止事项
+prohibited:
+  - "unnecessary_ui_elements"
+  - "multiple_main_control_panels"
+  - "complex_menus_not_related_to_data_playback"
+  - "automatic_popups_without_user_interaction"
+  - "resource_heavy_decorative_elements"
+
+# ✅ 实现目标
+goals:
+  # 主要目标
+  primary_goal: "provide_clear_control_interface_for_data_playback_system"
+  # 辅助目标
+  secondary_goal: "maintain_experimental_wheel_menu_for_future_development"
+  # 性能目标
+  performance_goal: "keep_ui_rendering_efficient"
+  # 用户体验目标
+  ux_goal: "intuitive_operation_for_data_playback"
+
+# 💡 实施提示
+# ────────────────────────────────────────
+# ✅ 推荐做法：
+#   - 主UI应专注于数据播放系统控制
+#   - 实验性功能应保持独立，不影响主系统
+#   - 保持UI简洁，避免过多装饰元素
+#   - 确保UI响应迅速，不阻塞主线程
+#
+# 🚫 避免做法：
+#   - 添加与数据播放无关的复杂UI
+#   - 在没有明确需求时扩展UI功能
+#   - 实现消耗大量资源的UI效果
+#   - 创建多个重复功能的UI面板

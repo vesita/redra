@@ -2,6 +2,37 @@ use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::module::parser::core::RDPack;
 use crate::graph::communicate::channels::RDChannel;
+use redra_storage::{FrameMetadata, FrameType, FrameStorage};
+
+/// 序列化点云数据为二进制格式
+fn serialize_point_cloud(packs: &[RDPack]) -> Vec<u8> {
+    // Simple binary serialization (can be improved with bincode or protobuf later)
+    let mut buffer = Vec::new();
+    
+    // Write number of points
+    buffer.extend_from_slice(&(packs.len() as u32).to_le_bytes());
+    
+    // Write each pack (simplified, should use bincode in production)
+    for pack in packs {
+        match pack {
+            RDPack::Message(msg) => {
+                buffer.push(0);  // Type marker
+                buffer.extend_from_slice(&(msg.len() as u32).to_le_bytes());
+                buffer.extend_from_slice(msg.as_bytes());
+            },
+            RDPack::SpawnShape(_) => {
+                buffer.push(1);  // Type marker
+                // TODO: Implement Shape serialization
+            },
+            RDPack::SpawnFormat(_) => {
+                buffer.push(2);  // Type marker
+                // TODO: Implement Format serialization
+            },
+        }
+    }
+    
+    buffer
+}
 
 /// 数据帧 - 带有完整元数据的帧结构
 #[derive(Clone, Debug)]
@@ -11,21 +42,7 @@ pub struct DataFrame {
     pub timestamp: u64,             // 时间戳（毫秒）
     pub points: Vec<RDPack>,        // 帧包含的所有点/形状数据
     pub is_complete: bool,          // 帧是否完整
-    pub frame_type: FrameType,      // 帧类型
-}
-
-/// 帧类型枚举
-#[derive(Clone, Debug, PartialEq)]
-pub enum FrameType {
-    PCD,           // PCD 文件数据
-    REALTIME,      // 实时传感器数据
-    MANUAL,        // 手动标记的帧
-}
-
-impl Default for FrameType {
-    fn default() -> Self {
-        FrameType::REALTIME
-    }
+    pub frame_type: FrameType,      // 帧类型（来自 redra_storage）
 }
 
 /// 帧构建器 - 用于累积点数据直到帧完成
@@ -69,7 +86,7 @@ impl FrameBuilder {
             timestamp,
             points: self.points,
             is_complete: true,
-            frame_type: FrameType::PCD,
+            frame_type: FrameType::PCD,  // 使用 redra_storage 的 FrameType
         }
     }
 }
@@ -77,13 +94,19 @@ impl FrameBuilder {
 /// 记录器资源 - 管理数据帧的录制
 #[derive(Resource)]
 pub struct DataRecorder {
-    pub frames: Vec<DataFrame>,     // 已记录的完整帧
+    pub frames: Vec<DataFrame>,     // 已记录的完整帧（内存缓存）
     pub current_builder: Option<FrameBuilder>,  // 当前正在构建的帧
     pub is_recording: bool,         // 是否正在录制
     pub current_sequence: u64,      // 当前序列号
     pub current_frame_id: u32,      // 当前帧 ID
     pub recording_start_time: u64,  // 录制开始时间
     pub total_points_received: u64, // 接收到的总点数
+    
+    // SQLite 持久化存储（使用 Arc<Mutex<>> 保证线程安全）
+    pub storage: Option<std::sync::Arc<std::sync::Mutex<FrameStorage>>>,
+    
+    // 待持久化的帧缓冲区
+    pub pending_persistence: Vec<DataFrame>,
 }
 
 impl Default for DataRecorder {
@@ -101,6 +124,8 @@ impl Default for DataRecorder {
             current_frame_id: 0,
             recording_start_time: now,
             total_points_received: 0,
+            storage: None,  // Will be initialized by ActionPlugin
+            pending_persistence: Vec::new(),
         }
     }
 }
@@ -145,7 +170,6 @@ impl DataRecorder {
 
     /// 完成当前帧
     pub fn finish_current_frame(&mut self) {
-        // 先获取 frame_id（在 take 之前）
         let frame_id = self.current_builder.as_ref().map(|b| b.frame_id);
         
         if let Some(builder) = self.current_builder.take() {
@@ -161,7 +185,28 @@ impl DataRecorder {
                 );
             }
             
-            self.frames.push(frame);
+            // 持久化到 SQLite（如果有存储）
+            if let Some(ref storage_arc) = self.storage {
+                let buffer = serialize_point_cloud(&frame.points);
+                
+                let metadata = FrameMetadata {
+                    frame_id: frame.frame_id,
+                    sequence_number: frame.sequence_number,
+                    timestamp: frame.timestamp,
+                    point_count: frame.points.len() as u32,
+                    frame_type: frame.frame_type.to_string(),
+                    data_path: String::new(),
+                };
+                
+                let storage = storage_arc.lock().unwrap();
+                if let Err(e) = storage.save_frame(&buffer, metadata) {
+                    error!("Failed to persist frame {}: {}", frame_id.unwrap_or(0), e);
+                }
+            } else {
+                // 内存模式
+                self.frames.push(frame);
+            }
+
             self.current_sequence += 1;
             self.current_frame_id += 1;
         }
@@ -173,8 +218,37 @@ impl DataRecorder {
             if !builder.points.is_empty() {
                 let mut frame = builder.build();
                 frame.sequence_number = self.current_sequence;
-                self.frames.push(frame);
+                
+                debug!(
+                    "强制完成帧 #{} (序列号：{}), 点数：{}",
+                    frame.frame_id,
+                    frame.sequence_number,
+                    frame.points.len()
+                );
+
+                // 持久化到 SQLite（如果有存储）
+                if let Some(ref storage_arc) = self.storage {
+                    let buffer = serialize_point_cloud(&frame.points);
+                    
+                    let metadata = FrameMetadata {
+                        frame_id: frame.frame_id,
+                        sequence_number: frame.sequence_number,
+                        timestamp: frame.timestamp,
+                        point_count: frame.points.len() as u32,
+                        frame_type: frame.frame_type.to_string(),
+                        data_path: String::new(),
+                    };
+                    
+                    let storage = storage_arc.lock().unwrap();
+                    if let Err(e) = storage.save_frame(&buffer, metadata) {
+                        error!("Failed to persist frame {}: {}", frame.frame_id, e);
+                    }
+                } else {
+                    self.frames.push(frame);
+                }
+
                 self.current_sequence += 1;
+                self.current_frame_id += 1;
             }
         }
     }
@@ -221,6 +295,9 @@ pub struct PlaybackManager {
     pub last_update_time: u64,      // 上次更新时间
     pub frame_interval_ms: u64,     // 帧间隔（毫秒）
     pub loop_playback: bool,        // 是否循环播放
+    
+    // 回放时临时加载的帧（从 SQLite 加载）
+    pub loaded_frame: Option<Vec<RDPack>>,
 }
 
 impl Default for PlaybackManager {
@@ -232,6 +309,7 @@ impl Default for PlaybackManager {
             last_update_time: 0,
             frame_interval_ms: 33, // 默认约 30FPS
             loop_playback: false,
+            loaded_frame: None,
         }
     }
 }

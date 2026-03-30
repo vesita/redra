@@ -3,14 +3,14 @@
 # ============================================================================
 # 用途：定义 AI 助手的行为准则和代码规范
 # 维护者：项目团队
-# 最后更新：2026-03-27
+# 最后更新：2026-04-02
 # ============================================================================
 
 # 📊 元数据
 meta:
-  version: "1.1.0"
+  version: "1.2.0"
   description: "AI 协作规则配置"
-  last_updated: "2026-03-27"
+  last_updated: "2026-04-02"
 
 # 🎯 核心规则 (必须遵守)
 # ────────────────────────────────────────
@@ -29,10 +29,12 @@ core_rules:
 plugins:
   # 📘 示例插件：Git 提交规范 (用作教学示范)
   - { order: 4, file: "git_commit.yaml", name: "Git 提交规范", enabled: false, category: "example" }
+  # 🖥️ 新增插件：UI设计规范 (2026-04-02)
+  - { order: 5, file: "ui_design.yaml", name: "UI设计规范", enabled: true, category: "ui" }
   
   # ────────────────────────────────────────
   # 新增插件模板:
-  # - { order: 5, file: "your_rule.yaml", name: "规则名称", enabled: false, category: "your_category" }
+  # - { order: 6, file: "your_rule.yaml", name: "规则名称", enabled: false, category: "your_category" }
   # ────────────────────────────────────────
 
 # 🌍 作用域配置

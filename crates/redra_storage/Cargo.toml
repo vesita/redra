@@ -1,0 +1,15 @@
+[package]
+name = "redra_storage"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# SQLite 数据库支持
+rusqlite = "0.39"
+
+# 日志支持
+log = "0.4"
+
+[dev-dependencies]
+# 测试依赖
+tempfile = "3"
