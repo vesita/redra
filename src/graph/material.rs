@@ -111,6 +111,12 @@ impl MaterialManager {
         }
     }
 
+    /// 获取材质句柄（不需要 ResMut 版本）
+    /// 返回材质描述，调用者需要自行创建材质
+    pub fn get_material_desc(&self, name: &str) -> Option<&PredefinedMaterial> {
+        self.predefined_materials.get(name)
+    }
+
     /// 从外部资源加载材质（例如从文件）
     pub fn load_material_from_config(&mut self, name: &str, config: &str) -> Result<(), String> {
         // 这里可以实现从配置字符串加载材质的逻辑

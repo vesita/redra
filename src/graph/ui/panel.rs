@@ -1,5 +1,5 @@
 use bevy::{
-    camera::{CameraOutputMode, Viewport, visibility::RenderLayers}, 
+    camera::{CameraOutputMode, Viewport}, 
     prelude::*, 
     render::render_resource::BlendState, 
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
@@ -57,24 +57,22 @@ impl Plugin for PanelPlugin {
     }
 }
 
-// 设置UI相机
+// 设置 UI 相机
 fn setup_ui_camera(
     mut commands: Commands,
     mut egui_global_settings: ResMut<EguiGlobalSettings>,
 ) {
-    // commands.spawn(Camera2d);
     // 禁用自动创建主上下文，以便手动设置我们需要的相机
     egui_global_settings.auto_create_primary_context = false;
 
-    // EGUI相机，用于渲染UI
+    // EGUI 相机，用于渲染 UI（同时支持 Mesh2d/Text2d 如轮盘菜单）
     commands.spawn((
-        // PrimaryEguiContext组件需要渲染主上下文的所有内容
+        // PrimaryEguiContext 组件需要渲染主上下文的所有内容
         PrimaryEguiContext,
         Camera2d::default(),
-        // 设置渲染层为无，确保我们只渲染UI
-        RenderLayers::none(),
+        // 不要限制 RenderLayers，这样 Mesh2d/Text2d 也能被此相机渲染
         Camera {
-            order: 2,  // 设置更高的渲染顺序，确保UI在主相机之上渲染
+            order: 2,  // 设置更高的渲染顺序，确保 UI 在主相机之上渲染
             output_mode: CameraOutputMode::Write {
                 blend_state: Some(BlendState::ALPHA_BLENDING),
                 clear_color: ClearColorConfig::None,
@@ -147,17 +145,17 @@ fn ui_panel_system(
     }
 
     // 创建可调整大小的边方面板
-    let mut left = egui::SidePanel::left("left_panel")
+    let mut left = bevy_egui::egui::SidePanel::left("left_panel")
         .resizable(true)
         .default_width(250.0)
         .min_width(200.0)
-        .frame(egui::Frame {
+        .frame(bevy_egui::egui::Frame {
             fill: ctx.style().visuals.panel_fill,
-            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            stroke: bevy_egui::egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
             ..Default::default()
         })
         .show(&ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            bevy_egui::egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("场景控制");
                 ui.separator();
                 
@@ -200,7 +198,7 @@ fn ui_panel_system(
                     ui.add_space(5.0);
                     ui.horizontal(|ui| {
                         ui.label("帧率限制:");
-                        ui.add(egui::Slider::new(&mut 30.0f32, 5.0..=60.0).text("FPS"));
+                        ui.add(bevy_egui::egui::Slider::new(&mut 30.0f32, 5.0..=60.0).text("FPS"));
                     });
                 });
             });
@@ -209,17 +207,17 @@ fn ui_panel_system(
         .rect
         .width();
 
-    let mut right = egui::SidePanel::right("right_panel")
+    let mut right = bevy_egui::egui::SidePanel::right("right_panel")
         .resizable(true)
         .default_width(300.0)
         .min_width(200.0)
-        .frame(egui::Frame {
+        .frame(bevy_egui::egui::Frame {
             fill: ctx.style().visuals.panel_fill,
-            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            stroke: bevy_egui::egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
             ..Default::default()
         })
         .show(&ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            bevy_egui::egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("属性编辑器");
                 
                 ui.separator();
@@ -227,45 +225,45 @@ fn ui_panel_system(
                     ui.label("位置");
                     ui.horizontal(|ui| {
                         ui.label("X:");
-                        ui.add(egui::DragValue::new(&mut ui_state.position.x).speed(0.1).prefix("x: "));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.position.x).speed(0.1).prefix("x: "));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Y:");
-                        ui.add(egui::DragValue::new(&mut ui_state.position.y).speed(0.1).prefix("y: "));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.position.y).speed(0.1).prefix("y: "));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Z:");
-                        ui.add(egui::DragValue::new(&mut ui_state.position.z).speed(0.1).prefix("z: "));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.position.z).speed(0.1).prefix("z: "));
                     });
                     
                     ui.add_space(10.0);
                     ui.label("旋转 (度)");
                     ui.horizontal(|ui| {
                         ui.label("X:");
-                        ui.add(egui::DragValue::new(&mut ui_state.rotation.x).speed(1.0).suffix("°"));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.rotation.x).speed(1.0).suffix("°"));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Y:");
-                        ui.add(egui::DragValue::new(&mut ui_state.rotation.y).speed(1.0).suffix("°"));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.rotation.y).speed(1.0).suffix("°"));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Z:");
-                        ui.add(egui::DragValue::new(&mut ui_state.rotation.z).speed(1.0).suffix("°"));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.rotation.z).speed(1.0).suffix("°"));
                     });
                     
                     ui.add_space(10.0);
                     ui.label("缩放");
                     ui.horizontal(|ui| {
                         ui.label("X:");
-                        ui.add(egui::DragValue::new(&mut ui_state.scale.x).speed(0.05).range(0.1..=10.0));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.scale.x).speed(0.05).range(0.1..=10.0));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Y:");
-                        ui.add(egui::DragValue::new(&mut ui_state.scale.y).speed(0.05).range(0.1..=10.0));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.scale.y).speed(0.05).range(0.1..=10.0));
                     });
                     ui.horizontal(|ui| {
                         ui.label("Z:");
-                        ui.add(egui::DragValue::new(&mut ui_state.scale.z).speed(0.05).range(0.1..=10.0));
+                        ui.add(bevy_egui::egui::DragValue::new(&mut ui_state.scale.z).speed(0.05).range(0.1..=10.0));
                     });
                 });
                 
@@ -284,12 +282,12 @@ fn ui_panel_system(
                 ui.collapsing("灯光控制", |ui| {
                     ui.horizontal(|ui| {
                         ui.label("环境光强度:");
-                        ui.add(egui::Slider::new(&mut 0.3f32, 0.0..=1.0).step_by(0.01));
+                        ui.add(bevy_egui::egui::Slider::new(&mut 0.3f32, 0.0..=1.0).step_by(0.01));
                     });
                     
                     ui.horizontal(|ui| {
                         ui.label("主光源强度:");
-                        ui.add(egui::Slider::new(&mut 1.0f32, 0.0..=5.0).step_by(0.01));
+                        ui.add(bevy_egui::egui::Slider::new(&mut 1.0f32, 0.0..=5.0).step_by(0.01));
                     });
                 });
             });
@@ -298,17 +296,17 @@ fn ui_panel_system(
         .rect
         .width();
 
-    let mut top = egui::TopBottomPanel::top("top_panel")
+    let mut top = bevy_egui::egui::TopBottomPanel::top("top_panel")
         .resizable(true)
         .default_height(50.0)
         .min_height(40.0)
-        .frame(egui::Frame {
+        .frame(bevy_egui::egui::Frame {
             fill: ctx.style().visuals.panel_fill,
-            stroke: egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
+            stroke: bevy_egui::egui::Stroke::new(1.0, ctx.style().visuals.widgets.noninteractive.bg_stroke.color),
             ..Default::default()
         })
         .show(&ctx, |ui| {
-            egui::Frame::new().show(ui, |ui| {
+            bevy_egui::egui::Frame::new().show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.menu_button("文件", |ui| {
                         if ui.button("新建").clicked() {
@@ -354,8 +352,8 @@ fn ui_panel_system(
                     ui.heading("Redra - 3D可视化系统"); // 使用heading控件，它会应用全局字体设置
                     
                     // 添加状态指示器
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.colored_label(egui::Color32::GREEN, "●").on_hover_text("就绪");
+                    ui.with_layout(bevy_egui::egui::Layout::right_to_left(bevy_egui::egui::Align::Center), |ui| {
+                        ui.colored_label(bevy_egui::egui::Color32::GREEN, "●").on_hover_text("就绪");
                         ui.separator();
                         ui.label(format!("FPS: {:.1}", 60.0)); // 这里应该从实际FPS数据获取
                     });

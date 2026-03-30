@@ -12,7 +12,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::module::camera::{LookAngles, LookTransform, LookTransformBundle, Smoother};
+use crate::{LookAngles, LookTransform, LookTransformBundle, Smoother};
 
 #[derive(Default)]
 pub struct OrbitCameraPlugin {

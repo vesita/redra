@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 
-use crate::{module::{camera::fps::*}, graph::axis};
+use crate::graph::axis;
 
 pub fn rd_setup (
     mut commands: Commands,
@@ -52,7 +53,7 @@ pub fn rd_setup (
     };
 
 
-    // 添加FPS相机控制器 (设置较高的渲染顺序，作为主相机)
+    // 添加FPS相机控制器 (设置唯一的渲染顺序，作为主相机)
     commands
         .spawn((
             Camera3d::default(),
@@ -72,7 +73,16 @@ pub fn rd_setup (
             Vec3::new(0.0, 0.0, 0.0),    // 看向的目标点
             Vec3::Y,
         ));
-    
+
+    // 添加 2D 相机用于 UI 渲染（轮盘菜单等）- 已禁用，保持单相机
+    // commands.spawn((
+    //     Camera2d::default(),
+    //     Camera {
+    //         order: 2,  // UI 渲染在 3D 场景之后
+    //         ..default()
+    //     },
+    // ));
+
     // 添加坐标轴
     axis::spawn_axis(&mut commands, &mut meshes, &mut materials, 3.0);
 }

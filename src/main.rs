@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use redra::graph::communicate::channels::RDChannel;
 use redra::graph::init::material::initialize_materials;
 use redra::graph::GraphPlugin;
-use redra::module::camera::LookTransformPlugin;
 use redra::{
     graph::{setup::rd_setup, update::rd_update},
-    module::{camera::fps::*,parser::core::RDPack},
+    module::parser::core::RDPack,
     net::listener::RDListener,
 };
+use smooth_bevy_cameras::LookTransformPlugin;
+use smooth_bevy_cameras::controllers::fps::FpsCameraPlugin;
 use tokio::sync::{broadcast, mpsc};
 
 use log::info;

@@ -11,7 +11,7 @@
 //!
 //! ```rust
 //! use bevy::prelude::*;
-//! use crate::module::camera::{LookTransform, LookTransformBundle, LookTransformPlugin, Smoother};
+//! use crate::smooth_bevy_cameras::{LookTransform, LookTransformBundle, LookTransformPlugin, Smoother};
 //!
 //! fn main() {
 //!     App::new()
@@ -48,7 +48,7 @@
 //!
 //! ```rust
 //! use bevy::prelude::*;
-//! use crate::module::camera::{
+//! use crate::smooth_bevy_cameras::{
 //!     LookAngles,
 //!     LookTransform
 //! };
@@ -70,18 +70,18 @@
 //!
 //! These plugins depend on the [`LookTransformPlugin`]:
 //!
-//! - [`FpsCameraPlugin`](crate::module::camera::controllers::fps::FpsCameraPlugin) +
-//!   [`FpsCameraBundle`](crate::module::camera::controllers::fps::FpsCameraBundle)
+//! - [`FpsCameraPlugin`](crate::smooth_bevy_cameras::controllers::fps::FpsCameraPlugin) +
+//!   [`FpsCameraBundle`](crate::smooth_bevy_cameras::controllers::fps::FpsCameraBundle)
 //!   - WASD: Translate on the XZ plane
 //!   - Shift/Space: Translate along the Y axis
 //!   - Mouse: Rotate camera
-//! - [`OrbitCameraPlugin`](crate::module::camera::controllers::orbit::OrbitCameraPlugin) +
-//!   [`OrbitCameraBundle`](crate::module::camera::controllers::orbit::OrbitCameraBundle)
+//! - [`OrbitCameraPlugin`](crate::smooth_bevy_cameras::controllers::orbit::OrbitCameraPlugin) +
+//!   [`OrbitCameraBundle`](crate::smooth_bevy_cameras::controllers::orbit::OrbitCameraBundle)
 //!   - CTRL + mouse drag: Rotate camera
 //!   - Right mouse drag: Pan camera
 //!   - Mouse wheel: Zoom
-//! - [`UnrealCameraPlugin`](crate::module::camera::controllers::unreal::UnrealCameraPlugin) +
-//!   [`UnrealCameraBundle`](crate::module::camera::controllers::unreal::UnrealCameraBundle)
+//! - [`UnrealCameraPlugin`](crate::smooth_bevy_cameras::controllers::unreal::UnrealCameraPlugin) +
+//!   [`UnrealCameraBundle`](crate::smooth_bevy_cameras::controllers::unreal::UnrealCameraBundle)
 //!
 //!   Best use: hold Right mouse button to orbit the view while using WASD to
 //!   navigate in the scene, using scroll wheel to accelerate/decelerate.
@@ -96,7 +96,6 @@
 //!   - While holding no mouse button, use scroll wheel for locomotion
 //!     forward/backward
 
-use bevy::app::Plugin;
 
 pub mod controllers;
 

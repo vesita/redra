@@ -11,7 +11,7 @@ use bevy::{
     window::{CursorGrabMode, CursorOptions},
 };
 
-use crate::module::camera::{LookAngles, LookTransform, LookTransformBundle, Smoother};
+use crate::{LookAngles, LookTransform, LookTransformBundle, Smoother};
 
 /// Defines the cursor toggle mode for the FPS camera
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Reflect)]

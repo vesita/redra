@@ -1,12 +1,14 @@
 pub mod panel;
 pub mod font;
 pub mod share;
+pub mod wheel_menu;
 
 use bevy::prelude::*;
-use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
+use bevy_egui::EguiPlugin;
 
 use panel::PanelPlugin;
-use crate::graph::ui::font::replace_fonts;
+use font::FontPlugin;
+use wheel_menu::WheelMenuGraphPlugin;
 
 pub struct UiModule;
 
@@ -14,7 +16,7 @@ impl Plugin for UiModule {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
             .add_plugins(PanelPlugin)
-            // .add_systems(Update, toggle_camera_mode_system)
-            .add_systems(EguiPrimaryContextPass, replace_fonts);
+            .add_plugins(FontPlugin)
+            .add_plugins(WheelMenuGraphPlugin);
     }
 }
