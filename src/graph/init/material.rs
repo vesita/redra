@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{graph::material::{MaterialManager, PredefinedMaterial}};
+use crate::{graph::rendering::material::{MaterialManager, PredefinedMaterial}};
 
 /// 在引擎启动时初始化材质资源
 pub fn initialize_materials(

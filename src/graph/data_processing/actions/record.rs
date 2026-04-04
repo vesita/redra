@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
+use log::error;
 use crate::module::parser::core::RDPack;
 use crate::graph::communicate::channels::RDChannel;
 use redra_storage::{FrameMetadata, FrameType, FrameStorage};
@@ -103,7 +105,7 @@ pub struct DataRecorder {
     pub total_points_received: u64, // 接收到的总点数
     
     // SQLite 持久化存储（使用 Arc<Mutex<>> 保证线程安全）
-    pub storage: Option<std::sync::Arc<std::sync::Mutex<FrameStorage>>>,
+    pub storage: Option<Arc<Mutex<FrameStorage>>>,
     
     // 待持久化的帧缓冲区
     pub pending_persistence: Vec<DataFrame>,
@@ -124,7 +126,7 @@ impl Default for DataRecorder {
             current_frame_id: 0,
             recording_start_time: now,
             total_points_received: 0,
-            storage: None,  // Will be initialized by ActionPlugin
+            storage: None,  // Will be initialized by DataProcessingPlugin
             pending_persistence: Vec::new(),
         }
     }
@@ -155,7 +157,7 @@ impl DataRecorder {
 
         // 如果没有活动的帧，创建一个
         if self.current_builder.is_none() {
-            self.start_frame(self.current_frame_id, None);
+            self.start_frame(self.current_builder.as_ref().map(|b| b.frame_id).unwrap_or(self.current_frame_id), None);
         }
 
         if let Some(ref mut builder) = self.current_builder {

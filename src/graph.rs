@@ -1,15 +1,17 @@
-pub mod setup;
-pub mod update;
-pub mod action;
-pub mod axis;
-pub mod init;
-pub mod communicate;
+pub mod rendering;
+pub mod data_processing;
+pub mod interaction;
 pub mod ui;
-pub mod component;
+pub mod axis;
 
 // 导入材质模块
-pub mod material;
-pub use material::{MaterialManager, PredefinedMaterial};
+pub use rendering::material::{MaterialManager, PredefinedMaterial};
+
+// 保留原通信模块
+pub mod communicate;
+
+// 保留init模块
+pub mod init;
 
 use bevy::prelude::*;
 use ui::data_play_control::DataPlayControlPlugin;
@@ -19,7 +21,8 @@ pub struct GraphPlugin;
 
 impl Plugin for GraphPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(action::ActionPlugin)
+        app.add_plugins(data_processing::DataProcessingPlugin)
+            .add_plugins(rendering::RenderingPlugin)  // 添加RenderingPlugin
             .add_plugins(ui::UiModule)
             .add_plugins(DataPlayControlPlugin);
     }

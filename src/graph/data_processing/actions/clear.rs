@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::graph::action::spawn::SpawnedEntity;
+use crate::graph::data_processing::entities::SpawnedEntity;
 
 // 定义清除所有对象的消息
 #[derive(Message)]

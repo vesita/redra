@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use redra::graph::communicate::channels::RDChannel;
 use redra::graph::init::material::initialize_materials;
+use redra::graph::init::rd_setup;
 use redra::graph::GraphPlugin;
 use redra::manager::Manager;
 use redra::{
-    graph::{setup::rd_setup, update::rd_update},
     module::parser::core::RDPack,
     net::listener::RDListener,
 };
@@ -14,7 +14,7 @@ use tokio::sync::{broadcast, mpsc};
 
 use log::info;
 
-use redra::render::frame::{toggle_frame_rate, FrameRateState};
+use redra::render::frame::FrameRateState;
 
 /// 程序主入口函数
 /// 
@@ -52,12 +52,11 @@ async fn main() -> Result<(), std::io::Error> {
         .add_plugins(Manager::default())
         .add_plugins(FpsCameraPlugin::default()) // 添加FPS相机插件
         .add_plugins(LookTransformPlugin) // 添加相机变换插件
-        .add_plugins(GraphPlugin) // 使用 GraphPlugin 替代 UiModule
+        .add_plugins(GraphPlugin)
         .insert_resource(channel) // 插入通信通道资源
         .add_systems(Startup, rd_setup) // 添加rd_setup系统
         .add_systems(Startup, initialize_materials) // 添加initialize_materials系统
         .insert_resource(FrameRateState { change: true, frame_rate: 60.0 }) // 添加帧率状态资源
-        .add_systems(Update, (rd_update, toggle_frame_rate)) // 添加更新系统和帧率切换系统
         .run();
     Ok(())
 }

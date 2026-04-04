@@ -1,23 +1,10 @@
 use bevy::prelude::*;
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 
-pub mod material;
-
-pub fn rd_setup(
+// 相机控制相关的系统和资源
+pub fn setup_camera(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut global_ambient: ResMut<GlobalAmbientLight>,  // 添加全局环境光资源
 ) {
-
-    // 设置全局环境光
-    *global_ambient = GlobalAmbientLight {
-        color: Color::WHITE,
-        brightness: 1000.0,  // 改回原来的高亮度值
-        affects_lightmapped_meshes: true,
-    };
-
-    // 添加FPS相机控制器
     commands
         .spawn((
             Camera3d::default(),
@@ -37,7 +24,4 @@ pub fn rd_setup(
             Vec3::new(0.0, 0.0, 0.0),    // 看向的目标点
             Vec3::Y,
         ));
-
-    // 添加坐标轴
-    crate::graph::axis::spawn_axis(&mut commands, &mut meshes, &mut materials, 3.0);
 }

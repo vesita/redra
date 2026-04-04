@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
-use crate::{graph::action::record::{DataRecorder, PlaybackManager}, manager::font::core::{FontAssets, setup_egui_fonts}};
+use crate::{graph::data_processing::actions::record::{DataRecorder, PlaybackManager}, manager::font::core::{FontAssets, setup_egui_fonts}};
 
 /// 数据播放控制 UI 插件
 pub struct DataPlayControlPlugin;

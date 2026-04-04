@@ -1,23 +1,23 @@
 use bevy::prelude::*;
 
-pub mod spawn;
-pub mod clear;
-pub mod record;
+pub mod actions;
+pub mod entities;
 
-// 定义 ActionPlugin 来注册相关系统
-pub struct ActionPlugin;
+// 定义数据处理插件
+pub struct DataProcessingPlugin;
 
-impl Plugin for ActionPlugin {
+impl Plugin for DataProcessingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<record::DataRecorder>()
-            .init_resource::<record::PlaybackManager>()
-            .add_systems(Update, record::record_data_frames)
+        app
+            .init_resource::<actions::record::DataRecorder>()
+            .init_resource::<actions::record::PlaybackManager>()
+            .add_systems(Update, actions::record::record_data_frames)
             .add_systems(Startup, initialize_storage);
     }
 }
 
 /// 初始化 SQLite 存储系统
-fn initialize_storage(mut recorder: ResMut<record::DataRecorder>) {
+fn initialize_storage(mut recorder: ResMut<actions::record::DataRecorder>) {
     use std::path::PathBuf;
     use redra_storage::storage::FrameStorage;
     

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{graph::{MaterialManager, PredefinedMaterial, communicate::channels}, module::parser::core::{RDPack, RDShapePack}};
+use crate::{graph::{MaterialManager, PredefinedMaterial}, module::parser::core::{RDPack, RDShapePack}};
 
 // 为动态生成的实体定义标记组件
 #[derive(Component)]
@@ -12,7 +12,7 @@ pub fn recv_and_spawn(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     material_manager: ResMut<MaterialManager>,
-    mut channel: ResMut<channels::RDChannel>,
+    mut channel: ResMut<crate::graph::communicate::channels::RDChannel>,
 ) {
     // 先处理所有来自 channel 的数据包，避免借用冲突
     let mut packs = Vec::new();
