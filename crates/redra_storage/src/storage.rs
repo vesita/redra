@@ -4,8 +4,9 @@ use rusqlite::{Connection, params, Result as SqliteResult};
 use std::path::{Path, PathBuf};
 use std::fs;
 use log::warn;
+use std::env;
 
-/// Frame metadata (stored in SQLite)
+/// 帧元数据（存储在SQLite中）
 #[derive(Debug, Clone)]
 pub struct FrameMetadata {
     pub frame_id: u32,
@@ -13,15 +14,15 @@ pub struct FrameMetadata {
     pub timestamp: u64,
     pub point_count: u32,
     pub frame_type: String,
-    pub data_path: String,  // Binary data file path
+    pub data_path: String,  // 二进制数据文件路径
 }
 
-/// Frame type enumeration
+/// 帧类型枚举
 #[derive(Debug, Clone, PartialEq)]
 pub enum FrameType {
-    PCD,           // PCD file data
-    REALTIME,      // Real-time sensor data
-    MANUAL,        // Manually marked frames
+    PCD,           // PCD文件数据
+    REALTIME,      // 实时传感器数据
+    MANUAL,        // 手动标记的帧
 }
 
 impl ToString for FrameType {
@@ -45,52 +46,52 @@ impl From<&str> for FrameType {
     }
 }
 
-/// SQLite database manager
+/// SQLite数据库管理器
 pub struct FrameDatabase {
     conn: Connection,
     data_dir: PathBuf,
 }
 
 impl FrameDatabase {
-    /// Create or open database
+    /// 创建或打开数据库
     pub fn new(db_path: &Path, data_dir: &Path) -> Result<Self, String> {
-        // Ensure directories exist
+        // 确保目录存在
         if let Some(parent) = db_path.parent() {
             fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create database directory: {}", e))?;
+                .map_err(|e| format!("创建数据库目录失败: {}", e))?;
         }
         fs::create_dir_all(data_dir)
-            .map_err(|e| format!("Failed to create data directory: {}", e))?;
+            .map_err(|e| format!("创建数据目录失败: {}", e))?;
         
-        // Open database connection
+        // 打开数据库连接
         let conn = Connection::open(db_path)
-            .map_err(|e| format!("Failed to open database: {}", e))?;
+            .map_err(|e| format!("打开数据库失败: {}", e))?;
         
-        // Enable WAL mode for better concurrent performance (use query instead of execute)
-        if let Err(e) = conn.execute("PRAGMA journal_mode=WAL", []) {
-            warn!("Failed to enable WAL mode: {}, using default mode", e);
+        // 启用WAL模式以获得更好的并发性能（使用query而不是execute）
+        if let Err(e) = conn.pragma_update(None, "journal_mode", "WAL") {
+            warn!("启用WAL模式失败: {}，使用默认模式", e);
         }
         
-        // Optimize write performance
+        // 优化写入性能
         conn.execute("PRAGMA synchronous=NORMAL", [])
-            .map_err(|e| format!("Failed to set synchronous: {}", e))?;
+            .map_err(|e| format!("设置同步方式失败: {}", e))?;
         
-        // Increase cache size (unit: pages, 4KB per page)
-        conn.execute("PRAGMA cache_size=-20000", [])  // About 80MB cache
-            .map_err(|e| format!("Failed to set cache size: {}", e))?;
+        // 增加缓存大小（单位：页，每页4KB）
+        conn.execute("PRAGMA cache_size=-20000", [])  // 大约80MB缓存
+            .map_err(|e| format!("设置缓存大小失败: {}", e))?;
         
         let mut db = FrameDatabase {
             conn,
             data_dir: data_dir.to_path_buf(),
         };
         
-        // Initialize table structure
+        // 初始化表结构
         db.init_tables()?;
         
         Ok(db)
     }
     
-    /// Initialize database tables
+    /// 初始化数据库表
     fn init_tables(&mut self) -> Result<(), String> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS frames (
@@ -103,28 +104,28 @@ impl FrameDatabase {
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )",
             [],
-        ).map_err(|e| format!("Failed to create frames table: {}", e))?;
+        ).map_err(|e| format!("创建frames表失败: {}", e))?;
         
-        // Create indexes to accelerate queries
+        // 创建索引以加速查询
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_frames_timestamp ON frames(timestamp)",
             [],
-        ).map_err(|e| format!("Failed to create timestamp index: {}", e))?;
+        ).map_err(|e| format!("创建时间戳索引失败: {}", e))?;
         
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_frames_sequence ON frames(sequence_number)",
             [],
-        ).map_err(|e| format!("Failed to create sequence index: {}", e))?;
+        ).map_err(|e| format!("创建序列号索引失败: {}", e))?;
         
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_frames_type ON frames(frame_type)",
             [],
-        ).map_err(|e| format!("Failed to create type index: {}", e))?;
+        ).map_err(|e| format!("创建类型索引失败: {}", e))?;
         
         Ok(())
     }
     
-    /// Insert a single frame
+    /// 插入单个帧
     pub fn insert_frame(&self, frame: &FrameMetadata) -> SqliteResult<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO frames 
@@ -142,7 +143,7 @@ impl FrameDatabase {
         Ok(())
     }
     
-    /// Batch insert frames (using transactions, better performance)
+    /// 批量插入帧（使用事务，性能更好）
     pub fn insert_frames_batch(&mut self, frames: &[FrameMetadata]) -> SqliteResult<()> {
         let tx = self.conn.transaction()?;
         
@@ -166,7 +167,7 @@ impl FrameDatabase {
         Ok(())
     }
     
-    /// Query frames by time range
+    /// 按时间范围查询帧
     pub fn query_by_time_range(&self, start: u64, end: u64) -> SqliteResult<Vec<FrameMetadata>> {
         let mut stmt = self.conn.prepare(
             "SELECT frame_id, sequence_number, timestamp, point_count, frame_type, data_path
@@ -189,7 +190,7 @@ impl FrameDatabase {
         Ok(frames.filter_map(|f| f.ok()).collect())
     }
     
-    /// Query single frame by sequence number
+    /// 按序列号查询单个帧
     pub fn get_frame_by_sequence(&self, seq: u64) -> SqliteResult<Option<FrameMetadata>> {
         let mut stmt = self.conn.prepare(
             "SELECT frame_id, sequence_number, timestamp, point_count, frame_type, data_path
@@ -211,7 +212,7 @@ impl FrameDatabase {
         Ok(frames.next().and_then(|f| f.ok()))
     }
     
-    /// Get all frames
+    /// 获取所有帧
     pub fn get_all_frames(&self) -> SqliteResult<Vec<FrameMetadata>> {
         let mut stmt = self.conn.prepare(
             "SELECT frame_id, sequence_number, timestamp, point_count, frame_type, data_path
@@ -233,7 +234,7 @@ impl FrameDatabase {
         Ok(frames.filter_map(|f| f.ok()).collect())
     }
     
-    /// Filter frames by condition
+    /// 按条件过滤帧
     pub fn filter_frames<F>(&self, predicate: F) -> SqliteResult<Vec<FrameMetadata>>
     where
         F: Fn(&FrameMetadata) -> bool,
@@ -242,9 +243,9 @@ impl FrameDatabase {
         Ok(all_frames.into_iter().filter(predicate).collect())
     }
     
-    /// Delete specified frame
+    /// 删除指定帧
     pub fn delete_frame(&self, frame_id: u32) -> SqliteResult<usize> {
-        // First get data_path to delete the file
+        // 首先获取data_path以删除文件
         if let Ok(Some(frame)) = self.get_frame_by_id(frame_id) {
             let _ = fs::remove_file(&frame.data_path);
         }
@@ -255,7 +256,7 @@ impl FrameDatabase {
         )
     }
     
-    /// Get frame by ID
+    /// 根据ID获取帧
     pub fn get_frame_by_id(&self, frame_id: u32) -> SqliteResult<Option<FrameMetadata>> {
         let mut stmt = self.conn.prepare(
             "SELECT frame_id, sequence_number, timestamp, point_count, frame_type, data_path
@@ -277,7 +278,7 @@ impl FrameDatabase {
         Ok(frames.next().and_then(|f| f.ok()))
     }
     
-    /// Get statistics
+    /// 获取统计信息
     pub fn get_stats(&self) -> SqliteResult<FrameStats> {
         let mut stmt = self.conn.prepare(
             "SELECT 
@@ -300,9 +301,9 @@ impl FrameDatabase {
         Ok(stats)
     }
     
-    /// Clear all data
+    /// 清除所有数据
     pub fn clear_all(&self) -> SqliteResult<()> {
-        // Delete all data files
+        // 删除所有数据文件
         if self.data_dir.exists() {
             for entry in fs::read_dir(&self.data_dir).ok().into_iter().flatten() {
                 if let Ok(entry) = entry {
@@ -315,13 +316,13 @@ impl FrameDatabase {
         Ok(())
     }
     
-    /// Get data directory path
+    /// 获取数据目录路径
     pub fn data_dir(&self) -> &Path {
         &self.data_dir
     }
 }
 
-/// Frame statistics
+/// 帧统计信息
 #[derive(Debug)]
 pub struct FrameStats {
     pub total_frames: u64,
@@ -330,13 +331,13 @@ pub struct FrameStats {
     pub total_points: u64,
 }
 
-/// Frame data storage (manages binary files and metadata)
+/// 帧数据存储（管理二进制文件和元数据）
 pub struct FrameStorage {
     db: FrameDatabase,
 }
 
 impl FrameStorage {
-    /// Create new storage
+    /// 创建新的存储
     pub fn new(base_path: &Path) -> Result<Self, String> {
         let db_path = base_path.join("frames.db");
         let data_dir = base_path.join("data");
@@ -345,42 +346,56 @@ impl FrameStorage {
         
         Ok(FrameStorage { db })
     }
+
+    /// 使用默认路径（相对于可执行文件）创建新的存储
+    pub fn new_default() -> Result<Self, String> {
+        // 获取当前可执行文件的路径
+        let exe_path = env::current_exe()
+            .map_err(|e| format!("获取可执行文件路径失败: {}", e))?
+            .parent()
+            .ok_or("无法确定可执行文件所在目录".to_string())
+            .map(|p| p.to_path_buf())?;
+
+        let base_path = exe_path.join("storage");
+
+        Self::new(&base_path)
+    }
     
-    /// Save frame data
+    /// 保存帧数据
     pub fn save_frame(&self, frame_data: &[u8], metadata: FrameMetadata) -> Result<(), String> {
-        // Generate unique filename
+        // 生成唯一文件名
         let file_path = self.db.data_dir()
             .join(format!("frame_{}.bin", metadata.frame_id));
         
-        // Write binary data
+        // 写入二进制数据
         fs::write(&file_path, frame_data)
-            .map_err(|e| format!("Failed to write frame data: {}", e))?;
+            .map_err(|e| format!("写入帧数据失败: {}", e))?;
         
-        // Update path in metadata
+        // 更新元数据中的路径
         let mut meta = metadata;
         meta.data_path = file_path.to_string_lossy().to_string();
         
-        // Save to database
+        // 保存到数据库
         self.db.insert_frame(&meta)
-            .map_err(|e| format!("Failed to save frame metadata: {}", e))?;
+            .map_err(|e| format!("保存帧元数据失败: {}", e))?;
         
         Ok(())
     }
     
-    /// Load frame data
+    /// 加载帧数据
     pub fn load_frame(&self, frame_id: u32) -> Result<Vec<u8>, String> {
         let metadata = self.db.get_frame_by_id(frame_id)
-            .map_err(|e| format!("Failed to get frame metadata: {}", e))?;
+            .map_err(|e| format!("获取帧元数据失败: {}", e))?;
         
         if let Some(meta) = metadata {
             fs::read(&meta.data_path)
-                .map_err(|e| format!("Failed to read frame data: {}", e))
+                .map_err(|e| format!("读取帧数据失败: {}", e))
         } else {
-            Err(format!("Frame {} not found", frame_id))
+            Err(format!("帧 {} 未找到", frame_id))
         }
     }
     
-    /// Get database reference
+    /// 获取数据库引用
     pub fn database(&self) -> &FrameDatabase {
         &self.db
     }

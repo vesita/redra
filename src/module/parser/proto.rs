@@ -131,6 +131,36 @@ fn handle_cube_shape(cube: &shape::Cube, sender: mpsc::Sender<RDPack>) {
     );
 }
 
+/// 处理Cylinder形状
+fn handle_cylinder_shape(cylinder: &shape::Cylinder, _sender: mpsc::Sender<RDPack>) {
+    // TODO: 实现圆柱体处理逻辑
+    debug!("处理Cylinder数据: {:?}", cylinder);
+}
+
+/// 处理Cone形状
+fn handle_cone_shape(cone: &shape::Cone, _sender: mpsc::Sender<RDPack>) {
+    // TODO: 实现圆锥体处理逻辑
+    debug!("处理Cone数据: {:?}", cone);
+}
+
+/// 处理Torus形状
+fn handle_torus_shape(torus: &shape::Torus, _sender: mpsc::Sender<RDPack>) {
+    // TODO: 实现环面处理逻辑
+    debug!("处理Torus数据: {:?}", torus);
+}
+
+/// 处理Capsule形状
+fn handle_capsule_shape(capsule: &shape::Capsule, _sender: mpsc::Sender<RDPack>) {
+    // TODO: 实现胶囊体处理逻辑
+    debug!("处理Capsule数据: {:?}", capsule);
+}
+
+/// 处理Plane形状
+fn handle_plane_shape(plane: &shape::Plane, _sender: mpsc::Sender<RDPack>) {
+    // TODO: 实现平面处理逻辑
+    debug!("处理Plane数据: {:?}", plane);
+}
+
 /// 处理图像格式
 /// 
 /// 处理protobuf中的图像数据（待实现）
@@ -141,6 +171,26 @@ fn handle_cube_shape(cube: &shape::Cube, sender: mpsc::Sender<RDPack>) {
 fn handle_image_fmt(image: &formats::Image, _sender: mpsc::Sender<RDPack>) {
     // todo
     debug!("处理图像数据: {:?}", image);
+}
+
+/// 处理文本格式
+fn handle_text_fmt(text: &formats::Text, _sender: mpsc::Sender<RDPack>) {
+    debug!("处理文本数据: {:?}", text);
+}
+
+/// 处理模型格式
+fn handle_model_fmt(model: &formats::Model, _sender: mpsc::Sender<RDPack>) {
+    debug!("处理模型数据: {:?}", model);
+}
+
+/// 处理音频格式
+fn handle_audio_fmt(audio: &formats::Audio, _sender: mpsc::Sender<RDPack>) {
+    debug!("处理音频数据: {:?}", audio);
+}
+
+/// 处理视频格式
+fn handle_video_fmt(video: &formats::Video, _sender: mpsc::Sender<RDPack>) {
+    debug!("处理视频数据: {:?}", video);
 }
 
 /// 处理形状数据包
@@ -170,6 +220,26 @@ fn match_shape_data(shape_pack: &ShapePack, sender: mpsc::Sender<RDPack>) {
                 debug!("Cube数据包");
                 handle_cube_shape(cube, sender);
             }
+            shape::shape_pack::Data::Cylinder(cylinder) => {
+                debug!("Cylinder数据包");
+                handle_cylinder_shape(cylinder, sender);
+            }
+            shape::shape_pack::Data::Cone(cone) => {
+                debug!("Cone数据包");
+                handle_cone_shape(cone, sender);
+            }
+            shape::shape_pack::Data::Torus(torus) => {
+                debug!("Torus数据包");
+                handle_torus_shape(torus, sender);
+            }
+            shape::shape_pack::Data::Capsule(capsule) => {
+                debug!("Capsule数据包");
+                handle_capsule_shape(capsule, sender);
+            }
+            shape::shape_pack::Data::Plane(plane) => {
+                debug!("Plane数据包");
+                handle_plane_shape(plane, sender);
+            }
         }
     } else {
         debug!("ShapePack消息中没有定义任何形状");
@@ -185,15 +255,80 @@ fn match_shape_data(shape_pack: &ShapePack, sender: mpsc::Sender<RDPack>) {
 /// * `sender` - 用于发送数据到Bevy的异步发送器
 fn match_format_data(format_pack: &FormatPack, sender: mpsc::Sender<RDPack>) {
     debug!("FormatData数据包");
-    // 如果有需要处理的数据，可以在这里添加
     if let Some(ref data) = format_pack.data {
         match data {
             formats::format_pack::Data::Image(image) => {
                 debug!("Image数据包");
                 handle_image_fmt(image, sender);
             }
+            formats::format_pack::Data::Text(text) => {
+                debug!("Text数据包");
+                handle_text_fmt(text, sender);
+            }
+            formats::format_pack::Data::Model(model) => {
+                debug!("Model数据包");
+                handle_model_fmt(model, sender);
+            }
+            formats::format_pack::Data::Audio(audio) => {
+                debug!("Audio数据包");
+                handle_audio_fmt(audio, sender);
+            }
+            formats::format_pack::Data::Video(video) => {
+                debug!("Video数据包");
+                handle_video_fmt(video, sender);
+            }
         }
     }
+}
+
+/// 处理Transform命令
+fn handle_transform_cmd(transform_cmd: &crate::proto::transform::TransCmd, sender: mpsc::Sender<RDPack>) {
+    debug!("处理Transform命令: {:?}", transform_cmd);
+    // TODO: 实现变换命令处理逻辑
+}
+
+/// 处理Spawn命令
+fn handle_spawn_cmd(spawn_cmd: &designation::Spawn, sender: mpsc::Sender<RDPack>) {
+    debug!("处理Spawn命令: {:?}", spawn_cmd);
+    if let Some(ref data) = spawn_cmd.data {
+        match data {
+            designation::spawn::Data::ShapeData(shape_pack) => {
+                match_shape_data(&shape_pack, sender);
+            }
+            designation::spawn::Data::FormatData(format_pack) => {
+                match_format_data(format_pack, sender);
+            }
+        }
+    } else {
+        info!("Spawn命令中没有数据");
+    }
+}
+
+/// 处理Update命令
+fn handle_update_cmd(update_cmd: &designation::Update, sender: mpsc::Sender<RDPack>) {
+    debug!("处理Update命令: {:?}", update_cmd);
+    if let Some(ref data) = update_cmd.data {
+        match data {
+            designation::update::Data::ShapeData(shape_pack) => {
+                match_shape_data(&shape_pack, sender);
+            }
+            designation::update::Data::FormatData(format_pack) => {
+                match_format_data(format_pack, sender);
+            }
+            designation::update::Data::Pose(pose) => {
+                debug!("更新姿态: {:?}", pose);
+                // TODO: 实现姿态更新逻辑
+            }
+        }
+    } else {
+        info!("Update命令中没有数据");
+    }
+}
+
+/// 处理Delete命令
+fn handle_delete_cmd(delete_cmd: &designation::Delete, _sender: mpsc::Sender<RDPack>) {
+    debug!("处理Delete命令: {:?}", delete_cmd);
+    // TODO: 实现删除逻辑
 }
 
 /// 处理Designation命令
@@ -204,19 +339,18 @@ fn match_format_data(format_pack: &FormatPack, sender: mpsc::Sender<RDPack>) {
 /// * `designation_cmd` - protobuf定义的DesignCmd对象
 /// * `sender` - 用于发送数据到Bevy的异步发送器
 fn match_designation_cmd(designation_cmd: &DesignCmd, sender: mpsc::Sender<RDPack>) {
-    if let Some(designation::design_cmd::Cmd::Spawn(spawn)) = &designation_cmd.cmd {
-        if let Some(ref data) = spawn.data {
-            debug!("Spawn数据包");
-            match data {
-                designation::spawn::Data::ShapeData(shape_pack) => {
-                    match_shape_data(&shape_pack, sender);
-                }
-                designation::spawn::Data::FormatData(format_pack) => {
-                    match_format_data(format_pack, sender);
-                }
-            }
-        } else {
-            info!("Designation: 无数据包");
+    match &designation_cmd.cmd {
+        Some(designation::design_cmd::Cmd::Spawn(spawn)) => {
+            handle_spawn_cmd(spawn, sender);
+        }
+        Some(designation::design_cmd::Cmd::Update(update)) => {
+            handle_update_cmd(update, sender);
+        }
+        Some(designation::design_cmd::Cmd::Delete(delete)) => {
+            handle_delete_cmd(delete, sender);
+        }
+        None => {
+            info!("Designation命令中没有数据");
         }
     }
 }
@@ -237,9 +371,8 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
         Some(command::command::CmdPack::Designation(ref designation_cmd)) => {
             match_designation_cmd(&designation_cmd, sender);
         }
-        Some(command::command::CmdPack::Transform(_translation)) => {
-            // 处理Transform命令
-            // TODO
+        Some(command::command::CmdPack::Transform(ref transform_cmd)) => {
+            handle_transform_cmd(transform_cmd, sender);
         }
         None => {
             error!("Command消息中没有定义任何命令");

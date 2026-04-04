@@ -2,17 +2,34 @@ syntax = "proto3";
 
 package shape;
 
-
 import "transform.proto";
 
-// Shape定义了可用的几何形状类型
+// ShapePack定义了可用的几何形状类型
 message ShapePack { 
     oneof data {
         Point point = 1;
         Segment segment = 2;
         Sphere sphere = 3;
         Cube cube = 4;
+        Cylinder cylinder = 5;
+        Cone cone = 6;
+        Torus torus = 7;
+        Capsule capsule = 8;
+        Plane plane = 9;
     }
+    
+    // 形状元数据
+    string name = 10; // 形状名称
+    repeated string tags = 11; // 形状标签，便于分类
+    Color color = 12; // 形状颜色
+}
+
+// Color定义颜色值
+message Color {
+    float r = 1; // 红色分量 [0, 1]
+    float g = 2; // 绿色分量 [0, 1]
+    float b = 3; // 蓝色分量 [0, 1]
+    float a = 4; // 透明度分量 [0, 1]
 }
 
 // Pose定义了物体的位置、旋转和缩放信息
@@ -30,18 +47,21 @@ message PoseMatrix {
 // Point表示一个三维点
 message Point {
     transform.Translation pos = 1;
+    float size = 2; // 点大小
 }
 
 // Segment表示一条线段
 message Segment {
     Point start = 1;
     Point end = 2;
+    float thickness = 3; // 线条粗细
 }
 
 // Sphere表示一个球体
 message Sphere {
     transform.Translation pos = 1;
     float radius = 2;
+    uint32 segments = 3; // 球面细分段数
 }
 
 // Cube表示一个立方体
@@ -49,4 +69,47 @@ message Cube {
     transform.Translation translation = 1; // 统一使用translation字段名
     transform.Rotation rotation = 2; // 统一使用rotation字段名
     transform.Scale scale = 3; // 统一使用scale字段名
+    bool is_wireframe = 4; // 是否为线框模式
+}
+
+// Cylinder表示一个圆柱体
+message Cylinder {
+    transform.Translation pos = 1;
+    float radius = 2;
+    float height = 3;
+    uint32 segments = 4; // 圆柱面细分段数
+}
+
+// Cone表示一个圆锥体
+message Cone {
+    transform.Translation pos = 1;
+    float radius = 2;
+    float height = 3;
+    uint32 segments = 4; // 圆锥面细分段数
+}
+
+// Torus表示一个环面
+message Torus {
+    transform.Translation pos = 1;
+    float radius_major = 2; // 主半径
+    float radius_minor = 3; // 次半径
+    uint32 segments_major = 4; // 主方向段数
+    uint32 segments_minor = 5; // 次方向段数
+}
+
+// Capsule表示一个胶囊体
+message Capsule {
+    transform.Translation pos = 1;
+    float radius = 2;
+    float height = 3; // 中间圆柱部分的高度
+}
+
+// Plane表示一个平面
+message Plane {
+    transform.Translation pos = 1;
+    transform.Rotation rotation = 2;
+    float width = 3;
+    float height = 4;
+    uint32 width_segments = 5; // 宽度方向段数
+    uint32 height_segments = 6; // 高度方向段数
 }

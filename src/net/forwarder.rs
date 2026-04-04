@@ -1,11 +1,8 @@
 use log::{debug, info, warn};
-use tokio::{
-    self,
-    sync::mpsc,
-};
+use tokio::sync::mpsc;
 
-
-use crate::module::parser::{core::RDPack, proto::process_pack, proto_decode::decode_pack};
+use crate::module::parser::{core::RDPack, proto::process_pack};
+use crate::module::parser::proto_decode::decode_pack;  // 保持别名以兼容现有代码
 
 /// 数据转发器，负责接收解码后的数据并将其转发到引擎
 /// 

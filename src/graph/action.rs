@@ -28,24 +28,24 @@ fn initialize_storage(mut recorder: ResMut<record::DataRecorder>) {
         PathBuf::from("./redra_frames")
     };
     
-    info!("Initializing frame storage at: {:?}", base_path);
+    info!("正在初始化帧存储，路径: {:?}", base_path);
     
     match FrameStorage::new(&base_path) {
         Ok(storage) => {
             recorder.storage = Some(std::sync::Arc::new(std::sync::Mutex::new(storage)));
-            info!("SQLite storage initialized successfully");
+            info!("SQLite存储初始化成功");
             
             // 显示统计信息
             if let Ok(stats) = recorder.storage.as_ref().unwrap().lock().unwrap().database().get_stats() {
                 info!(
-                    "Database stats: {} frames, {} total points",
+                    "数据库统计: {} 帧, {} 总点数",
                     stats.total_frames,
                     stats.total_points
                 );
             }
         }
         Err(e) => {
-            error!("Failed to initialize SQLite storage: {}. Using memory-only mode.", e);
+            error!("初始化SQLite存储失败: {}。使用纯内存模式。", e);
             recorder.storage = None;
         }
     }

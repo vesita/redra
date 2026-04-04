@@ -1,9 +1,14 @@
 
-use log::{debug, error, info, warn};
-use tokio::{io::AsyncReadExt, net::TcpStream, sync::mpsc};
+use log::{info, warn, error, debug};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::{net::TcpStream, sync::mpsc};
+use tokio::io::AsyncReadExt;
 
-use crate::{ThLc, module::parser::proto_decode::read_trailer};
-use super::work_share::{RDWosh};
+use crate::net::work_share::RDWosh;
+use crate::{ThLc, module::parser::proto_decode::read_trailer};  // 保持别名以兼容现有代码
+
+// 全局链接ID计数器
+static LINK_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// 连接处理器，负责处理单个TCP连接的数据读取和转发
 /// 

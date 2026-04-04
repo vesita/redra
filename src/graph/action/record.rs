@@ -200,7 +200,7 @@ impl DataRecorder {
                 
                 let storage = storage_arc.lock().unwrap();
                 if let Err(e) = storage.save_frame(&buffer, metadata) {
-                    error!("Failed to persist frame {}: {}", frame_id.unwrap_or(0), e);
+                    error!("持久化帧 {} 失败: {}", frame_id.unwrap_or(0), e);
                 }
             } else {
                 // 内存模式
@@ -241,7 +241,7 @@ impl DataRecorder {
                     
                     let storage = storage_arc.lock().unwrap();
                     if let Err(e) = storage.save_frame(&buffer, metadata) {
-                        error!("Failed to persist frame {}: {}", frame.frame_id, e);
+                        error!("持久化帧 {} 失败: {}", frame.frame_id, e);
                     }
                 } else {
                     self.frames.push(frame);

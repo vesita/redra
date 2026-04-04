@@ -9,14 +9,39 @@ import "formats.proto";
 message DesignCMD {
   oneof cmd {
     Spawn spawn = 1;
+    Update update = 2;
+    Delete delete = 3;
   }
 }
 
-
+// Spawn消息用于创建新对象
 message Spawn {
     target.TargetID id = 1;
+    string name = 2; // 对象名称，便于识别
+    repeated string tags = 3; // 对象标签，便于分类
+    
+    oneof data {
+      formats.FormatPack format_data = 4;
+      shape.ShapePack shape_data = 5;
+    }
+    
+    // 可选的初始变换信息
+    shape.Pose initial_pose = 6;
+}
+
+// Update消息用于更新现有对象
+message Update {
+    target.TargetID id = 1;
+    
     oneof data {
       formats.FormatPack format_data = 2;
       shape.ShapePack shape_data = 3;
+      shape.Pose pose = 4; // 仅更新姿态
     }
+}
+
+// Delete消息用于删除对象
+message Delete {
+    target.TargetID id = 1;
+    bool confirm = 2; // 是否确认删除
 }
