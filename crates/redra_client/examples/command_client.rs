@@ -33,9 +33,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         error!("发送立方体命令失败: {}", e);
     }
 
-    // 等待一段时间
-    sleep(Duration::from_secs(1)).await;
-
     // 创建球体
     let sphere_cmd = create_sphere_spawn_command();
     info!("发送球体创建命令...");
@@ -43,18 +40,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         error!("发送球体命令失败: {}", e);
     }
 
-    // 等待一段时间
-    sleep(Duration::from_secs(1)).await;
-
     // 更新立方体位置
     let update_cube_cmd = create_cube_update_command();
     info!("发送立方体位置更新命令...");
     if let Err(e) = sender.send_command(update_cube_cmd).await {
         error!("发送立方体更新命令失败: {}", e);
     }
-
-    // 等待一段时间
-    sleep(Duration::from_secs(2)).await;
 
     // 更新球体位置
     let update_sphere_cmd = create_sphere_update_command();
@@ -64,7 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     info!("所有命令已发送完毕");
-
+    info!("客户端正常退出");
+    
     Ok(())
 }
 

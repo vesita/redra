@@ -12,7 +12,6 @@ packs/dist/
 *.egg-info/
 packs/rdsend/proto/
 
-src/proto/
 script/proto/
 
 // test logs

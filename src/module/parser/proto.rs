@@ -8,12 +8,15 @@ use crate::{
         core::{RDPack, RDShapePack},
         interface::*,
     },
-    proto::{
-        command,
-        designation::{self, DesignCmd},
-        formats::{self, FormatPack},
-        shape::{self, ShapePack},
-    },
+};
+
+// 使用redra_proto中的protobuf定义
+use redra_proto::proto::{
+    command,
+    designation::{self, DesignCmd},
+    formats::{self, FormatPack},
+    shape::{self, ShapePack},
+    transform,
 };
 
 /// 发送SpawnPack到Bevy
@@ -282,7 +285,7 @@ fn match_format_data(format_pack: &FormatPack, sender: mpsc::Sender<RDPack>) {
 }
 
 /// 处理Transform命令
-fn handle_transform_cmd(transform_cmd: &crate::proto::transform::TransCmd, sender: mpsc::Sender<RDPack>) {
+fn handle_transform_cmd(transform_cmd: &transform::TransCmd, sender: mpsc::Sender<RDPack>) {
     debug!("处理Transform命令: {:?}", transform_cmd);
     // TODO: 实现变换命令处理逻辑
 }

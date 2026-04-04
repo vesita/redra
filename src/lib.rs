@@ -1,5 +1,4 @@
 pub mod module;
-pub mod proto;
 pub mod manager;
 
 pub mod net;

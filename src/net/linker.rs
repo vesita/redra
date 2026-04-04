@@ -76,7 +76,7 @@ impl RDLinker {
             let result = self.socket.read(&mut buffer).await;
             match result {
                 Ok(0) => {
-                    info!("接收到0字节，连接可能已关闭，退出链接处理器 ID: {}", self.id);
+                    info!("客户端主动断开连接，退出链接处理器 ID: {}", self.id);
                     break;
                 },
                 Ok(len) => {

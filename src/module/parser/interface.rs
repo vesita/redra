@@ -6,10 +6,12 @@ use crate::{
         pose::RDRPose,
         shape::{line::RDSegment, *},
     },
-    proto::{
-        shape::*,
-        transform::{Rotation, Scale, Translation},
-    },
+};
+
+// 导入redra_proto中的protobuf定义
+use redra_proto::proto::{
+    shape,
+    transform::{Rotation as ProtoRotation, Scale as ProtoScale, Translation as ProtoTranslation},
 };
 
 /// 将protobuf中的Translation转换为内部的RDTranslation类型
@@ -19,7 +21,7 @@ use crate::{
 /// 
 /// # 返回值
 /// * `RDTranslation` - 内部定义的平移数据结构
-pub fn position_rd(position: &Translation) -> RDTranslation {
+pub fn position_rd(position: &ProtoTranslation) -> RDTranslation {
     RDTranslation {
         x: position.x,
         y: position.y,
@@ -34,7 +36,7 @@ pub fn position_rd(position: &Translation) -> RDTranslation {
 /// 
 /// # 返回值
 /// * `RDRRotation` - 内部定义的旋转数据结构
-pub fn rotate_rd(rotate: &Rotation) -> RDRRotation {
+pub fn rotate_rd(rotate: &ProtoRotation) -> RDRRotation {
     RDRRotation {
         rx: rotate.rx,
         ry: rotate.ry,
@@ -49,7 +51,7 @@ pub fn rotate_rd(rotate: &Rotation) -> RDRRotation {
 /// 
 /// # 返回值
 /// * `RDRScale` - 内部定义的缩放数据结构
-pub fn scale_rd(scale: &Scale) -> RDRScale {
+pub fn scale_rd(scale: &ProtoScale) -> RDRScale {
     RDRScale {
         sx: scale.sx,
         sy: scale.sy,
@@ -64,12 +66,12 @@ pub fn scale_rd(scale: &Scale) -> RDRScale {
 /// 
 /// # 返回值
 /// * `RDPoint` - 内部定义的点数据结构
-pub fn point_rd(point: &Point) -> RDPoint {
+pub fn point_rd(point: &shape::Point) -> RDPoint {
     RDPoint {
         position: Vector3::new(
-            point.pos.unwrap().x,
-            point.pos.unwrap().y,
-            point.pos.unwrap().z,
+            point.pos.as_ref().unwrap().x,
+            point.pos.as_ref().unwrap().y,
+            point.pos.as_ref().unwrap().z,
         ),
     }
 }
@@ -81,13 +83,13 @@ pub fn point_rd(point: &Point) -> RDPoint {
 /// 
 /// # 返回值
 /// * `RDSphere` - 内部定义的球体数据结构
-pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
+pub fn sphere_rd(sphere: &shape::Sphere) -> RDSphere {
     RDSphere {
         pose: RDRPosVec {
             pos: Vector3::new(
-                sphere.pos.unwrap().x,
-                sphere.pos.unwrap().y,
-                sphere.pos.unwrap().z,
+                sphere.pos.as_ref().unwrap().x,
+                sphere.pos.as_ref().unwrap().y,
+                sphere.pos.as_ref().unwrap().z,
             ),
         },
         radius: sphere.radius,
@@ -103,20 +105,20 @@ pub fn sphere_rd(sphere: &Sphere) -> RDSphere {
 /// 
 /// # 返回值
 /// * `RDCube` - 内部定义的立方体数据结构
-pub fn cube_rd(cube: &Cube) -> RDCube {
+pub fn cube_rd(cube: &shape::Cube) -> RDCube {
     // 获取旋转矩阵，如果没有提供旋转信息，则使用单位矩阵
     let rot_mat = cube
         .rotation
         .as_ref()
-        .map(|r| rotate_rd(r).to_matrix())
+        .map(|r| rotate_rd(r))
         .unwrap_or_else(|| {
             RDRRotation {
                 rx: 0.0,
                 ry: 0.0,
                 rz: 0.0,
             }
-            .to_matrix()
-        });
+        })
+        .to_matrix();
 
     // 创建带有位置和旋转的姿态矩阵
     let pose_matrix = Matrix4::new(
@@ -158,7 +160,7 @@ pub fn cube_rd(cube: &Cube) -> RDCube {
 /// 
 /// # 返回值
 /// * `RDSegment` - 内部定义的线段数据结构
-pub fn segment_rd(segment: &Segment) -> RDSegment {
+pub fn segment_rd(segment: &shape::Segment) -> RDSegment {
     RDSegment {
         start: point_rd(segment.start.as_ref().unwrap()),
         end: point_rd(segment.end.as_ref().unwrap()),
