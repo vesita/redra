@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# SQLite 数据库支持
-rusqlite = "0.39"
+# SQLite 数据库支持（使用内置编译版本，避免系统依赖）
+rusqlite = { version = "0.39", features = ["bundled"] }
 
 # 日志支持
 log = "0.4"

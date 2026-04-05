@@ -10,6 +10,7 @@ impl Plugin for InitPlugin {
         app
             .add_systems(Startup, rd_setup)
             .add_systems(Startup, initialize_materials);
+            // 移除了 toggle_camera_control，因为 FPS 控制器已有内置的 Alt 键处理
     }
 }
 
@@ -31,7 +32,7 @@ pub fn rd_setup(
         .spawn((
             Camera3d::default(),
             Camera {
-                order: 1,  // 设置唯一的渲染顺序，作为主相机
+                order: 0,
                 ..default()
             },
             Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),

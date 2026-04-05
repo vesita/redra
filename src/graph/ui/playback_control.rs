@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
+
 use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager};
 use crate::manager::font::core::FontLoadStatus;
 
@@ -11,8 +12,7 @@ impl Plugin for PlaybackUiPlugin {
         app.init_resource::<FrameSelector>()
             .add_systems(
                 Update, 
-                playback_ui_system
-                    .run_if(font_loaded)
+                playback_ui_system.run_if(font_loaded)
             );
     }
 }
@@ -35,11 +35,17 @@ pub struct FrameSelector {
 /// 回放 UI 系统（使用 egui）
 pub fn playback_ui_system(
     mut contexts: EguiContexts,
+    cursor_options: bevy::prelude::Single<&bevy::window::CursorOptions>,
     mut playback: ResMut<PlaybackManager>,
     mut recorder: ResMut<DataRecorder>,
     mut selector: ResMut<FrameSelector>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
+    // 如果光标被锁定（FPS模式），不显示UI
+    if cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked {
+        return;
+    }
+
     // 处理键盘输入
     handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
 
@@ -47,10 +53,9 @@ pub fn playback_ui_system(
     let Ok(egui_ctx) = contexts.ctx_mut() else {
         return;
     };
-    
+
     // 主控制面板
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        egui::Window::new("数据回放控制")
+    egui::Window::new("数据回放控制")
             .fixed_pos(egui::pos2(10.0, 10.0))
             .collapsible(false)
             .resizable(true)
@@ -88,12 +93,15 @@ pub fn playback_ui_system(
                 ui.horizontal(|ui| {
                     if ui.button("播放").clicked() {
                         playback.play();
+                        info!("播放按钮被点击");
                     }
                     if ui.button("暂停").clicked() {
                         playback.pause();
+                        info!("暂停按钮被点击");
                     }
                     if ui.button("停止").clicked() {
                         playback.stop();
+                        info!("停止按钮被点击");
                     }
                 });
                 
@@ -178,7 +186,6 @@ pub fn playback_ui_system(
         if selector.show_frame_list {
             render_frame_list_window(egui_ctx, &mut playback, &recorder, &mut selector);
         }
-    }));
 }
 
 /// 获取总帧数（支持 SQLite 和内存模式）
