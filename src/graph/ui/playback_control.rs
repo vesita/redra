@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
-use crate::graph::action::record::{DataRecorder, PlaybackManager};
+use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager};
 
 /// 回放 UI 插件
 pub struct PlaybackUiPlugin;
@@ -11,8 +11,8 @@ impl Plugin for PlaybackUiPlugin {
             .add_systems(
                 Update, 
                 playback_ui_system
-                    .after(crate::graph::ui::font::setup_egui_fonts)
-                    .run_if(|font_assets: Option<Res<crate::graph::ui::font::FontAssets>>| font_assets.is_some())
+                    .after(crate::manager::font::core::setup_egui_fonts)
+                    .run_if(|font_assets: Option<Res<crate::manager::font::core::FontAssets>>| font_assets.is_some())
             );
     }
 }
@@ -42,7 +42,7 @@ pub fn playback_ui_system(
     }
     
     // 处理键盘输入
-    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder);
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
 
     // 获取 egui 上下文，如果不可用则跳过
     let Ok(egui_ctx) = contexts.ctx_mut() else {
@@ -184,16 +184,7 @@ pub fn playback_ui_system(
 
 /// 获取总帧数（支持 SQLite 和内存模式）
 fn get_total_frames(recorder: &DataRecorder) -> usize {
-    if let Some(storage_arc) = &recorder.storage {
-        // SQLite 模式
-        if let Ok(storage) = storage_arc.lock() {
-            if let Ok(stats) = storage.database().get_stats() {
-                return stats.total_frames as usize;
-            }
-        }
-    }
-    // 内存模式
-    recorder.frames.len()
+    recorder.total_frames()
 }
 
 /// 渲染时间轴窗口
@@ -396,6 +387,7 @@ fn handle_keyboard_input(
     keyboard_input: &ButtonInput<KeyCode>,
     playback: &mut PlaybackManager,
     recorder: &mut DataRecorder,
+    selector: &mut FrameSelector,
 ) {
     // 空格键 - 播放/暂停
     if keyboard_input.just_pressed(KeyCode::Space) {
@@ -429,12 +421,12 @@ fn handle_keyboard_input(
     
     // T 键 - 切换时间轴
     if keyboard_input.just_pressed(KeyCode::KeyT) {
-        // 需要通过外部资源访问，暂时留空
+        selector.show_timeline = !selector.show_timeline;
     }
     
     // L 键 - 切换帧列表
     if keyboard_input.just_pressed(KeyCode::KeyL) {
-        // 需要通过外部资源访问，暂时留空
+        selector.show_frame_list = !selector.show_frame_list;
     }
 }
 
@@ -447,6 +439,7 @@ pub fn handle_playback_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut playback: ResMut<PlaybackManager>,
     mut recorder: ResMut<DataRecorder>,
+    mut selector: ResMut<FrameSelector>,
 ) {
-    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder);
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
 }

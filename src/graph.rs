@@ -22,6 +22,7 @@ impl Plugin for GraphPlugin {
             .add_plugins(rendering::RenderingPlugin)       // 渲染插件
             .add_plugins(interaction::InteractionPlugin)   // 交互插件
             .add_plugins(ui::UiModule)                     // UI插件
+            .add_plugins(data_processing::DataProcessingPlugin) // 数据处理插件
             .add_plugins(frame_rate::FrameRatePlugin);      // 帧率控制插件
     }
 }

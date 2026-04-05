@@ -2,6 +2,16 @@ use bevy::prelude::*;
 
 use crate::graph::data_processing::entities::SpawnedEntity;
 
+/// 清除所有动态生成的实体
+pub fn clear_dynamic_entities(
+    mut commands: Commands,
+    query: Query<Entity, With<SpawnedEntity>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
 // 定义清除所有对象的消息
 #[derive(Message)]
 pub struct ClearAllMessage;

@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{graph::materials::{MaterialManager, PredefinedMaterial}, module::parser::core::{RDPack, RDShapePack}};
-
-// 为动态生成的实体定义标记组件
-#[derive(Component)]
-pub struct SpawnedEntity;
+use crate::graph::materials::{MaterialManager, PredefinedMaterial};
+use crate::module::parser::core::{RDPack, RDShapePack};
+use crate::graph::data_processing::entities::SpawnedEntity;
 
 /// 从 channel 接收所有可用的数据包并处理
 pub fn recv_and_spawn(
@@ -78,4 +76,32 @@ pub fn spawn_shape(
         spw.transform,
         SpawnedEntity,  // 添加标记组件
     ));
+}
+
+/// 根据当前播放帧生成实体
+pub fn spawn_from_current_frame(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    material_manager: Res<MaterialManager>,
+    playback: Res<crate::graph::data_processing::actions::record::PlaybackManager>,
+    _recorder: Res<crate::graph::data_processing::actions::record::DataRecorder>,
+) {
+    // 检查是否有新的帧需要渲染
+    if let Some(ref loaded_frame) = playback.loaded_frame {
+        // 清除之前的生成实体
+        // 注意：这里我们假设有另一个系统负责清理之前生成的实体
+        
+        for pack in loaded_frame {
+            if let RDPack::SpawnShape(spw) = pack {
+                spawn_shape(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    &material_manager,
+                    *spw.clone(),
+                );
+            }
+        }
+    }
 }

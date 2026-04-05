@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+// 导入模块
 pub mod actions;
 pub mod entities;
 
@@ -8,45 +9,53 @@ pub struct DataProcessingPlugin;
 
 impl Plugin for DataProcessingPlugin {
     fn build(&self, app: &mut App) {
+        // 注册资源
         app
             .init_resource::<actions::record::DataRecorder>()
             .init_resource::<actions::record::PlaybackManager>()
-            .add_systems(Update, actions::record::record_data_frames)
-            .add_systems(Startup, initialize_storage);
+            .add_systems(Update, (
+                actions::record::record_data_frames,
+                update_playback.after(actions::record::record_data_frames),
+            ));
     }
 }
 
-/// 初始化 SQLite 存储系统
-fn initialize_storage(mut recorder: ResMut<actions::record::DataRecorder>) {
-    use std::path::PathBuf;
-    use redra_storage::storage::FrameStorage;
+// 更新回放系统
+fn update_playback(
+    mut playback: ResMut<actions::record::PlaybackManager>,
+    recorder: Res<actions::record::DataRecorder>,
+    _time: Res<Time>,
+) {
+    if !playback.is_playing {
+        return;
+    }
+
+    // 计算自上次更新以来的时间
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
     
-    // 获取用户数据目录
-    let base_path = if let Some(home_dir) = dirs::home_dir() {
-        home_dir.join(".redra").join("frames")
-    } else {
-        PathBuf::from("./redra_frames")
-    };
-    
-    info!("正在初始化帧存储，路径: {:?}", base_path);
-    
-    match FrameStorage::new(&base_path) {
-        Ok(storage) => {
-            recorder.storage = Some(std::sync::Arc::new(std::sync::Mutex::new(storage)));
-            info!("SQLite存储初始化成功");
-            
-            // 显示统计信息
-            if let Ok(stats) = recorder.storage.as_ref().unwrap().lock().unwrap().database().get_stats() {
-                info!(
-                    "数据库统计: {} 帧, {} 总点数",
-                    stats.total_frames,
-                    stats.total_points
-                );
+    let elapsed = now - playback.last_update_time;
+    let interval = (playback.frame_interval_ms as f32 / playback.playback_speed) as u64;
+
+    if elapsed >= interval {
+        // 计算应该前进多少帧
+        let frames_to_advance = (elapsed / interval) as usize;
+        
+        for _ in 0..frames_to_advance {
+            if playback.current_frame_index < recorder.frames.len().saturating_sub(1) {
+                playback.current_frame_index += 1;
+            } else if playback.loop_playback {
+                playback.current_frame_index = 0;
+            } else {
+                // 播放到结尾，暂停播放
+                playback.is_playing = false;
+                break;
             }
         }
-        Err(e) => {
-            error!("初始化SQLite存储失败: {}。使用纯内存模式。", e);
-            recorder.storage = None;
-        }
+
+        // 更新最后更新时间
+        playback.last_update_time = now - (elapsed % interval);
     }
 }

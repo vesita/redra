@@ -1,39 +1,100 @@
 use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::{Arc, Mutex};
-use log::error;
+use log::{debug, error};
 use crate::module::parser::core::RDPack;
 use crate::graph::communicate::channels::RDChannel;
 use redra_storage::{FrameMetadata, FrameType, FrameStorage};
 
 /// 序列化点云数据为二进制格式
 fn serialize_point_cloud(packs: &[RDPack]) -> Vec<u8> {
-    // Simple binary serialization (can be improved with bincode or protobuf later)
+    // 简单的二进制序列化（稍后可以用 bincode 或 protobuf 改进）
     let mut buffer = Vec::new();
     
-    // Write number of points
+    // 写入点的数量
     buffer.extend_from_slice(&(packs.len() as u32).to_le_bytes());
     
-    // Write each pack (simplified, should use bincode in production)
+    // 写入每个包（简化版，生产环境中应使用 bincode）
     for pack in packs {
         match pack {
             RDPack::Message(msg) => {
-                buffer.push(0);  // Type marker
+                buffer.push(0);  // 类型标记
                 buffer.extend_from_slice(&(msg.len() as u32).to_le_bytes());
                 buffer.extend_from_slice(msg.as_bytes());
             },
             RDPack::SpawnShape(_) => {
-                buffer.push(1);  // Type marker
-                // TODO: Implement Shape serialization
+                buffer.push(1);  // 类型标记
+                // TODO: 实现 Shape 序列化
             },
             RDPack::SpawnFormat(_) => {
-                buffer.push(2);  // Type marker
-                // TODO: Implement Format serialization
+                buffer.push(2);  // 类型标记
+                // TODO: 实现 Format 序列化
             },
         }
     }
     
     buffer
+}
+
+/// 反序列化点云数据
+fn deserialize_point_cloud(buffer: &[u8]) -> Result<Vec<RDPack>, Box<dyn std::error::Error>> {
+    let mut offset = 0;
+    
+    // 读取点的数量
+    if buffer.len() < 4 {
+        return Err("缓冲区太短".into());
+    }
+    let num_points = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
+    offset += 4;
+    
+    let mut packs = Vec::with_capacity(num_points as usize);
+    
+    for _ in 0..num_points {
+        if offset >= buffer.len() {
+            return Err("意外的缓冲区结束".into());
+        }
+        
+        let pack_type = buffer[offset];
+        offset += 1;
+        
+        match pack_type {
+            0 => {
+                // RDPack::Message
+                if offset + 4 > buffer.len() {
+                    return Err("意外的缓冲区结束".into());
+                }
+                let msg_len = u32::from_le_bytes([
+                    buffer[offset],
+                    buffer[offset + 1],
+                    buffer[offset + 2],
+                    buffer[offset + 3],
+                ]) as usize;
+                offset += 4;
+                
+                if offset + msg_len > buffer.len() {
+                    return Err("意外的缓冲区结束".into());
+                }
+                
+                let msg = String::from_utf8(buffer[offset..offset + msg_len].to_vec())?;
+                offset += msg_len;
+                
+                packs.push(RDPack::Message(msg));
+            }
+            1 => {
+                // RDPack::SpawnShape - 尚未实现
+                return Err("SpawnShape 反序列化尚未实现".into());
+            }
+            2 => {
+                // RDPack::SpawnFormat - 尚未实现
+                return Err("SpawnFormat 反序列化尚未实现".into());
+            }
+            _ => {
+                return Err("未知的包类型".into());
+            }
+        }
+    }
+    
+    Ok(packs)
 }
 
 /// 数据帧 - 带有完整元数据的帧结构
@@ -126,7 +187,7 @@ impl Default for DataRecorder {
             current_frame_id: 0,
             recording_start_time: now,
             total_points_received: 0,
-            storage: None,  // Will be initialized by DataProcessingPlugin
+            storage: None,  // 将由 DataProcessingPlugin 初始化
             pending_persistence: Vec::new(),
         }
     }
@@ -270,6 +331,13 @@ impl DataRecorder {
 
     /// 获取总帧数
     pub fn total_frames(&self) -> usize {
+        if let Some(ref storage_arc) = self.storage {
+            if let Ok(storage) = storage_arc.lock() {
+                if let Ok(stats) = storage.database().get_stats() {
+                    return stats.total_frames as usize;
+                }
+            }
+        }
         self.frames.len()
     }
 
@@ -340,6 +408,7 @@ impl PlaybackManager {
     pub fn stop(&mut self) {
         self.is_playing = false;
         self.current_frame_index = 0;
+        self.loaded_frame = None;
     }
 
     /// 设置播放速度
@@ -367,6 +436,16 @@ impl PlaybackManager {
             self.current_frame_index -= 1;
         }
     }
+}
+
+/// 从存储加载指定帧
+pub fn load_frame_from_storage(
+    _storage: &FrameStorage,
+    _frame_index: usize,
+) -> Result<Vec<RDPack>, Box<dyn std::error::Error>> {
+    // 因为 redra_storage 中可能没有 get_frame_by_index 方法，我们尝试使用其他方法
+    // 这里暂时返回错误，需要根据实际的 redra_storage API 来实现
+    unimplemented!("需要根据 redra_storage 的实际 API 来实现此函数")
 }
 
 /// 记录数据帧系统
