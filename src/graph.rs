@@ -1,29 +1,27 @@
+use bevy::prelude::*;
+
+// graph模块入口文件
+// 统一导出graph模块的所有公共接口
+
 pub mod rendering;
-pub mod data_processing;
 pub mod interaction;
 pub mod ui;
-pub mod axis;
-
-// 导入材质模块
-pub use rendering::material::{MaterialManager, PredefinedMaterial};
-
-// 保留原通信模块
 pub mod communicate;
-
-// 保留init模块
+pub mod data_processing;  
 pub mod init;
-
-use bevy::prelude::*;
-use ui::data_play_control::DataPlayControlPlugin;
+pub mod frame_rate;  // 添加缺失的模块声明
+pub mod materials;  // 添加materials模块
 
 // 定义 GraphPlugin 来整合所有图形相关的插件和系统
 pub struct GraphPlugin;
 
 impl Plugin for GraphPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(data_processing::DataProcessingPlugin)
-            .add_plugins(rendering::RenderingPlugin)  // 添加RenderingPlugin
-            .add_plugins(ui::UiModule)
-            .add_plugins(DataPlayControlPlugin);
+        app
+            .add_plugins(init::InitPlugin)                 // 初始化插件
+            .add_plugins(rendering::RenderingPlugin)       // 渲染插件
+            .add_plugins(interaction::InteractionPlugin)   // 交互插件
+            .add_plugins(ui::UiModule)                     // UI插件
+            .add_plugins(frame_rate::FrameRatePlugin);      // 帧率控制插件
     }
 }

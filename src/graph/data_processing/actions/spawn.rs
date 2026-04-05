@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{graph::{MaterialManager, PredefinedMaterial}, module::parser::core::{RDPack, RDShapePack}};
+use crate::{graph::materials::{MaterialManager, PredefinedMaterial}, module::parser::core::{RDPack, RDShapePack}};
 
 // 为动态生成的实体定义标记组件
 #[derive(Component)]
@@ -58,7 +58,7 @@ pub fn spawn_shape(
     debug!("处理 SpawnShape 数据包");
     debug!("{:?}", spw.transform);
     // 通过字符串标识符查找材质
-    let material = if let Some(predefined) = material_manager.get_material_desc(&spw.material) {
+    let material = if let Some(predefined) = material_manager.get_material(&spw.material) {
         match predefined {
             PredefinedMaterial::Color(color) => {
                 materials.add(StandardMaterial::from(*color))

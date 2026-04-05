@@ -1,19 +1,28 @@
 use bevy::prelude::*;
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
+use crate::graph::materials::{MaterialManager, PredefinedMaterial};  // 添加导入
 
-pub mod material;
+// 初始化插件
+pub struct InitPlugin;
+
+impl Plugin for InitPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(Startup, rd_setup)
+            .add_systems(Startup, initialize_materials);
+    }
+}
 
 pub fn rd_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut global_ambient: ResMut<GlobalAmbientLight>,  // 添加全局环境光资源
+    mut global_ambient: ResMut<GlobalAmbientLight>,
 ) {
-
     // 设置全局环境光
     *global_ambient = GlobalAmbientLight {
         color: Color::WHITE,
-        brightness: 1000.0,  // 改回原来的高亮度值
+        brightness: 1000.0,
         affects_lightmapped_meshes: true,
     };
 
@@ -39,5 +48,76 @@ pub fn rd_setup(
         ));
 
     // 添加坐标轴
-    crate::graph::axis::spawn_axis(&mut commands, &mut meshes, &mut materials, 3.0);
+    crate::graph::rendering::axis::spawn_axis_setup(commands, meshes, materials);
+}
+
+pub fn initialize_materials(
+    mut commands: Commands,
+) {
+    // 创建材质管理器
+    let mut material_manager = MaterialManager::new();
+    
+    // 添加一些基础颜色材质
+    material_manager.register_material(
+        &"grid".to_string(),
+        PredefinedMaterial::Color(Color::srgb(0.2, 0.2, 0.2)),
+    );
+    material_manager.register_material(
+        &"red".to_string(),
+        PredefinedMaterial::Color(Color::srgb(0.8, 0.2, 0.2)),
+    );
+    material_manager.register_material(
+        &"green".to_string(),
+        PredefinedMaterial::Color(Color::srgb(0.2, 0.8, 0.2)),
+    );
+    material_manager.register_material(
+        &"blue".to_string(),
+        PredefinedMaterial::Color(Color::srgb(0.2, 0.2, 0.8)),
+    );
+    material_manager.register_material(
+        &"axis_x".to_string(),  // 红色
+        PredefinedMaterial::Color(Color::srgb(0.8, 0.2, 0.2)),
+    );
+    material_manager.register_material(
+        &"axis_y".to_string(),  // 绿色
+        PredefinedMaterial::Color(Color::srgb(0.2, 0.8, 0.2)),
+    );
+    material_manager.register_material(
+        &"axis_z".to_string(),  // 蓝色
+        PredefinedMaterial::Color(Color::srgb(0.2, 0.2, 0.8)),
+    );
+
+    // 添加一些特殊材质
+    material_manager.register_material(
+        &"metal".to_string(),
+        PredefinedMaterial::Standard(StandardMaterial {
+            base_color: Color::srgb(0.7, 0.8, 0.9),
+            metallic: 0.9,
+            perceptual_roughness: 0.1,
+            ..default()
+        })
+    );
+    
+    material_manager.register_material(
+        &"glow".to_string(),
+        PredefinedMaterial::Standard(StandardMaterial {
+            base_color: Color::srgb(0.1, 0.8, 0.5),
+            emissive: LinearRgba::from(Color::srgb(0.1, 0.8, 0.5)) * 3.0,
+            ..default()
+        })
+    );
+    
+    material_manager.register_material(
+        &"glass".to_string(),
+        PredefinedMaterial::Standard(StandardMaterial {
+            base_color: Color::srgba(0.5, 0.8, 0.9, 0.7),
+            alpha_mode: AlphaMode::Blend,
+            perceptual_roughness: 0.1,
+            metallic: 0.5,
+            ..default()
+        })
+    );
+
+    // 将材质管理器添加到全局资源中
+    commands.insert_resource(material_manager);
 }

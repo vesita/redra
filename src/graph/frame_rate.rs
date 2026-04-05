@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+
 // 添加一个资源来跟踪当前的帧率设置
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct FrameRateState {
@@ -114,7 +115,7 @@ pub enum Limiter {
     /// monitors.
     #[default]
     Auto,
-    /// Set a fixed manual frametime limit. This should be greater than the monitors frametime
+    /// Set a fixed manual frametime limit. This should be greater than the monitors frametime limit
     /// (`1.0 / monitor frequency`).
     Manual(Duration),
     /// Disables frame limiting
@@ -231,4 +232,15 @@ fn framerate_limiter(
             *oversleep = frame_time_total.saturating_sub(*limit);
         }
     };
+}
+
+// FrameRate插件，提供帧率管理功能
+pub struct FrameRatePlugin;
+
+impl Plugin for FrameRatePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_plugins(FramepacePlugin)
+            .add_systems(Update, toggle_frame_rate);
+    }
 }

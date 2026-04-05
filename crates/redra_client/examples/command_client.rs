@@ -1,4 +1,3 @@
-use tokio::time::{sleep, Duration};
 use tokio::net::TcpStream;
 use log::{info, error};
 
@@ -7,7 +6,7 @@ use redra_client::proto::{
     target::TargetId,
     designation::{self, DesignCmd, Spawn, Update},
     shape::{self, ShapePack, Cube, Sphere, Pose},
-    transform::{TransCmd, Translation, Rotation, Scale, TransformOptions},
+    transform::{Translation, Rotation, Scale},
 };
 
 use redra_client::client::sender::Sender;

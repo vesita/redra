@@ -57,3 +57,12 @@ pub fn spawn_axis_setup(
             .with_translation(Vec3::new(0.0, 0.0, axis_length)),
     ));
 }
+
+// 定义坐标轴渲染插件
+pub struct AxisRenderingPlugin;
+
+impl Plugin for AxisRenderingPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_axis_setup);
+    }
+}

@@ -62,15 +62,3 @@ impl Receiver {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::io::AsyncWriteExt;
-
-    #[tokio::test]
-    async fn test_receive_command() {
-        // 这个测试需要一个模拟的TCP连接，因此略复杂
-        // 我们将在集成测试中测试这个功能
-    }
-}

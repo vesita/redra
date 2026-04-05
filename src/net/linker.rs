@@ -1,6 +1,6 @@
 
 use log::{info, warn, error, debug};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use tokio::{net::TcpStream, sync::mpsc};
 use tokio::io::AsyncReadExt;
 

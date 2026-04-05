@@ -6,6 +6,7 @@ pub struct InteractionPlugin;
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        // 在这里注册交互相关的系统
+        app
+            .add_plugins(camera::CameraInteractionPlugin); // 重新添加相机交互插件
     }
 }
