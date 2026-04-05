@@ -5,7 +5,7 @@
 //! - egui UI 框架文本渲染
 
 use std::sync::Arc;
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
 /// 字体资源，包含 Bevy 和 egui 使用的字体
@@ -23,14 +23,28 @@ impl Default for FontAssets {
     }
 }
 
+/// 字体加载状态枚举
+#[derive(Resource, Debug, Clone, PartialEq)]
+pub enum FontLoadStatus {
+    Loading,
+    Loaded,
+}
+
+impl Default for FontLoadStatus {
+    fn default() -> Self {
+        FontLoadStatus::Loading
+    }
+}
+
 /// 字体插件
 pub struct FontPlugin;
 
 impl Plugin for FontPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FontAssets>()
+            .init_resource::<FontLoadStatus>()
             .add_systems(Startup, load_all_fonts)
-            .add_systems(Update, setup_egui_fonts);
+            .add_systems(Update, (setup_egui_fonts, update_font_load_status));
     }
 }
 
@@ -86,6 +100,31 @@ pub fn setup_egui_fonts(
         // 使用 ctx_mut() 获取 egui 上下文并设置字体
         if let Ok(ctx) = contexts.ctx_mut() {
             ctx.set_fonts(fonts);
+        }
+    }
+}
+
+/// 系统：更新字体加载状态
+fn update_font_load_status(
+    font_assets: Option<Res<FontAssets>>,
+    mut font_status: ResMut<FontLoadStatus>,
+    asset_server: Res<AssetServer>,
+) {
+    if let Some(assets) = font_assets {
+        // 检查 Bevy 字体是否已加载，使用match表达式替代==
+        match asset_server.get_load_state(&assets.bevy_font) {
+            Some(bevy::asset::LoadState::Loaded) => {
+                if *font_status != FontLoadStatus::Loaded {
+                    *font_status = FontLoadStatus::Loaded;
+                    info!("字体加载状态已更新为：已加载");
+                }
+            }
+            Some(bevy::asset::LoadState::Failed(_)) => {
+                warn!("字体加载失败");
+            }
+            _ => {
+                // 其他状态保持Loading
+            }
         }
     }
 }

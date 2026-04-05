@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager};
+use crate::manager::font::core::FontLoadStatus;
 
 /// 回放 UI 插件
 pub struct PlaybackUiPlugin;
@@ -11,10 +12,14 @@ impl Plugin for PlaybackUiPlugin {
             .add_systems(
                 Update, 
                 playback_ui_system
-                    .after(crate::manager::font::core::setup_egui_fonts)
-                    .run_if(|font_assets: Option<Res<crate::manager::font::core::FontAssets>>| font_assets.is_some())
+                    .run_if(font_loaded)
             );
     }
+}
+
+/// 字体加载状态检查函数
+fn font_loaded(font_status: Res<FontLoadStatus>) -> bool {
+    *font_status == FontLoadStatus::Loaded
 }
 
 /// 帧选择器资源 - 管理光标选择的帧范围
@@ -34,13 +39,7 @@ pub fn playback_ui_system(
     mut recorder: ResMut<DataRecorder>,
     mut selector: ResMut<FrameSelector>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
 ) {
-    // 第一帧跳过，确保 egui 完全初始化
-    if time.elapsed_secs() < 0.1 {
-        return;
-    }
-    
     // 处理键盘输入
     handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
 

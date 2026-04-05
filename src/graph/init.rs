@@ -15,8 +15,8 @@ impl Plugin for InitPlugin {
 
 pub fn rd_setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
     mut global_ambient: ResMut<GlobalAmbientLight>,
 ) {
     // 设置全局环境光
