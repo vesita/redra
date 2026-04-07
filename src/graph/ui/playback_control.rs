@@ -1,5 +1,10 @@
-use bevy::prelude::*;
-use bevy_egui::{EguiContexts, egui};
+use bevy::{
+    camera::{CameraOutputMode, Viewport, visibility::RenderLayers},
+    prelude::*,
+    render::render_resource::BlendState,
+    window::PrimaryWindow,
+};
+use bevy_egui::{EguiContexts, EguiGlobalSettings, EguiPrimaryContextPass, PrimaryEguiContext, egui};
 
 use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager};
 use crate::manager::font::core::FontLoadStatus;
@@ -10,16 +15,111 @@ pub struct PlaybackUiPlugin;
 impl Plugin for PlaybackUiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrameSelector>()
+            .init_resource::<PlaybackPanelState>()
+            // 添加启动时设置 UI 相机的系统
+            .add_systems(Startup, setup_playback_ui_camera)
+            // 使用 EguiPrimaryContextPass 阶段处理 UI 渲染和输入
             .add_systems(
-                Update, 
-                playback_ui_system.run_if(font_loaded)
+                EguiPrimaryContextPass, 
+                (
+                    update_viewport_for_panels,
+                    playback_ui_system.run_if(font_loaded)
+                )
             );
     }
+}
+
+/// 面板状态资源 - 存储面板尺寸信息
+#[derive(Resource, Default)]
+pub struct PlaybackPanelState {
+    pub panel_width: f32,
+    pub panel_height: f32,
 }
 
 /// 字体加载状态检查函数
 fn font_loaded(font_status: Res<FontLoadStatus>) -> bool {
     *font_status == FontLoadStatus::Loaded
+}
+
+/// 设置回放 UI 相机
+fn setup_playback_ui_camera(
+    mut commands: Commands,
+    mut egui_global_settings: ResMut<EguiGlobalSettings>,
+) {
+    // 禁用自动创建主上下文，以便手动设置我们需要的相机
+    egui_global_settings.auto_create_primary_context = false;
+
+    // 主世界相机（如果还没有的话）
+    // 注意：这里假设项目中已有主相机，如果没有需要取消注释
+    // commands.spawn((
+    //     Camera3d::default(),
+    //     Name::new("Main World Camera")
+    // ));
+
+    // EGUI 相机，用于渲染 UI
+    commands.spawn((
+        // PrimaryEguiContext 组件需要渲染主上下文的所有内容
+        PrimaryEguiContext,
+        Camera2d::default(),
+        // 设置渲染层为无，确保我们只渲染 UI
+        RenderLayers::none(),
+        Camera {
+            order: 100,  // 设置更高的渲染顺序，确保 UI 在所有其他相机之上渲染
+            output_mode: CameraOutputMode::Write {
+                blend_state: Some(BlendState::ALPHA_BLENDING),
+                clear_color: ClearColorConfig::None,
+            },
+            clear_color: ClearColorConfig::Custom(Color::NONE),
+            ..default()
+        },
+        Name::new("Playback UI Camera")
+    ));
+}
+
+/// 更新视口以适应面板布局
+fn update_viewport_for_panels(
+    mut contexts: EguiContexts,
+    mut ui_camera: Query<&mut Camera, With<PrimaryEguiContext>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut panel_state: ResMut<PlaybackPanelState>,
+) {
+    let Ok(egui_ctx) = contexts.ctx_mut() else {
+        return;
+    };
+
+    let Ok(mut camera) = ui_camera.single_mut() else {
+        return;
+    };
+
+    // 获取窗口物理尺寸
+    let window_width = window.physical_width() as f32;
+    let window_height = window.physical_height() as f32;
+    let scale_factor = window.scale_factor();
+
+    // 计算面板占用的空间（基于固定位置和大小）
+    // 主控制面板固定在左上角 350x600
+    let panel_left = 10.0 * scale_factor;
+    let panel_top = 10.0 * scale_factor;
+    let panel_right = panel_left + 350.0 * scale_factor;
+    let panel_bottom = panel_top + 600.0 * scale_factor;
+
+    // 如果有时间轴窗口显示，也需要考虑它的空间
+    // 时间轴在 (400, 10)，大小 400x200
+    let timeline_right = (400.0 + 400.0) * scale_factor;
+    let timeline_bottom = (10.0 + 200.0) * scale_factor;
+
+    // 计算最大占用区域
+    let max_right = panel_right.max(timeline_right);
+    let max_bottom = panel_bottom.max(timeline_bottom);
+
+    // 保存面板状态供其他系统使用
+    panel_state.panel_width = max_right;
+    panel_state.panel_height = max_bottom;
+
+    // 设置 UI 相机的视口为整个窗口（因为 UI 需要全屏接收输入）
+    // 注意：这里不裁剪视口，而是让 UI 相机渲染全屏透明层
+    // 实际的遮挡由 RenderLayers 和 Camera order 控制
+    camera.viewport = None; // UI 相机使用完整视口
 }
 
 /// 帧选择器资源 - 管理光标选择的帧范围
@@ -53,6 +153,14 @@ pub fn playback_ui_system(
     let Ok(egui_ctx) = contexts.ctx_mut() else {
         return;
     };
+
+    // 调试：检查输入焦点状态
+    let wants_pointer = egui_ctx.wants_pointer_input();
+    let wants_keyboard = egui_ctx.wants_keyboard_input();
+    debug!("Egui 输入焦点 - 指针: {}, 键盘: {}", wants_pointer, wants_keyboard);
+
+    // 处理键盘输入
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
 
     // 主控制面板
     egui::Window::new("数据回放控制")
@@ -92,16 +200,16 @@ pub fn playback_ui_system(
                 // 播放控制按钮
                 ui.horizontal(|ui| {
                     if ui.button("播放").clicked() {
+                        info!("✅ 播放按钮被点击");
                         playback.play();
-                        info!("播放按钮被点击");
                     }
                     if ui.button("暂停").clicked() {
+                        info!("✅ 暂停按钮被点击");
                         playback.pause();
-                        info!("暂停按钮被点击");
                     }
                     if ui.button("停止").clicked() {
+                        info!("✅ 停止按钮被点击");
                         playback.stop();
-                        info!("停止按钮被点击");
                     }
                 });
                 

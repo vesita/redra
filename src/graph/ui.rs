@@ -7,7 +7,6 @@ use bevy_egui::EguiPlugin;
 
 use wheel_menu::WheelMenuGraphPlugin;
 use playback_control::PlaybackUiPlugin;
-// use camera::UiCameraPlugin; // 移除UI相机插件导入
 
 pub struct UiModule;
 
