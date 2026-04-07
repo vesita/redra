@@ -8,6 +8,7 @@ log = "0.4"
 env_logger = "0.11"
 redra_proto = { path = "../redra_proto" }
 prost = "0.14"
+async-trait = "0.1"
 
 # Tokio 异步运行时 - 最小化 features:
 # net: TCP 网络 (TcpStream)
