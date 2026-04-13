@@ -6,3 +6,4 @@ pub mod formats;
 pub mod designation;
 pub mod shape;
 pub mod transform;
+pub mod pointcloud;

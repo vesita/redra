@@ -377,8 +377,43 @@ pub fn process_pack(pack: command::Command, sender: mpsc::Sender<RDPack>) {
         Some(command::command::CmdPack::Transform(ref transform_cmd)) => {
             handle_transform_cmd(transform_cmd, sender);
         }
+        Some(command::command::CmdPack::PointCloud(ref point_cloud)) => {
+            // 处理点云数据
+            handle_point_cloud(point_cloud, sender);
+        }
         None => {
             error!("Command消息中没有定义任何命令");
         }
+    }
+}
+
+/// 处理点云数据包
+/// 
+/// 将protobuf中的PointCloudPack转换为内部RDPack并发送到Bevy
+/// 
+/// # 参数
+/// * `point_cloud` - protobuf定义的PointCloudPack对象
+/// * `sender` - 用于发送数据到Bevy的异步发送器
+fn handle_point_cloud(point_cloud: &redra_proto::proto::pointcloud::PointCloudPack, sender: mpsc::Sender<RDPack>) {
+    use crate::module::parser::core::PointCloudPack;
+    
+    // 转换点坐标
+    let points = point_cloud.points.iter()
+        .map(|p| (p.x, p.y, p.z))
+        .collect();
+    
+    let rd_point_cloud = PointCloudPack {
+        frame_id: point_cloud.frame_id,
+        timestamp: point_cloud.timestamp,
+        points,
+    };
+    
+    let rd_pack = RDPack::PointCloud(rd_point_cloud);
+    
+    if let Err(e) = sender.try_send(rd_pack) {
+        error!("发送点云数据到Bevy失败: {}", e);
+    } else {
+        debug!("成功发送点云数据 - 帧ID: {}, 点数: {}", 
+               point_cloud.frame_id, point_cloud.points.len());
     }
 }

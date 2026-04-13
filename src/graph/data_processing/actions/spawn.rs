@@ -34,12 +34,18 @@ fn handle_rd_pack(
     pack: RDPack,
 ) {
     match pack {
-        RDPack::Message(_) => todo!(),
+        RDPack::Message(_) => {
+            // 忽略消息数据包
+        },
         RDPack::SpawnShape(spw) => {
             spawn_shape(commands, meshes, materials, material_manager, *spw);
         },
         RDPack::SpawnFormat(_spw) => {
             // TODO: 处理 SpawnFormat 数据包
+        }
+        RDPack::PointCloud(_) => {
+            // 点云数据由记录器处理，不在此处生成实体
+            debug!("接收到点云数据包，将由记录器处理");
         }
     }
 }

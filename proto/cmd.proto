@@ -5,6 +5,7 @@ package command;
 import "conception.proto";
 import "designation.proto";
 import "transform.proto";
+import "point_cloud.proto";
 
 // ============================================================================
 // Command - 命令定义
@@ -25,6 +26,9 @@ message Command {
     
     // 变换命令：用于位置、旋转、缩放等空间变换
     transform.TransCMD transform = 3;
+    
+    // 点云数据命令：用于传输传感器点云数据
+    pointcloud.PointCloudPack point_cloud = 6;
   }
   
   // 添加时间戳，便于追踪命令执行

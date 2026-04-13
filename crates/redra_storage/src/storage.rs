@@ -278,6 +278,19 @@ impl FrameDatabase {
         Ok(frames.next().and_then(|f| f.ok()))
     }
     
+    /// 清空所有帧数据
+    pub fn clear_all_frames(&self) -> SqliteResult<usize> {
+        // 首先删除所有数据文件
+        if let Ok(frames) = self.get_all_frames() {
+            for frame in frames {
+                let _ = fs::remove_file(&frame.data_path);
+            }
+        }
+        
+        // 然后清空数据库表
+        self.conn.execute("DELETE FROM frames", [])
+    }
+    
     /// 获取统计信息
     pub fn get_stats(&self) -> SqliteResult<FrameStats> {
         let mut stmt = self.conn.prepare(

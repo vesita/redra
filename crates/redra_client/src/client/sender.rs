@@ -1,8 +1,8 @@
 use log::{info, debug, warn};
-use prost::Message;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 use redra_proto::proto::command::Command;
+use redra_proto::coding::encoding::encode_command_with_trailer;
 
 pub struct Sender {
     stream: TcpStream,
@@ -20,70 +20,31 @@ impl Sender {
         Ok(Self::new(stream))
     }
 
+    /// 发送Command（自动添加Trailer）
+    /// 
+    /// 根据项目规范，使用 "Trailer + Pack" 格式发送数据
     pub async fn send_command(&mut self, command: Command) -> Result<(), Box<dyn std::error::Error>> {
         debug!("开始发送命令");
         
-        // 先对命令进行编码
-        let encoded_data = command.encode_to_vec();
-        let len = encoded_data.len() as u32;
+        // 使用统一的编码函数生成完整数据包（Trailer + Pack）
+        let packet = encode_command_with_trailer(&command)
+            .map_err(|e| format!("编码失败: {}", e))?;
         
-        // 创建trailer用于命令数据
-        let temp_trailer = redra_proto::proto::declare::Trailer {
-            me: 1,  // 临时值
-            next: len,
-        };
+        // 发送完整数据包
+        self.stream.write_all(&packet).await?;
+        self.stream.flush().await?;
         
-        // 获取trailer编码后的长度
-        let trailer_size = temp_trailer.encoded_len() as u32;
-        
-        // 创建最终的trailer
-        let trailer = redra_proto::proto::declare::Trailer {
-            me: trailer_size as u32,
-            next: len,
-        };
-
-        let mut trailer_buf = Vec::new();
-        trailer.encode(&mut trailer_buf)?;
-        
-        // 先发送trailer，然后发送实际数据
-        self.stream.write_all(&trailer_buf).await?;
-        self.stream.write_all(&encoded_data).await?;
-        
-        info!("命令已发送");
+        debug!("命令已发送，数据包大小: {} 字节", packet.len());
         Ok(())
     }
     
+    /// 发送原始数据（不添加Trailer，用于特殊场景）
     pub async fn send_raw_data(&mut self, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-        let len = data.len() as u32;
+        let len = data.len();
         debug!("发送原始数据，长度为: {}", len);
         
-        // 创建trailer用于原始数据
-        let temp_trailer = redra_proto::proto::declare::Trailer {
-            me: 1,  // 临时值
-            next: len,
-        };
-        
-        // 获取trailer编码后的长度
-        let trailer_size = temp_trailer.encoded_len() as u32;
-        
-        // 创建最终的trailer
-        let trailer = redra_proto::proto::declare::Trailer {
-            me: trailer_size as u32,
-            next: len,
-        };
-
-        let mut trailer_buf = Vec::new();
-        trailer.encode(&mut trailer_buf)?;
-        
-        if let Err(e) = self.stream.write_all(&trailer_buf).await {
-            warn!("写入trailer时发生错误: {}", e);
-            return Err(Box::new(e));
-        }
-        
-        if let Err(e) = self.stream.write_all(data).await {
-            warn!("写入数据时发生错误: {}", e);
-            return Err(Box::new(e));
-        }
+        self.stream.write_all(data).await?;
+        self.stream.flush().await?;
         
         info!("成功发送原始数据，长度: {}", len);
         Ok(())

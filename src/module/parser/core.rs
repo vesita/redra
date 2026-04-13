@@ -4,6 +4,14 @@ use bevy::{
 };
 use std::sync::Arc;
 
+/// 点云数据包，包含原始点坐标信息
+#[derive(Clone, Debug)]
+pub struct PointCloudPack {
+    pub points: Vec<(f32, f32, f32)>,  // 点坐标列表 (x, y, z)
+    pub frame_id: u32,                  // 帧ID
+    pub timestamp: u64,                 // 时间戳（毫秒）
+}
+
 /// RDPack 枚举定义了网络通信中可能传输的各种数据包类型
 /// 包括消息、形状数据和格式数据等
 #[derive(Clone, Debug)]
@@ -11,6 +19,7 @@ pub enum RDPack {
     Message(String),                    // 消息数据包，包含字符串内容
     SpawnShape(Box<RDShapePack>),      // 形状生成数据包，包含形状的网格、变换和材质信息
     SpawnFormat(Box<FormatPack>),      // 格式数据包，用于传输特定格式的数据
+    PointCloud(PointCloudPack),        // 点云数据包，用于传感器数据录制和回放
 }
 
 /// RDShapePack 结构体定义了形状实体的完整描述

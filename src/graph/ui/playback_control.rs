@@ -1,12 +1,12 @@
 use bevy::{
-    camera::{CameraOutputMode, Viewport, visibility::RenderLayers},
+    camera::{CameraOutputMode, visibility::RenderLayers},
     prelude::*,
     render::render_resource::BlendState,
     window::PrimaryWindow,
 };
 use bevy_egui::{EguiContexts, EguiGlobalSettings, EguiPrimaryContextPass, PrimaryEguiContext, egui};
 
-use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager};
+use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager, RecordingMode};
 use crate::manager::font::core::FontLoadStatus;
 
 /// 回放 UI 插件
@@ -92,8 +92,8 @@ fn update_viewport_for_panels(
     };
 
     // 获取窗口物理尺寸
-    let window_width = window.physical_width() as f32;
-    let window_height = window.physical_height() as f32;
+    let _window_width = window.physical_width() as f32;
+    let _window_height = window.physical_height() as f32;
     let scale_factor = window.scale_factor();
 
     // 计算面板占用的空间（基于固定位置和大小）
@@ -120,6 +120,9 @@ fn update_viewport_for_panels(
     // 注意：这里不裁剪视口，而是让 UI 相机渲染全屏透明层
     // 实际的遮挡由 RenderLayers 和 Camera order 控制
     camera.viewport = None; // UI 相机使用完整视口
+    
+    // 使用 egui_ctx 避免未使用警告
+    let _ = egui_ctx;
 }
 
 /// 帧选择器资源 - 管理光标选择的帧范围
@@ -130,6 +133,8 @@ pub struct FrameSelector {
     pub show_timeline: bool,
     pub show_frame_list: bool,
     pub search_filter: String,
+    pub current_page: usize,  // 当前页码（从 0 开始）
+    pub page_size: usize,     // 每页显示数量
 }
 
 /// 回放 UI 系统（使用 egui）
@@ -147,7 +152,7 @@ pub fn playback_ui_system(
     }
 
     // 处理键盘输入
-    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut *selector);
 
     // 获取 egui 上下文，如果不可用则跳过
     let Ok(egui_ctx) = contexts.ctx_mut() else {
@@ -160,7 +165,7 @@ pub fn playback_ui_system(
     debug!("Egui 输入焦点 - 指针: {}, 键盘: {}", wants_pointer, wants_keyboard);
 
     // 处理键盘输入
-    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut *selector);
 
     // 主控制面板
     egui::Window::new("数据回放控制")
@@ -178,36 +183,135 @@ pub fn playback_ui_system(
                     .num_columns(2)
                     .spacing([10.0, 5.0])
                     .show(ui, |ui| {
-                        ui.label("录制状态:");
-                        ui.label(if recorder.is_recording { "开启" } else { "关闭" });
+                        ui.label("录制模式:");
+                        let mode_text = match recorder.get_recording_mode() {
+                            RecordingMode::Off => "❌ 关闭",
+                            RecordingMode::MemoryOnly => "💾 仅内存",
+                            RecordingMode::AutoSave => "💿 自动保存",
+                        };
+                        ui.colored_label(
+                            if recorder.get_recording_mode() == &RecordingMode::Off {
+                                egui::Color32::RED
+                            } else {
+                                egui::Color32::GREEN
+                            },
+                            mode_text
+                        );
                         ui.end_row();
                         
-                        ui.label("总帧数:");
-                        ui.label(format!("{}", get_total_frames(&recorder)));
+                        ui.label("内存帧数:");
+                        ui.label(format!("{}", recorder.memory_frame_count()));
                         ui.end_row();
                         
-                        ui.label("当前帧:");
-                        ui.label(format!("{}/{}", playback.current_frame_index, get_total_frames(&recorder).max(1)));
+                        ui.label("数据库帧数:");
+                        ui.label(format!("{}", recorder.database_frame_count()));
                         ui.end_row();
                         
-                        ui.label("播放速度:");
-                        ui.label(format!("{:.1}x", playback.playback_speed));
+                        ui.label("总点数:");
+                        ui.label(format!("{}", recorder.total_points_received));
+                        ui.end_row();
+                        
+                        ui.label("当前构建帧:");
+                        let building_status = if recorder.current_builder.is_some() {
+                            "🔄 正在接收..."
+                        } else {
+                            "⏸️ 空闲"
+                        };
+                        ui.colored_label(
+                            if recorder.current_builder.is_some() {
+                                egui::Color32::YELLOW
+                            } else {
+                                egui::Color32::GRAY
+                            },
+                            building_status
+                        );
                         ui.end_row();
                     });
                 
                 ui.separator();
                 
-                // 播放控制按钮
+                // 录制控制
+                ui.heading("📹 录制控制");
+                
+                // 显示当前录制状态提示
+                let mode_text = match recorder.get_recording_mode() {
+                    RecordingMode::Off => "❌ 录制已关闭 - 数据将被忽略",
+                    RecordingMode::MemoryOnly => "💾 仅内存模式 - 数据不保存到磁盘",
+                    RecordingMode::AutoSave => "💿 自动保存模式 - 数据实时保存",
+                };
+                
+                let mode_color = match recorder.get_recording_mode() {
+                    RecordingMode::Off => egui::Color32::RED,
+                    RecordingMode::MemoryOnly => egui::Color32::YELLOW,
+                    RecordingMode::AutoSave => egui::Color32::GREEN,
+                };
+                
+                ui.colored_label(mode_color, mode_text);
+                
                 ui.horizontal(|ui| {
-                    if ui.button("播放").clicked() {
-                        info!("✅ 播放按钮被点击");
-                        playback.play();
+                    if ui.button("⏹ 关闭录制").clicked() {
+                        recorder.set_recording_mode(RecordingMode::Off);
                     }
-                    if ui.button("暂停").clicked() {
-                        info!("✅ 暂停按钮被点击");
-                        playback.pause();
+                    if ui.button("💾 仅内存").clicked() {
+                        recorder.set_recording_mode(RecordingMode::MemoryOnly);
                     }
-                    if ui.button("停止").clicked() {
+                    if ui.button("💿 自动保存").clicked() {
+                        recorder.set_recording_mode(RecordingMode::AutoSave);
+                    }
+                });
+                
+                ui.horizontal(|ui| {
+                    if ui.button("💾 手动保存到磁盘").clicked() {
+                        match recorder.save_to_disk() {
+                            Ok(count) => {
+                                log::info!("✅ 成功保存 {} 帧到磁盘", count);
+                            }
+                            Err(e) => {
+                                log::error!("❌ 保存失败: {}", e);
+                            }
+                        }
+                    }
+                    
+                    if ui.button("🗑️ 清空所有数据").clicked() {
+                        recorder.clear();
+                    }
+                });
+                
+                ui.separator();
+                
+                // 播放控制按钮
+                ui.heading("▶️ 回放控制");
+                
+                // 显示回放状态提示
+                let total_frames = recorder.total_frames();
+                if total_frames == 0 {
+                    ui.colored_label(egui::Color32::GRAY, "⚠️ 没有可回放的帧数据");
+                    ui.label("请先开启录制模式并接收数据");
+                } else if !playback.is_playing {
+                    ui.colored_label(egui::Color32::GREEN, format!("✅ 就绪: {} 帧可回放", total_frames));
+                    ui.label("点击 '播放' 按钮或按空格键开始回放");
+                } else {
+                    ui.colored_label(egui::Color32::YELLOW, "🔄 正在回放...");
+                    ui.label(format!("当前帧: {} / {}", playback.current_frame_index + 1, total_frames));
+                }
+                
+                ui.horizontal(|ui| {
+                    let play_button = ui.add_enabled(
+                        total_frames > 0,
+                        egui::Button::new(if playback.is_playing { "⏸ 暂停" } else { "▶ 播放" })
+                    );
+                    
+                    if play_button.clicked() {
+                        if playback.is_playing {
+                            info!("✅ 暂停按钮被点击");
+                            playback.pause();
+                        } else {
+                            info!("✅ 播放按钮被点击");
+                            playback.play();
+                        }
+                    }
+                    
+                    if ui.button("⏹ 停止").clicked() {
                         info!("✅ 停止按钮被点击");
                         playback.stop();
                     }
@@ -250,29 +354,6 @@ pub fn playback_ui_system(
                     ui.checkbox(&mut selector.show_frame_list, "📋 显示帧列表");
                 });
                 
-                ui.separator();
-                
-                // 录制控制
-                ui.collapsing("🔧 录制设置", |ui| {
-                    ui.horizontal(|ui| {
-                        if ui.button(if recorder.is_recording { "停止录制" } else { "开始录制" }).clicked() {
-                            recorder.is_recording = !recorder.is_recording;
-                        }
-                        if ui.button("清除所有帧").clicked() {
-                            recorder.clear();
-                            playback.stop();
-                        }
-                    });
-                    
-                    // SQLite 存储状态
-                    if recorder.storage.is_some() {
-                        ui.colored_label(egui::Color32::GREEN, "SQLite 存储：已启用");
-                    } else {
-                        ui.colored_label(egui::Color32::YELLOW, "SQLite 存储：未启用（内存模式）");
-                    }
-                });
-                
-                ui.separator();
                 
                 // 快捷键说明
                 ui.collapsing("快捷键", |ui| {
@@ -287,12 +368,12 @@ pub fn playback_ui_system(
         
         // 时间轴窗口
         if selector.show_timeline {
-            render_timeline_window(egui_ctx, &mut playback, &recorder, &mut selector);
+            render_timeline_window(egui_ctx, &mut playback, &recorder, &mut *selector);
         }
         
         // 帧列表窗口
         if selector.show_frame_list {
-            render_frame_list_window(egui_ctx, &mut playback, &recorder, &mut selector);
+            render_frame_list_window(egui_ctx, &mut playback, &recorder, &mut *selector);
         }
 }
 
@@ -442,59 +523,140 @@ fn render_frame_list_window(
         .default_size([400.0, 300.0])
         .resizable(true)
         .show(egui_ctx, |ui| {
+            // 搜索栏
             ui.horizontal(|ui| {
                 ui.label("🔍 搜索:");
-                ui.text_edit_singleline(&mut selector.search_filter);
+                if ui.text_edit_singleline(&mut selector.search_filter).changed() {
+                    // 搜索条件改变时重置页码
+                    selector.current_page = 0;
+                }
                 if ui.button("清空").clicked() {
                     selector.search_filter.clear();
+                    selector.current_page = 0;
                 }
             });
             
             ui.separator();
             
-            // 显示帧信息（只支持内存模式，SQLite 模式需要加载）
-            if recorder.frames.is_empty() {
-                if recorder.storage.is_some() {
-                    ui.label("SQLite 模式：帧数据存储在数据库中");
-                    ui.label("提示：使用上方的统计信息查看数据库状态");
-                } else {
-                    ui.label("暂无数据");
-                }
+            // 获取总帧数用于显示统计信息
+            let total_frames = recorder.total_frames();
+            
+            if total_frames == 0 {
+                ui.label("暂无数据");
                 return;
             }
             
-            egui::ScrollArea::vertical()
-                .max_height(400.0)
-                .show(ui, |ui| {
-                    for (idx, frame) in recorder.frames.iter().enumerate() {
-                        let is_selected = selector.selection_start.map_or(false, |s| idx >= s) 
-                            && selector.selection_end.map_or(false, |e| idx <= e);
-                        let is_current = idx == playback.current_frame_index;
-                        
-                        let response = ui.selectable_label(is_current, format!(
-                            "#{} | 点数：{} | 类型：{}",
-                            idx,
-                            frame.points.len(),
-                            frame.frame_type.to_string()
-                        ));
-                        
-                        // 自定义背景色（需要手动绘制）
-                        if is_current {
-                            // 当前帧高亮
-                        } else if is_selected {
-                            // 选中帧高亮
+            // 使用分页获取帧数据（每页 100 帧）
+            selector.page_size = 100;
+            let (page_frames, total_pages) = recorder.get_frames_paginated(
+                selector.current_page,
+                selector.page_size,
+            );
+            
+            // 如果有搜索条件，则进行搜索过滤
+            let display_frames = if !selector.search_filter.is_empty() {
+                recorder.search_frames(&selector.search_filter)
+            } else {
+                page_frames
+            };
+            
+            // 显示帧列表
+            if display_frames.is_empty() {
+                ui.label("未找到匹配的帧");
+            } else {
+                egui::ScrollArea::vertical()
+                    .max_height(400.0)
+                    .show(ui, |ui| {
+                        for (idx_in_list, (frame_id, sequence, timestamp, point_count, frame_type)) in display_frames.iter().enumerate() {
+                            // 计算全局索引（用于选中状态判断）
+                            let global_idx = if !selector.search_filter.is_empty() {
+                                // 搜索模式下，需要找到该帧在完整列表中的位置
+                                // 注意：这里假设 get_frame_metadata_list 返回的元数据顺序与帧ID或插入顺序一致
+                                // 如果性能敏感，建议优化此查找逻辑或在 search_frames 中直接返回全局索引
+                                let all_frames = recorder.get_frame_metadata_list();
+                                all_frames.iter().position(|f| f.0 == *frame_id).unwrap_or(idx_in_list)
+                            } else {
+                                // 分页模式下，计算全局索引
+                                selector.current_page * selector.page_size + idx_in_list
+                            };
+                            
+                            let is_selected = selector.selection_start.map_or(false, |s| global_idx >= s) 
+                                && selector.selection_end.map_or(false, |e| global_idx <= e);
+                            let is_current = global_idx == playback.current_frame_index;
+                            
+                            // 格式化时间戳为可读格式
+                            let time_str = format_timestamp(*timestamp);
+                            
+                            let response = ui.selectable_label(is_current, format!(
+                                "#{} [{}] | {} 点 | seq:{} | {}",
+                                frame_id,
+                                frame_type,
+                                point_count,
+                                sequence,
+                                time_str
+                            ));
+                            
+                            // 自定义背景色（当前帧高亮）
+                            if is_current {
+                                // Bevy 会自动处理 selectable_label 的高亮
+                            } else if is_selected {
+                                // 选中帧的样式由 egui 自动处理
+                            }
+                            
+                            if response.clicked() {
+                                playback.current_frame_index = global_idx;
+                            }
                         }
-                        
-                        if response.clicked() {
-                            playback.current_frame_index = idx;
-                        }
-                    }
-                });
+                    });
+            }
             
             ui.separator();
             
-            ui.label(format!("显示：{}/{} 帧", recorder.frames.len(), recorder.frames.len()));
+            // 分页控制
+            if !selector.search_filter.is_empty() {
+                // 搜索模式下不显示分页
+                ui.label(format!("搜索结果：{} 帧", display_frames.len()));
+            } else {
+                // 分页模式
+                ui.horizontal(|ui| {
+                    if ui.button("⏮ 首页").clicked() && selector.current_page > 0 {
+                        selector.current_page = 0;
+                    }
+                    
+                    if ui.button("◀ 上一页").clicked() && selector.current_page > 0 {
+                        selector.current_page -= 1;
+                    }
+                    
+                    ui.label(format!(
+                        "第 {}/{} 页",
+                        selector.current_page + 1,
+                        total_pages.max(1)
+                    ));
+                    
+                    if ui.button("下一页 ▶").clicked() && (total_pages == 0 || selector.current_page < total_pages - 1) {
+                        selector.current_page += 1;
+                    }
+                    
+                    if ui.button("末页 ⏭").clicked() && (total_pages == 0 || selector.current_page < total_pages - 1) {
+                        selector.current_page = total_pages.saturating_sub(1);
+                    }
+                });
+                
+                ui.label(format!("总计：{} 帧", total_frames));
+            }
         });
+}
+
+/// 格式化时间戳为可读字符串
+fn format_timestamp(timestamp_ms: u64) -> String {
+    let seconds = timestamp_ms / 1000;
+    let millis = timestamp_ms % 1000;
+    
+    // 简单格式化为 MM:SS.mmm
+    let minutes = seconds / 60;
+    let secs = seconds % 60;
+    
+    format!("{:02}:{:02}.{:03}", minutes, secs, millis)
 }
 
 fn handle_keyboard_input(
@@ -512,9 +674,14 @@ fn handle_keyboard_input(
         }
     }
 
-    // R 键 - 切换录制
+    // R 键 - 切换录制模式（循环切换：Off -> MemoryOnly -> AutoSave -> Off）
     if keyboard_input.just_pressed(KeyCode::KeyR) {
-        recorder.is_recording = !recorder.is_recording;
+        let new_mode = match recorder.get_recording_mode() {
+            RecordingMode::Off => RecordingMode::MemoryOnly,
+            RecordingMode::MemoryOnly => RecordingMode::AutoSave,
+            RecordingMode::AutoSave => RecordingMode::Off,
+        };
+        recorder.set_recording_mode(new_mode);
     }
 
     // C 键 - 清除录制
@@ -555,5 +722,5 @@ pub fn handle_playback_input(
     mut recorder: ResMut<DataRecorder>,
     mut selector: ResMut<FrameSelector>,
 ) {
-    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut selector);
+    handle_keyboard_input(&keyboard_input, &mut playback, &mut recorder, &mut *selector);
 }

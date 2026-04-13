@@ -56,19 +56,71 @@ impl RDForwarder {
                 recv_data = self.receiver.recv() => {
                     match recv_data {
                         Some(data) => {
-                            debug!("从链接器接收到数据，数据大小: {}", data.len());
+                            debug!("从链接器接收到数据，数据大小: {} 字节", data.len());
                             
-                            // 直接解析protobuf Pack消息
+                            // 直接解析protobuf Command消息
                             match decode_pack(&data) {
-                                Ok(pack) => {
+                                Ok(command) => {
+                                    debug!("✅ 成功解码Command消息");
+                                    
+                                    // 打印Command类型信息用于调试
+                                    if let Some(ref cmd_pack) = command.cmd_pack {
+                                        use redra_proto::proto::command::command::CmdPack;
+                                        match cmd_pack {
+                                            CmdPack::Conception(_) => debug!("Command类型: Conception"),
+                                            CmdPack::Designation(design) => {
+                                                debug!("Command类型: Designation");
+                                                if let Some(ref cmd) = design.cmd {
+                                                    use redra_proto::proto::designation::design_cmd::Cmd;
+                                                    match cmd {
+                                                        Cmd::Spawn(spawn) => {
+                                                            debug!("  - 操作: Spawn");
+                                                            if let Some(ref data) = spawn.data {
+                                                                use redra_proto::proto::designation::spawn::Data;
+                                                                match data {
+                                                                    Data::ShapeData(shape) => {
+                                                                        debug!("  - 数据类型: ShapeData");
+                                                                        if let Some(ref shape_data) = shape.data {
+                                                                            use redra_proto::proto::shape::shape_pack::Data as ShapeData;
+                                                                            match shape_data {
+                                                                                ShapeData::Point(_) => debug!("  - 形状: Point"),
+                                                                                ShapeData::Segment(_) => debug!("  - 形状: Segment"),
+                                                                                ShapeData::Sphere(_) => debug!("  - 形状: Sphere"),
+                                                                                ShapeData::Cube(_) => debug!("  - 形状: Cube"),
+                                                                                _ => debug!("  - 形状: {:?}", shape_data),
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    Data::FormatData(_) => debug!("  - 数据类型: FormatData"),
+                                                                }
+                                                            }
+                                                        },
+                                                        Cmd::Update(_) => debug!("  - 操作: Update"),
+                                                        Cmd::Delete(_) => debug!("  - 操作: Delete"),
+                                                    }
+                                                }
+                                            },
+                                            CmdPack::Transform(_) => debug!("Command类型: Transform"),
+                                            CmdPack::PointCloud(pc) => {
+                                                debug!("Command类型: PointCloud (帧ID: {}, 点数: {})", 
+                                                       pc.frame_id, pc.points.len());
+                                            },
+                                        }
+                                    } else {
+                                        warn!("⚠️ Command消息中没有cmd_pack字段");
+                                    }
+                                    
                                     // 处理数据包
-                                    process_pack(pack, self.forward_sender.clone());
+                                    process_pack(command, self.forward_sender.clone());
                                     debug!("数据包处理完成，当前累积数据包数量: {}", packets_processed);
                                     packets_processed += 1;
                                 },
                                 Err(e) => {
                                     // 如果解析失败，记录错误但不中断处理
-                                    warn!("数据包解析失败: {:?}，数据长度: {}", e, data.len());
+                                    warn!("❌ 数据包解析失败: {:?}，数据长度: {} 字节", e, data.len());
+                                    // 打印前32字节的十六进制用于调试
+                                    let preview_len = std::cmp::min(32, data.len());
+                                    warn!("数据预览 (前{}字节): {:?}", preview_len, &data[..preview_len]);
                                 }
                             }
                         },
