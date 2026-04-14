@@ -1,6 +1,8 @@
 use bevy::app::prelude::*;
 
+pub mod system;
 pub mod font;
+pub mod data_processing;
 
 #[derive(Default)]
 pub struct Manager {

@@ -13,11 +13,11 @@ use tokio::{
     time::sleep,
 };
 
-use crate::{
-    ThLc,
-    module::parser::core::RDPack,
-    net::{forwarder::RDForwarder, linker::RDLinker, work_share::RDWosh},
-};
+use redra_parser::core::RDPack;
+
+use crate::{forwarder::RDForwarder, linker::RDLinker, work_share::RDWosh};
+
+type ThLc<T> = Arc<Mutex<T>>;
 
 /// 网络监听器，负责处理客户端连接、管理连接任务和转发任务
 /// 

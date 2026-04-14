@@ -1,4 +1,104 @@
+TODO.md
 # Redra 项目待办事项
+
+## 🚨 重要重构：通信协议模式更新
+
+### 当前问题
+
+**问题描述**: 
+- 当前系统使用 "Trailer + Pack" 模式进行通信，其中Pack是具体的命令数据
+- 所有数据通过Protobuf Command消息进行传输，使用Trailer协议定义数据包边界
+- 需要将所有通信重构为统一的 "Trailer + Command" 模式，所有数据都包装在Command子包中
+
+**新模式定义**: **TCMP (Trailer-Command Messaging Protocol)** - Trailer-Command消息传递协议
+- **Trailer**: 协议预告信息，定义数据包边界
+- **Command**: 统一的消息容器，所有数据都作为Command的子包存在
+- **子包**: 具体的数据类型，如Designation、Transform、PointCloud等
+- **宏指令**: 用于控制层面的消息，如数据集切换、连接确认等
+
+**目标**: 实现TCMP (Trailer-Command Messaging Protocol) 统一通信协议
+
+**核心概念**:
+```rust
+// Command消息结构
+message Command {
+  oneof cmd_pack {
+    target.ConceptionCMD conception = 1;
+    designation.DesignCMD designation = 2;
+    transform.TransCMD transform = 3;
+    resource.RsrcPack resource = 4;
+    shape.ShapePack shape = 5;
+    pointcloud.PointCloudPack point_cloud = 6;
+    // ... 更多命令类型
+  }
+  int64 timestamp = 4;
+  string command_id = 5;
+}
+
+// Trailer协议预告信息
+message Trailer {
+  uint32 me = 1;    // trailer自身的大小
+  uint32 next = 2;  // 后续payload的大小
+}
+```
+
+**设计要点**:
+- **统一入口**: 所有网络通信都通过Command消息进行
+- **数据封装**: 所有数据类型都作为Command的oneof子包存在
+- **宏指令支持**: Command可以包含控制类命令，如数据集切换、心跳等
+- **自动处理**: 在redra_proto中实现自动编码/解码、Trailer处理等功能
+
+#### 1. 重构网络通信层
+
+**目标**: 将所有网络发送和接收重构为TCMP模式
+
+**需要修改的组件**:
+- [ ] `redra_client` crate中的Sender/Receiver
+- [ ] `redra_proto` crate中的编码/解码函数
+- [ ] `net`模块中的forwarder和linker组件
+
+#### 2. 增强Command结构
+
+**目标**: 为Command添加宏指令支持
+
+**需要添加的内容**:
+- [ ] ControlCmd: 用于连接管理、心跳、确认等
+- [ ] MetaCmd: 用于元数据传输、配置设置等
+- [ ] BatchCmd: 用于批量命令处理
+
+#### 3. 实现自动处理功能
+
+**目标**: 在redra_proto中实现完整的TCMP处理逻辑
+
+**需要实现的内容**:
+- [ ] 自动Trailer解析
+- [ ] Command编码/解码
+- [ ] 错误处理和重试机制
+- [ ] 数据完整性校验
+
+#### 4. 实现计划
+
+**阶段 1: 核心协议重构** (优先级：高)
+- [ ] 修改`redra_proto`中的编码/解码逻辑
+- [ ] 确保所有数据类型都作为Command子包存在
+- [ ] 实现TCMP统一处理接口
+
+**阶段 2: 客户端重构** (优先级：高)
+- [ ] 更新`redra_client`中的Sender/Receiver
+- [ ] 确保Python客户端兼容性
+- [ ] 测试TCMP模式下的通信
+
+**阶段 3: 服务端重构** (优先级：中)
+- [ ] 修改`net`模块中的消息处理
+- [ ] 更新forwarder和linker组件
+- [ ] 集成TCMP解析逻辑
+
+**阶段 4: 宏指令实现** (优先级：中)
+- [ ] 定义ControlCmd和MetaCmd类型
+- [ ] 实现控制命令的处理逻辑
+- [ ] 添加批量命令支持
+
+---
 
 ## 🚨 紧急重构：数据管理系统设计
 

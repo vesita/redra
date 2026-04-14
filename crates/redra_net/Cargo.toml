@@ -1,0 +1,13 @@
+[package]
+name = "redra_net"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+utils ={ path = "../utils" }
+redra_parser = { path = "../redra_parser" }
+redra_proto = { path = "../redra_proto" }
+bevy = { version = "0.18"}
+tokio = { version = "1.51", features = ["full"] }
+log = "0.4"
+crossbeam-channel = "0.5"

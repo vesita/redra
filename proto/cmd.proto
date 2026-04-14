@@ -7,6 +7,41 @@ import "designation.proto";
 import "transform.proto";
 import "point_cloud.proto";
 
+// 连接控制命令
+message ConnectionControl {
+  string action = 1;  // "connect", "disconnect", "reconnect", "confirm"
+  string session_id = 2;
+}
+
+// 心跳命令
+message Heartbeat {
+  int64 timestamp = 1;
+  string session_id = 2;
+}
+
+// 批量命令
+message BatchCmd {
+  repeated Command commands = 1;
+  uint32 batch_id = 2;
+}
+
+// 元数据命令
+message MetaCmd {
+  string key = 1;
+  string value = 2;
+  map<string, string> properties = 3;
+}
+
+// 宏指令，用于控制层面的消息
+message MacroCmd {
+  oneof macro_command {
+    ConnectionControl connection_control = 1;
+    Heartbeat heartbeat = 2;
+    BatchCmd batch = 3;
+    MetaCmd metadata = 4;
+  }
+}
+
 // ============================================================================
 // Command - 命令定义
 // ============================================================================
@@ -29,6 +64,9 @@ message Command {
     
     // 点云数据命令：用于传输传感器点云数据
     pointcloud.PointCloudPack point_cloud = 6;
+    
+    // 宏指令：用于控制层面的消息
+    MacroCmd macro = 7;
   }
   
   // 添加时间戳，便于追踪命令执行

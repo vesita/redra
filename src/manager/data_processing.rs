@@ -10,16 +10,16 @@ pub struct DataProcessingPlugin;
 
 impl Plugin for DataProcessingPlugin {
     fn build(&self, app: &mut App) {
-        // 注册资源
+        // 注册资源和系统
         app
             .init_resource::<actions::record::DataRecorder>()
             .init_resource::<actions::record::PlaybackManager>()
+            .init_resource::<actions::record::replay::LastFrameCount>()  // 初始化LastFrameCount资源
+            .init_resource::<actions::record::recording::LastReceiveTime>()  // 初始化LastReceiveTime资源
             .add_systems(Startup, initialize_storage)
-            .add_systems(Update, (
-                actions::record::record_data_frames,
-                actions::record::replay_data_frames.after(actions::record::record_data_frames),
-                actions::record::debug_replayed_entities.after(actions::record::replay_data_frames),
-            ));
+            .add_systems(Update, actions::record::record_data_frames)  // 添加记录系统
+            .add_systems(Update, actions::record::replay::auto_activate_playback)  // 添加自动激活回放系统
+            .add_systems(Update, actions::record::replay_data_frames);  // 添加回放系统
     }
 }
 

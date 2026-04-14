@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
+use crate::manager::data_processing;
+
 // graph模块入口文件
 // 统一导出graph模块的所有公共接口
-
+pub mod system;
 pub mod rendering;
 pub mod interaction;
 pub mod ui;
-pub mod communicate;
-pub mod data_processing;  
 pub mod init;
 pub mod frame_rate;  // 添加缺失的模块声明
 pub mod materials;  // 添加materials模块

@@ -10,6 +10,10 @@ pyri_tooltip = { path = "crates/pyri_tooltip" }
 redra_client = { path = "crates/redra_client", optional = true }
 redra_storage = { path = "crates/redra_storage" }
 redra_proto = { path = "crates/redra_proto" }
+redra_parser = { path = "crates/redra_parser" }
+redra_data_flow = { path = "crates/redra_data_flow" }
+redra_net = { path = "crates/redra_net" }
+utils ={ path = "crates/utils" }
 
 bevy = { version = "0.18", optional = true }
 log = "0.4"
@@ -31,6 +35,9 @@ members = [
     "crates/redra_client",
     "crates/redra_storage",
     "crates/redra_proto",
+    "crates/redra_parser",
+    "crates/redra_data_flow",
+    "crates/redra_net",
 ]
 
 
@@ -40,4 +47,4 @@ prost-build = "0.14"
 [features]
 default = ["graph"]
 client = ["redra_client"]
-graph = ["dep:bevy", "dep:bevy_egui"]
+graph = ["dep:bevy", "dep:bevy_egui", "redra_parser/graph", "redra_data_flow/graph"]

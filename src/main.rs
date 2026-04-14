@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use redra::graph::GraphPlugin;
 use redra::manager::Manager;
-use redra::net::NetworkPlugin;
+use redra_data_flow::DataFlowPlugin;
+use redra_net::NetworkPlugin;
 use smooth_bevy_cameras::LookTransformPlugin;
-// 移除了FpsCameraPlugin导入，因为它现在在GraphPlugin中处理
 
 use redra::graph::frame_rate::FrameRateState;
 
@@ -17,7 +17,7 @@ fn main() {
         .add_plugins(DefaultPlugins) // 添加默认插件
         .add_plugins(GraphPlugin)
         .add_plugins(Manager::default())
-        // 移除了FpsCameraPlugin::default()，因为相机功能已在GraphPlugin中处理
+        .add_plugins(DataFlowPlugin) // 添加数据流插件
         .add_plugins(LookTransformPlugin)
         .add_plugins(NetworkPlugin) // 添加网络插件
         .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色

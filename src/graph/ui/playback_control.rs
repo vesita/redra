@@ -6,8 +6,8 @@ use bevy::{
 };
 use bevy_egui::{EguiContexts, EguiGlobalSettings, EguiPrimaryContextPass, PrimaryEguiContext, egui};
 
-use crate::graph::data_processing::actions::record::{DataRecorder, PlaybackManager, RecordingMode};
-use crate::manager::font::core::FontLoadStatus;
+use crate::manager::{data_processing::actions::record::{DataRecorder, PlaybackManager, RecordingMode}, font::core::FontLoadStatus};
+
 
 /// 回放 UI 插件
 pub struct PlaybackUiPlugin;
@@ -627,6 +627,7 @@ fn render_frame_list_window(
                         selector.current_page -= 1;
                     }
                     
+                    let total_pages: usize = total_pages as usize;
                     ui.label(format!(
                         "第 {}/{} 页",
                         selector.current_page + 1,

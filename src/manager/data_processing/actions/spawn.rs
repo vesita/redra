@@ -1,16 +1,14 @@
 use bevy::prelude::*;
+use redra_parser::core::{RDPack, InternalShapePack};
 
-use crate::graph::materials::{MaterialManager, PredefinedMaterial};
-use crate::module::parser::core::{RDPack, RDShapePack};
-use crate::graph::data_processing::entities::SpawnedEntity;
+use crate::manager::data_processing::entities::SpawnedEntity;
 
 /// 从 channel 接收所有可用的数据包并处理
 pub fn recv_and_spawn(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_manager: ResMut<MaterialManager>,
-    mut channel: ResMut<crate::graph::communicate::channels::RDChannel>,
+    mut channel: ResMut<redra_net::RDChannel>,
 ) {
     // 先处理所有来自 channel 的数据包，避免借用冲突
     let mut packs = Vec::new();
@@ -21,7 +19,7 @@ pub fn recv_and_spawn(
     
     // 然后处理每个数据包
     for pack in packs {
-        handle_rd_pack(&mut commands, &mut meshes, &mut materials, &material_manager, pack);
+        handle_rd_pack(&mut commands, &mut meshes, &mut materials, pack);
     }
 }
 
@@ -30,7 +28,6 @@ fn handle_rd_pack(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    material_manager: &MaterialManager,
     pack: RDPack,
 ) {
     match pack {
@@ -38,49 +35,48 @@ fn handle_rd_pack(
             // 忽略消息数据包
         },
         RDPack::SpawnShape(spw) => {
-            spawn_shape(commands, meshes, materials, material_manager, *spw);
+            handle_internal_shape_pack(commands, meshes, materials, &spw);
         },
-        RDPack::SpawnFormat(_spw) => {
-            // TODO: 处理 SpawnFormat 数据包
-        }
         RDPack::PointCloud(_) => {
             // 点云数据由记录器处理，不在此处生成实体
             debug!("接收到点云数据包，将由记录器处理");
         }
+        RDPack::SpawnFormat(_) => {
+            // TODO: 处理格式包
+        },
     }
 }
 
-/// 生成单个形状实体
-/// 这个函数可以直接在系统内调用，接受普通引用参数
-pub fn spawn_shape(
+/// 处理 InternalShapePack 结构体的函数
+pub fn handle_internal_shape_pack(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    material_manager: &MaterialManager,
-    spw: RDShapePack,
+    spw: &InternalShapePack,
 ) {
     debug!("处理 SpawnShape 数据包");
     debug!("{:?}", spw.transform);
-    // 通过字符串标识符查找材质
-    let material = if let Some(predefined) = material_manager.get_material(&spw.material) {
-        match predefined {
-            PredefinedMaterial::Color(color) => {
-                materials.add(StandardMaterial::from(*color))
-            },
-            PredefinedMaterial::Standard(mat) => {
-                materials.add(mat.clone())
-            }
+
+    let material_handle = match spw.material.as_str() {
+        "point_material" => {
+            materials.add(StandardMaterial::from(Color::srgb(0.0, 0.0, 1.0))) // 蓝色
         }
-    } else {
-        // 如果没有找到预定义材质，则使用默认材质
-        materials.add(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6)))
+        "sphere_material" => {
+            materials.add(StandardMaterial::from(Color::srgb(1.0, 0.0, 0.0))) // 红色
+        }
+        "cube_material" => {
+            materials.add(StandardMaterial::from(Color::srgb(0.0, 1.0, 0.0))) // 绿色
+        }
+        _ => {
+            materials.add(StandardMaterial::from(Color::srgb(1.0, 1.0, 1.0))) // 默认白色
+        }
     };
-    
+
     commands.spawn((
-        Mesh3d(meshes.add(spw.mesh.as_ref().clone())),
-        MeshMaterial3d(material),
+        Mesh3d(meshes.add((*spw.mesh).clone())),
+        MeshMaterial3d(material_handle),
         spw.transform,
-        SpawnedEntity,  // 添加标记组件
+        SpawnedEntity, // 添加标记组件
     ));
 }
 
@@ -89,9 +85,8 @@ pub fn spawn_from_current_frame(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    material_manager: Res<MaterialManager>,
-    playback: Res<crate::graph::data_processing::actions::record::PlaybackManager>,
-    _recorder: Res<crate::graph::data_processing::actions::record::DataRecorder>,
+    playback: Res<crate::manager::data_processing::actions::record::PlaybackManager>,
+    _recorder: Res<crate::manager::data_processing::actions::record::DataRecorder>,
 ) {
     // 检查是否有新的帧需要渲染
     if let Some(ref loaded_frame) = playback.loaded_frame {
@@ -100,12 +95,11 @@ pub fn spawn_from_current_frame(
         
         for pack in loaded_frame {
             if let RDPack::SpawnShape(spw) = pack {
-                spawn_shape(
+                handle_internal_shape_pack(
                     &mut commands,
                     &mut meshes,
                     &mut materials,
-                    &material_manager,
-                    *spw.clone(),
+                    spw,
                 );
             }
         }

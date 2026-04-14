@@ -4,10 +4,7 @@ use tokio::sync::{broadcast, mpsc};
 use log::info;
 use tokio::runtime::Runtime;
 
-use crate::{
-    module::parser::core::RDPack,
-    graph::communicate::channels::RDChannel,
-};
+use redra_parser::core::RDPack;
 
 mod listener;
 mod forwarder;
@@ -16,7 +13,14 @@ mod work_share;
 
 use listener::RDListener;
 
-// 网络插件资源，用于存储网络通信通道
+// 定义通信通道资源
+#[derive(Resource)]
+pub struct RDChannel {
+    pub sender: broadcast::Sender<RDPack>,
+    pub receiver: mpsc::Receiver<RDPack>,
+}
+
+// 网络插件资源，用于存储网络服务句柄
 #[derive(Resource)]
 pub struct NetworkHandles {
     pub handle: Task<()>,

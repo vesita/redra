@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let encoded_data = encode_point_cloud_command(&point_cloud, frame_id)?;
         
         // 通过 TCP 发送（使用 Trailer 协议）
-        send_with_trailer(&stream, &encoded_data)?;
+        send_encoded_command_with_trailer(&stream, &encoded_data)?;
         
         println!("  ✓ 第 {} 帧发送完成", frame_id + 1);
         
@@ -120,6 +120,28 @@ fn encode_point_cloud_command(
     cmd.encode(&mut buffer)?;
     
     Ok(buffer)
+}
+
+/// 使用TCMP协议发送数据
+/// 
+/// 通过redra_proto中的encode_command_with_trailer函数自动处理Trailer
+fn send_encoded_command_with_trailer(stream: &TcpStream, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    use redra_proto::proto::command::Command;
+    use redra_proto::coding::encoding::encode_tcmp;  // 使用新的函数名
+    use prost::Message;
+    
+    // 解码数据为Command对象
+    let command = Command::decode(data)?;
+    
+    // 使用redra_proto中的函数自动编码并添加trailer
+    let packet = encode_tcmp(&command)?;  // 使用新的函数名
+    
+    // 发送编码后的数据包
+    let mut stream_clone = stream.try_clone()?;
+    stream_clone.write_all(&packet)?;
+    stream_clone.flush()?;
+    
+    Ok(())
 }
 
 /// 使用 Trailer 协议发送数据

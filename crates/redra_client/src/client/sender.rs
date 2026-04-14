@@ -2,7 +2,7 @@ use log::{info, debug, warn};
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 use redra_proto::proto::command::Command;
-use redra_proto::coding::encoding::encode_command_with_trailer;
+use redra_proto::coding::encoding::encode_tcmp;
 
 pub struct Sender {
     stream: TcpStream,
@@ -27,7 +27,7 @@ impl Sender {
         debug!("开始发送命令");
         
         // 使用统一的编码函数生成完整数据包（Trailer + Pack）
-        let packet = encode_command_with_trailer(&command)
+        let packet = encode_tcmp(&command)
             .map_err(|e| format!("编码失败: {}", e))?;
         
         // 发送完整数据包
@@ -63,11 +63,11 @@ mod tests {
         use redra_proto::proto::{
             command::command::CmdPack,
             designation::{DesignCmd, Spawn, design_cmd::Cmd, spawn},
-            shape::{self, ShapePack, shape_pack, Pose, Color},
+            shape::{self, Point, ShapePack, shape_pack, Pose, Color},
             transform::{Translation, Scale},
         };
 
-        let point = shape::Point {
+        let point = Point {
             pos: Some(Translation { x: 1.0, y: 2.0, z: 3.0 }),
             size: 1.0,  // 添加缺失的 size 字段
         };

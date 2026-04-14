@@ -1,164 +1,8 @@
 use bevy::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::{Arc, Mutex};
-use log::{debug, error};
-use crate::module::parser::core::{RDPack, PointCloudPack};
-use crate::graph::communicate::channels::RDChannel;
-use redra_storage::{FrameMetadata, FrameType, FrameStorage};
-
-/// 序列化点云数据为二进制格式
-fn serialize_point_cloud(packs: &[RDPack]) -> Vec<u8> {
-    // 简单的二进制序列化（稍后可以用 bincode 或 protobuf 改进）
-    let mut buffer = Vec::new();
-    
-    // 写入点的数量
-    buffer.extend_from_slice(&(packs.len() as u32).to_le_bytes());
-    
-    // 写入每个包（简化版，生产环境中应使用 bincode）
-    for pack in packs {
-        match pack {
-            RDPack::Message(msg) => {
-                buffer.push(0);  // 类型标记
-                buffer.extend_from_slice(&(msg.len() as u32).to_le_bytes());
-                buffer.extend_from_slice(msg.as_bytes());
-            },
-            RDPack::SpawnShape(_) => {
-                buffer.push(1);  // 类型标记
-                // TODO: 实现 Shape 序列化
-            },
-            RDPack::SpawnFormat(_) => {
-                buffer.push(2);  // 类型标记
-                // TODO: 实现 Format 序列化
-            },
-            RDPack::PointCloud(point_cloud) => {
-                buffer.push(3);  // 类型标记
-                buffer.extend_from_slice(&point_cloud.frame_id.to_le_bytes());
-                buffer.extend_from_slice(&point_cloud.timestamp.to_le_bytes());
-                buffer.extend_from_slice(&(point_cloud.points.len() as u32).to_le_bytes());
-                for &(x, y, z) in &point_cloud.points {
-                    buffer.extend_from_slice(&x.to_le_bytes());
-                    buffer.extend_from_slice(&y.to_le_bytes());
-                    buffer.extend_from_slice(&z.to_le_bytes());
-                }
-            },
-        }
-    }
-    
-    buffer
-}
-
-/// 反序列化点云数据
-fn deserialize_point_cloud(buffer: &[u8]) -> Result<Vec<RDPack>, Box<dyn std::error::Error>> {
-    let mut offset = 0;
-    
-    // 读取点的数量
-    if buffer.len() < 4 {
-        return Err("缓冲区太短".into());
-    }
-    let num_points = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
-    offset += 4;
-    
-    let mut packs = Vec::with_capacity(num_points as usize);
-    
-    for _ in 0..num_points {
-        if offset >= buffer.len() {
-            return Err("意外的缓冲区结束".into());
-        }
-        
-        let pack_type = buffer[offset];
-        offset += 1;
-        
-        match pack_type {
-            0 => {
-                // RDPack::Message
-                if offset + 4 > buffer.len() {
-                    return Err("意外的缓冲区结束".into());
-                }
-                let msg_len = u32::from_le_bytes([
-                    buffer[offset],
-                    buffer[offset + 1],
-                    buffer[offset + 2],
-                    buffer[offset + 3],
-                ]) as usize;
-                offset += 4;
-                
-                if offset + msg_len > buffer.len() {
-                    return Err("意外的缓冲区结束".into());
-                }
-                
-                let msg = String::from_utf8(buffer[offset..offset + msg_len].to_vec())?;
-                offset += msg_len;
-                
-                packs.push(RDPack::Message(msg));
-            }
-            1 => {
-                // RDPack::SpawnShape - 尚未实现
-                return Err("SpawnShape 反序列化尚未实现".into());
-            }
-            2 => {
-                // RDPack::SpawnFormat - 尚未实现
-                return Err("SpawnFormat 反序列化尚未实现".into());
-            }
-            3 => {
-                // RDPack::PointCloud
-                if offset + 12 > buffer.len() {
-                    return Err("缓冲区太短，无法读取 PointCloud 头部".into());
-                }
-                
-                let frame_id = u32::from_le_bytes([
-                    buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]
-                ]);
-                offset += 4;
-                
-                let timestamp = u64::from_le_bytes([
-                    buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3],
-                    buffer[offset + 4], buffer[offset + 5], buffer[offset + 6], buffer[offset + 7]
-                ]);
-                offset += 8;
-                
-                let point_count = u32::from_le_bytes([
-                    buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]
-                ]) as usize;
-                offset += 4;
-                
-                if offset + point_count * 12 > buffer.len() {
-                    return Err("缓冲区太短，无法读取点数据".into());
-                }
-                
-                let mut points = Vec::with_capacity(point_count);
-                for _ in 0..point_count {
-                    let x = f32::from_le_bytes([
-                        buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]
-                    ]);
-                    offset += 4;
-                    
-                    let y = f32::from_le_bytes([
-                        buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]
-                    ]);
-                    offset += 4;
-                    
-                    let z = f32::from_le_bytes([
-                        buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]
-                    ]);
-                    offset += 4;
-                    
-                    points.push((x, y, z));
-                }
-                
-                packs.push(RDPack::PointCloud(PointCloudPack {
-                    frame_id,
-                    timestamp,
-                    points,
-                }));
-            }
-            _ => {
-                return Err("未知的包类型".into());
-            }
-        }
-    }
-    
-    Ok(packs)
-}
+use log::debug;
+use redra_storage::{FrameType, FrameStorage};
 
 /// 数据帧 - 带有完整元数据的帧结构
 #[derive(Clone, Debug)]
@@ -166,7 +10,7 @@ pub struct DataFrame {
     pub frame_id: u32,              // 帧 ID
     pub sequence_number: u64,       // 全局序列号
     pub timestamp: u64,             // 时间戳（毫秒）
-    pub points: Vec<RDPack>,        // 帧包含的所有点/形状数据
+    pub points: Vec<redra_parser::RDPack>,        // 帧包含的所有点/形状数据
     pub is_complete: bool,          // 帧是否完整
     pub frame_type: FrameType,      // 帧类型（来自 redra_storage）
 }
@@ -176,7 +20,7 @@ pub struct DataFrame {
 pub struct FrameBuilder {
     pub frame_id: u32,
     pub start_time: u64,
-    pub points: Vec<RDPack>,
+    pub points: Vec<redra_parser::RDPack>,
     pub expected_points: Option<u32>,  // 如果知道总点数
 }
 
@@ -193,7 +37,7 @@ impl FrameBuilder {
         }
     }
 
-    pub fn add_point(&mut self, pack: RDPack) {
+    pub fn add_point(&mut self, pack: redra_parser::RDPack) {
         self.points.push(pack);
     }
 
@@ -253,7 +97,7 @@ impl Default for DataRecorder {
         Self {
             frames: Vec::new(),
             current_builder: None,
-            recording_mode: RecordingMode::Off,  // 默认关闭录制
+            recording_mode: RecordingMode::AutoSave,  // 默认开启自动保存录制
             current_sequence: 0,
             current_frame_id: 0,
             recording_start_time: now,
@@ -280,7 +124,7 @@ impl DataRecorder {
     }
 
     /// 添加点到当前帧
-    pub fn add_point_to_frame(&mut self, pack: RDPack) {
+    pub fn add_point_to_frame(&mut self, pack: redra_parser::RDPack) {
         // 如果录制关闭，直接忽略
         if self.recording_mode == RecordingMode::Off {
             return;
@@ -288,7 +132,7 @@ impl DataRecorder {
 
         // 根据 RDPack 类型处理
         match pack {
-            RDPack::PointCloud(point_cloud) => {
+            redra_parser::RDPack::PointCloud(point_cloud) => {
                 // 处理点云数据包
                 let point_count = point_cloud.points.len();
                 self.total_points_received += point_count as u64;
@@ -314,7 +158,7 @@ impl DataRecorder {
                 // 添加点到当前帧 - 直接存储 PointCloud 结构
                 if let Some(ref mut builder) = self.current_builder {
                     // 将整个点云包作为一个单元添加
-                    builder.add_point(RDPack::PointCloud(point_cloud.clone()));
+                    builder.add_point(redra_parser::RDPack::PointCloud(point_cloud.clone()));
                     
                     // 检查帧是否完成
                     if builder.is_complete() {
@@ -322,7 +166,7 @@ impl DataRecorder {
                     }
                 }
             }
-            RDPack::SpawnShape(_) | RDPack::SpawnFormat(_) | RDPack::Message(_) => {
+            redra_parser::RDPack::SpawnShape(_) | redra_parser::RDPack::SpawnFormat(_) | redra_parser::RDPack::Message(_) => {
                 // ✅ 修复：处理非点云数据包（SpawnShape, SpawnFormat, Message）
                 log::debug!("📦 接收到非点云数据包: {:?}", pack);
                 
@@ -370,9 +214,9 @@ impl DataRecorder {
                 RecordingMode::AutoSave => {
                     // 自动保存到 SQLite
                     if let Some(ref storage_arc) = self.storage {
-                        let buffer = serialize_point_cloud(&frame.points);
+                        let buffer = super::serialization::serialize_point_cloud(&frame.points);
                         
-                        let metadata = FrameMetadata {
+                        let metadata = redra_storage::FrameMetadata {
                             frame_id: frame.frame_id,
                             sequence_number: frame.sequence_number,
                             timestamp: frame.timestamp,
@@ -426,9 +270,9 @@ impl DataRecorder {
                 match self.recording_mode {
                     RecordingMode::AutoSave => {
                         if let Some(ref storage_arc) = self.storage {
-                            let buffer = serialize_point_cloud(&frame.points);
+                            let buffer = super::serialization::serialize_point_cloud(&frame.points);
                             
-                            let metadata = FrameMetadata {
+                            let metadata = redra_storage::FrameMetadata {
                                 frame_id: frame.frame_id,
                                 sequence_number: frame.sequence_number,
                                 timestamp: frame.timestamp,
@@ -504,9 +348,9 @@ impl DataRecorder {
             let storage = storage_arc.lock().map_err(|e| format!("锁定存储失败: {}", e))?;
             
             for frame in &self.frames {
-                let buffer = serialize_point_cloud(&frame.points);
+                let buffer = super::serialization::serialize_point_cloud(&frame.points);
                 
-                let metadata = FrameMetadata {
+                let metadata = redra_storage::FrameMetadata {
                     frame_id: frame.frame_id,
                     sequence_number: frame.sequence_number,
                     timestamp: frame.timestamp,
@@ -687,7 +531,7 @@ pub struct PlaybackManager {
     pub manual_frame_change: bool,  // 用户是否手动切换了帧（用于暂停时渲染和防止自动跳帧）
     
     // 回放时临时加载的帧（从 SQLite 加载）
-    pub loaded_frame: Option<Vec<RDPack>>,
+    pub loaded_frame: Option<Vec<redra_parser::RDPack>>,
 }
 
 impl Default for PlaybackManager {
@@ -765,390 +609,8 @@ impl PlaybackManager {
     }
 }
 
-/// 从存储加载指定帧
-pub fn load_frame_from_storage(
-    _storage: &FrameStorage,
-    _frame_index: usize,
-) -> Result<Vec<RDPack>, Box<dyn std::error::Error>> {
-    // 因为 redra_storage 中可能没有 get_frame_by_index 方法，我们尝试使用其他方法
-    // 这里暂时返回错误，需要根据实际的 redra_storage API 来实现
-    unimplemented!("需要根据 redra_storage 的实际 API 来实现此函数")
-}
-
-/// 记录数据帧系统
-/// 从 channel 接收数据并按照帧结构组织
-pub fn record_data_frames(
-    mut recorder: ResMut<DataRecorder>,
-    mut channel: ResMut<RDChannel>,
-) {
-    // 如果录制关闭，直接返回
-    if recorder.recording_mode == RecordingMode::Off {
-        return;
-    }
-
-    // 接收所有可用的数据包并记录到当前帧
-    let mut received_count = 0;
-    while let Ok(pack) = channel.receiver.try_recv() {
-        log::debug!("📥 接收到数据包");
-        recorder.add_point_to_frame(pack);
-        received_count += 1;
-    }
-    
-    if received_count > 0 {
-        log::info!("✅ 本帧接收 {} 个数据包，总计接收 {} 个点，内存中 {} 帧", 
-               received_count, 
-               recorder.total_points_received,
-               recorder.memory_frame_count());
-    }
-}
-
 /// 回放标记组件 - 标记由回放系统生成的实体
 #[derive(Component)]
 pub struct ReplayedEntity {
     pub frame_index: usize,
 }
-
-/// 回放数据帧系统
-/// 根据 PlaybackManager 的当前帧索引，从 DataRecorder 获取数据并生成实体
-pub fn replay_data_frames(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    material_manager: Res<crate::graph::materials::MaterialManager>,
-    recorder: Res<DataRecorder>,
-    mut playback: ResMut<PlaybackManager>,
-    existing_entities: Query<Entity, With<ReplayedEntity>>,
-    time: Res<Time>,
-) {
-    // ✅ 修复1：如果既不在播放状态，也没有手动切换帧，则不处理
-    if !playback.is_playing && !playback.manual_frame_change {
-        return;
-    }
-
-    let total_frames = recorder.total_frames();
-    
-    log::info!("🔄 回放系统检查 - is_playing={}, manual_change={}, total_frames={}, current_index={}", 
-               playback.is_playing, playback.manual_frame_change, total_frames, playback.current_frame_index);
-    
-    if total_frames == 0 {
-        log::warn!("⚠️ 没有可回放的帧数据");
-        playback.clear_manual_flag();  // 清除标志
-        return;
-    }
-
-    // ✅ 修复2：如果是手动切换帧（无论是否暂停），立即渲染
-    let should_render = if playback.manual_frame_change {
-        log::info!("👆 检测到手动帧切换，立即渲染帧 #{}", playback.current_frame_index);
-        true
-    } else {
-        // 否则，检查时间间隔（仅在播放状态下）
-        if !playback.is_playing {
-            return;
-        }
-        
-        let current_time_ms = (time.elapsed_secs() * 1000.0) as u64;
-        let adjusted_interval = (playback.frame_interval_ms as f32 / playback.playback_speed) as u64;
-        
-        log::debug!("⏱️ 时间检查 - current_time={}, last_update={}, interval={}, speed={}", 
-                    current_time_ms, playback.last_update_time, adjusted_interval, playback.playback_speed);
-        
-        // 首次播放时初始化时间戳，并立即渲染第一帧
-        if playback.last_update_time == 0 {
-            playback.last_update_time = current_time_ms.saturating_sub(adjusted_interval);
-            log::info!("⏱️ 初始化播放时间戳，立即渲染第一帧");
-            true
-        } else {
-            // 使用 saturating_sub 防止下溢
-            let elapsed = current_time_ms.saturating_sub(playback.last_update_time);
-            
-            log::debug!("⏱️ 经过时间: {} ms, 需要间隔: {} ms", elapsed, adjusted_interval);
-            
-            if elapsed < adjusted_interval {
-                log::debug!("⏸️ 时间未到，跳过本帧");
-                return;
-            }
-            
-            log::info!("⏰ 时间到达，准备渲染帧 #{}", playback.current_frame_index);
-            true
-        }
-    };
-    
-    if !should_render {
-        return;
-    }
-
-    // 清除上一帧的所有实体
-    let cleared_count = existing_entities.iter().count();
-    for entity in existing_entities.iter() {
-        commands.entity(entity).despawn();
-    }
-    if cleared_count > 0 {
-        log::debug!("🗑️ 清除了 {} 个旧实体", cleared_count);
-    }
-
-    // 获取当前帧的数据
-    let frame_data = get_current_frame_data(&recorder, playback.current_frame_index);
-    
-    if let Some(frame_packs) = frame_data {
-        log::info!(
-            "🎬 回放帧 #{} / {}, 包含 {} 个数据包",
-            playback.current_frame_index,
-            total_frames,
-            frame_packs.len()
-        );
-
-        // 为每个 RDPack 生成实体
-        for (pack_idx, pack) in frame_packs.iter().enumerate() {
-            match pack {
-                RDPack::PointCloud(point_cloud) => {
-                    log::debug!("📦 处理点云数据包 #{}", pack_idx);
-                    // 将点云数据转换为点形状并生成
-                    spawn_point_cloud_from_pack(
-                        &mut commands,
-                        &mut meshes,
-                        &mut materials,
-                        &material_manager,
-                        point_cloud,
-                        playback.current_frame_index,
-                    );
-                }
-                RDPack::SpawnShape(shape_pack) => {
-                    log::debug!("📦 处理形状数据包 #{}", pack_idx);
-                    // 直接生成形状（shape_pack 是 &Box<RDShapePack>，需要解引用）
-                    crate::graph::data_processing::actions::spawn::spawn_shape(
-                        &mut commands,
-                        &mut meshes,
-                        &mut materials,
-                        &material_manager,
-                        (**shape_pack).clone(),
-                    );
-                    
-                    // 添加回放标记
-                    commands.spawn((
-                        ReplayedEntity {
-                            frame_index: playback.current_frame_index,
-                        },
-                        Name::new(format!("Shape_{}_{}", playback.current_frame_index, pack_idx)),
-                    ));
-                }
-                _ => {
-                    log::debug!("⚠️ 跳过不支持的数据包类型 #{}", pack_idx);
-                }
-            }
-        }
-    } else {
-        log::warn!(
-            "❌ 无法加载帧 #{} 的数据",
-            playback.current_frame_index
-        );
-    }
-
-    // ✅ 修复3：只在非手动切换且正在播放时才更新时间戳和前进到下一帧
-    if !playback.manual_frame_change && playback.is_playing {
-        let current_time_ms = (time.elapsed_secs() * 1000.0) as u64;
-        playback.last_update_time = current_time_ms;
-        
-        // 前进到下一帧
-        playback.next_frame(total_frames);
-
-        // 如果已经播放完所有帧
-        if playback.current_frame_index >= total_frames {
-            if playback.loop_playback {
-                playback.current_frame_index = 0;
-            } else {
-                playback.pause();
-                log::info!("▶️ 回放完成");
-            }
-        }
-    } else {
-        // 手动切换后，清除标志位
-        playback.clear_manual_flag();
-        log::debug!("✅ 手动帧切换完成，清除标志位");
-    }
-}
-
-/// 获取当前帧的数据（支持 SQLite 和内存双模式）
-fn get_current_frame_data(
-    recorder: &DataRecorder,
-    frame_index: usize,
-) -> Option<Vec<RDPack>> {
-    // 优先从内存中获取
-    if let Some(frame) = recorder.frames.get(frame_index) {
-        log::debug!("✅ 从内存加载帧 #{}", frame_index);
-        return Some(frame.points.clone());
-    }
-
-    log::debug!("⚠️ 内存中未找到帧 #{}, 尝试从 SQLite 加载...", frame_index);
-
-    // 如果内存中没有，尝试从 SQLite 加载
-    #[cfg(feature = "storage")]
-    if let Some(ref storage_arc) = recorder.storage {
-        if let Ok(storage) = storage_arc.lock() {
-            // 获取该索引对应的帧元数据
-            if let Ok(all_frames) = storage.database().get_all_frames() {
-                log::debug!("📊 SQLite 中共有 {} 帧", all_frames.len());
-                
-                if let Some(metadata) = all_frames.get(frame_index) {
-                    log::debug!("📦 找到帧 #{} 的元数据: frame_id={}", frame_index, metadata.frame_id);
-                    
-                    // 从 SQLite 加载二进制数据
-                    if let Ok(binary_data) = storage.load_frame(metadata.frame_id) {
-                        log::debug!("📥 成功加载二进制数据 ({} bytes)", binary_data.len());
-                        
-                        // 反序列化为 RDPack
-                        if let Ok(packs) = deserialize_point_cloud(&binary_data) {
-                            log::debug!("✅ 成功反序列化 {} 个数据包", packs.len());
-                            return Some(packs);
-                        } else {
-                            log::error!("❌ 反序列化帧 #{} 失败", frame_index);
-                        }
-                    } else {
-                        log::error!("❌ 从 SQLite 加载帧 #{} 的二进制数据失败", frame_index);
-                    }
-                } else {
-                    log::error!("❌ SQLite 中不存在索引为 {} 的帧（总共 {} 帧）", frame_index, all_frames.len());
-                }
-            } else {
-                log::error!("❌ 获取 SQLite 帧列表失败");
-            }
-        } else {
-            log::error!("❌ 无法获取存储锁");
-        }
-    } else {
-        log::warn!("⚠️ 未启用 SQLite 存储功能");
-    }
-
-    None
-}
-
-/// 从点云数据包生成点实体
-fn spawn_point_cloud_from_pack(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    _material_manager: &crate::graph::materials::MaterialManager,
-    point_cloud: &crate::module::parser::core::PointCloudPack,
-    frame_index: usize,
-) {
-    use bevy::prelude::*;
-    
-    log::info!(
-        "🔵 渲染点云帧 #{}，共 {} 个点",
-        frame_index,
-        point_cloud.points.len()
-    );
-    
-    // 计算点云的边界框用于调试
-    let mut min_x = f32::MAX;
-    let mut max_x = f32::MIN;
-    let mut min_y = f32::MAX;
-    let mut max_y = f32::MIN;
-    let mut min_z = f32::MAX;
-    let mut max_z = f32::MIN;
-    
-    for &(x, y, z) in &point_cloud.points {
-        min_x = min_x.min(x);
-        max_x = max_x.max(x);
-        min_y = min_y.min(y);
-        max_y = max_y.max(y);
-        min_z = min_z.min(z);
-        max_z = max_z.max(z);
-    }
-    
-    log::info!(
-        "📊 点云边界框 - X:[{:.2}, {:.2}], Y:[{:.2}, {:.2}], Z:[{:.2}, {:.2}]",
-        min_x, max_x, min_y, max_y, min_z, max_z
-    );
-    
-    // 为每个点生成一个球体（增大半径以便观察）
-    let sphere_mesh = meshes.add(Sphere::new(0.15).mesh());
-    
-    // 使用高亮黄色材质，并禁用背面剔除以确保可见性
-    let material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 1.0, 0.0), // 黄色，更容易看到
-        emissive: LinearRgba::rgb(1.0, 1.0, 0.0), // 更强的自发光效果
-        alpha_mode: AlphaMode::Opaque,
-        ..default()
-    });
-    
-    let mut spawned_count = 0;
-    for (i, &(x, y, z)) in point_cloud.points.iter().enumerate() {
-        // 打印前几个点的坐标用于调试
-        if i < 5 {
-            log::debug!("  点 {}: ({:.2}, {:.2}, {:.2})", i, x, y, z);
-        }
-        
-        commands.spawn((
-            Mesh3d(sphere_mesh.clone()),
-            MeshMaterial3d(material.clone()),
-            Transform::from_xyz(x, y, z),
-            ReplayedEntity {
-                frame_index,
-            },
-            Name::new(format!("Point_{}_{}", frame_index, i)),
-        ));
-        
-        spawned_count += 1;
-    }
-    
-    log::info!("✅ 成功生成 {} 个点实体", spawned_count);
-}
-
-/// 调试系统：检测和报告所有回放实体的状态
-pub fn debug_replayed_entities(
-    replayed_entities: Query<(Entity, &ReplayedEntity, &Transform, Option<&Name>), With<ReplayedEntity>>,
-    time: Res<Time>,
-    playback: Res<PlaybackManager>,
-) {
-    // 每2秒输出一次实体状态
-    let current_time = time.elapsed_secs();
-    static mut LAST_LOG_TIME: f32 = 0.0;
-    
-    unsafe {
-        if current_time - LAST_LOG_TIME < 2.0 {
-            return;
-        }
-        LAST_LOG_TIME = current_time;
-    }
-    
-    let entity_count = replayed_entities.iter().count();
-    
-    if entity_count == 0 {
-        log::warn!("⚠️ [DEBUG] 当前场景中没有 ReplayedEntity 实体");
-        log::warn!("   - is_playing: {}", playback.is_playing);
-        log::warn!("   - current_frame_index: {}", playback.current_frame_index);
-        return;
-    }
-    
-    log::info!("🔍 [DEBUG] 检测到 {} 个 ReplayedEntity 实体", entity_count);
-    
-    // 统计不同帧的实体数量
-    let mut frame_stats: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    let mut sample_positions = Vec::new();
-    
-    for (entity, replayed, transform, name) in replayed_entities.iter() {
-        *frame_stats.entry(replayed.frame_index).or_insert(0) += 1;
-        
-        // 收集前3个实体的位置信息
-        if sample_positions.len() < 3 {
-            sample_positions.push((
-                entity,
-                replayed.frame_index,
-                transform.translation,
-                name.map(|n| n.as_str()).unwrap_or("unnamed"),
-            ));
-        }
-    }
-    
-    log::info!("📊 [DEBUG] 帧分布统计:");
-    for (frame_idx, count) in frame_stats.iter() {
-        log::info!("   - 帧 #{}: {} 个实体", frame_idx, count);
-    }
-    
-    log::info!("📍 [DEBUG] 示例实体位置（前3个）:");
-    for (entity, frame_idx, pos, name) in sample_positions {
-        log::info!("   - Entity {:?} (帧 #{}, {}): ({:.2}, {:.2}, {:.2})", 
-                   entity, frame_idx, name, pos.x, pos.y, pos.z);
-    }
-}
-

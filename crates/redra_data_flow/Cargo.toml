@@ -1,0 +1,17 @@
+[package]
+name = "redra_data_flow"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+redra_parser = { path = "../redra_parser" }
+redra_proto = { path = "../redra_proto" }
+redra_net = { path = "../redra_net" }
+bevy = { version = "0.18", optional = true }
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+crossbeam-channel = "0.5"
+
+[features]
+default = []
+graph = ["bevy"]

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::graph::data_processing::entities::SpawnedEntity;
+use crate::manager::data_processing::entities::SpawnedEntity;
+
 
 /// 清除所有动态生成的实体
 pub fn clear_dynamic_entities(

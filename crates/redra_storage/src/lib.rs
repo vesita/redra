@@ -10,6 +10,7 @@
 //! - 批量写入优化 (事务打包)
 
 pub mod storage;
+pub mod serialization;
 
 pub use storage::{
     FrameDatabase,

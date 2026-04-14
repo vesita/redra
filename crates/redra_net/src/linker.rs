@@ -1,11 +1,18 @@
 
 use log::{info, warn, error, debug};
+use redra_proto::read_trailer;
+use utils::ThLc;
+use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use tokio::{net::TcpStream, sync::mpsc};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt};
+use std::collections::HashMap;
 
-use crate::net::work_share::RDWosh;
-use crate::{ThLc, module::parser::proto_decode::read_trailer};  // 保持别名以兼容现有代码
+use redra_parser::core::RDPack;
+
+use crate::work_share::RDWosh;
+
+pub type LinkerHandle = tokio::task::JoinHandle<()>;
 
 // 全局链接ID计数器
 static LINK_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -45,7 +52,7 @@ impl RDLinker {
         RDLinker {
             id,
             socket,
-            wosh,
+            wosh: wosh.clone(),
             expand_request,
         }
     }
@@ -124,6 +131,7 @@ impl RDLinker {
     /// 从累积缓冲区中提取完整数据包
     /// 
     /// 使用trailer解析策略检查缓冲区中是否存在完整数据包
+    /// 现在使用redra_proto中的自动处理功能
     /// 
     /// # 参数
     /// * `accum_buffer` - 包含累积数据的可变引用缓冲区
@@ -178,8 +186,7 @@ impl RDLinker {
             }
             
             // 如果发送失败或sender为None，尝试获取新通道
-            let channel_option = self.wosh.lock().await.get_channel().await;
-            *sender = channel_option;
+            let channel_option = self.wosh.lock().await.get_channel(self.id).await;
         
         // 尝试使用新获取的通道发送
         if let Some(s) = sender {
@@ -188,7 +195,7 @@ impl RDLinker {
             }
         } else {
             // 没有可用通道，先尝试获取一个通道
-            let new_sender_option = self.wosh.lock().await.get_channel().await;
+            let new_sender_option = self.wosh.lock().await.get_channel(self.id).await;
             
             if let Some(new_sender) = new_sender_option {
                 // 成功获取通道，保存并尝试发送
@@ -201,7 +208,7 @@ impl RDLinker {
                 self.expand_request.send(self.id).await.expect("请求扩容失败");
                 
                 // 再次尝试获取通道并发送（扩容可能已经创建了新通道）
-                let final_sender_option = self.wosh.lock().await.get_channel().await;
+                let final_sender_option = self.wosh.lock().await.get_channel(self.id).await;
                 
                 if let Some(new_sender) = final_sender_option {
                     if new_sender.send(data).await.is_ok() {
