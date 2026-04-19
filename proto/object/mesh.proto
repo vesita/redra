@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package mesh;
+
+message Mesh {
+    oneof a_mesh {
+        Point point = 1;
+        Line line = 2;
+        Sphere sphere = 3;
+    }
+}
+
+message Point {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message Line {
+    Point start = 1;
+    Point end = 2;
+}
+
+message Sphere {
+    Point location = 1;
+    float radius = 2;
+}
+

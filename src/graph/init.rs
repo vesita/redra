@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_materialize::prelude::*;
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 use crate::graph::materials::{MaterialManager, PredefinedMaterial};  // 添加导入
 
@@ -8,6 +9,7 @@ pub struct InitPlugin;
 impl Plugin for InitPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugins(MaterializePlugin::new(TomlMaterialDeserializer))
             .add_systems(Startup, rd_setup)
             .add_systems(Startup, initialize_materials);
             // 移除了 toggle_camera_control，因为 FPS 控制器已有内置的 Alt 键处理

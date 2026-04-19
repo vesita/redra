@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 use bevy_wheel_menu::*;
 
-use crate::manager::font::core::FontAssets;
+use crate::manager::font::FontAssets;
 
 /// 轮盘菜单插件
 pub struct WheelMenuGraphPlugin;

@@ -5,8 +5,7 @@ edition = "2024"
 
 [dependencies]
 utils ={ path = "../utils" }
-redra_parser = { path = "../redra_parser" }
-redra_proto = { path = "../redra_proto" }
+expto = { path = "../expto" }
 bevy = { version = "0.18"}
 tokio = { version = "1.51", features = ["full"] }
 log = "0.4"

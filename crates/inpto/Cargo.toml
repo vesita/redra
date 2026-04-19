@@ -1,0 +1,13 @@
+[package]
+name = "inpto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+expto = { path = "../expto" }
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+prost = "0.11"
+
+[lib]
+path = "src/lib.rs"

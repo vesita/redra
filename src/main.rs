@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use redra::graph::GraphPlugin;
-use redra::manager::Manager;
-use redra_data_flow::DataFlowPlugin;
-use redra_net::NetworkPlugin;
+use redra::RedraPlugin;
 use smooth_bevy_cameras::LookTransformPlugin;
 
 use redra::graph::frame_rate::FrameRateState;
@@ -15,11 +12,8 @@ fn main() {
     // 构建并运行Bevy应用程序
     App::new()
         .add_plugins(DefaultPlugins) // 添加默认插件
-        .add_plugins(GraphPlugin)
-        .add_plugins(Manager::default())
-        .add_plugins(DataFlowPlugin) // 添加数据流插件
+        .add_plugins(RedraPlugin) // 使用 RedraPlugin 替代单独的插件
         .add_plugins(LookTransformPlugin)
-        .add_plugins(NetworkPlugin) // 添加网络插件
         .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
         .insert_resource(FrameRateState { change: true, frame_rate: 60.0 }) // 添加帧率状态资源
         .run();

@@ -1,0 +1,10 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2024"
+description = "Protocol parser for redra - pure logic library without Bevy dependencies"
+
+[dependencies]
+expto = { path = "../expto" }
+inpto = { path = "../inpto" }
+log = "0.4"

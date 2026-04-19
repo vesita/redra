@@ -1,0 +1,19 @@
+# The type name of the material. Can either be the full path (e.g. bevy_pbr::pbr_material::StandardMaterial),
+# or, if only one registered material has the name, just the name itself.
+# If this field is not specified, defaults to StandardMaterial
+type = "StandardMaterial"
+
+[material]
+# Base color as RGBA
+base_color = [0.5, 0.5, 0.5, 1.0]
+# Roughness for PBR rendering
+perceptual_roughness = 0.5
+# Metallic factor
+metallic = 0.0
+# Reflectance
+reflectance = 0.5
+
+# Optional custom properties
+[properties]
+# This one is built-in, and sets the entity's Visibility when the material is applied.
+visibility = "Visible"

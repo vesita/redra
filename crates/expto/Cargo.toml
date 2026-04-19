@@ -1,0 +1,15 @@
+[package]
+name = "expto"
+version = "0.1.0"
+edition = "2024"
+
+# 用于编译 protobuf 文件
+[build-dependencies]
+prost-build = "0.14"
+
+[dependencies]
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1.51", features = ["net", "io-util", "sync", "rt", "macros", "time", "rt-multi-thread"] }
+prost = "0.14.3"
+serde = { version = "1.0", features = ["derive"] }

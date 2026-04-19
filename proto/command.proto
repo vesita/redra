@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package command;
+
+enum CommandType {
+    UNKNOWN = 0;
+    SPAWN = 1;
+    UPDATE = 2;
+    DESTROY = 3;
+}
+
+message Command {
+    CommandType a_command = 1;
+}

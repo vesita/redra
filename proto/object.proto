@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package object;
+
+import "object/mesh.proto";
+import "object/transform.proto";
+
+
+message Object {
+    oneof a_object {
+        uint64 id = 1;
+        mesh.Mesh mesh = 2;
+        transform.Transform transform = 3;
+    }
+}
