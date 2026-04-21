@@ -84,14 +84,60 @@ cargo build --target x86_64-unknown-linux-gnu --release
 cargo run
 ```
 
-## 协议
+## TCMP协议 (Trailer-Command Messaging Protocol)
 
-Redra 使用 Protobuf 定义通信协议，支持多种数据类型和命令，包括：
+Redra 使用TCMP协议进行通信，该协议基于Protobuf定义消息结构，使用Trailer协议定义数据包边界。
 
-- 形状数据（点、线、立方体、球体等）
-- 格式数据（图像等）
-- 变换命令（位置、旋转、缩放）
-- 设计命令（创建实体等）
+### 协议结构
+
+```
+[Trailer][Command]
+```
+
+**Trailer结构**:
+```protobuf
+message Trailer {
+  uint32 me = 1;    // trailer自身的大小
+  uint32 next = 2;  // 后续payload的大小
+}
+```
+
+**Command结构**:
+```protobuf
+message Command {
+  oneof cmd_pack {
+    target.ConceptionCMD conception = 1;
+    designation.DesignCMD designation = 2;
+    transform.TransCMD transform = 3;
+    resource.RsrcPack resource = 4;
+    shape.ShapePack shape = 5;
+    pointcloud.PointCloudPack point_cloud = 6;
+    MacroCmd macro = 7;  // 新增宏指令
+  }
+  int64 timestamp = 4;
+  string command_id = 5;
+}
+```
+
+**宏指令支持**:
+- `ConnectionControl`: 用于连接管理
+- `Heartbeat`: 用于维持连接活跃状态
+- `BatchCmd`: 用于批量命令处理
+- `MetaCmd`: 用于元数据传输
+
+### 使用示例
+
+```rust
+use redra_proto::coding::encoding::{encode_command_with_trailer, create_heartbeat_command};
+
+// 创建心跳命令
+let heartbeat_cmd = create_heartbeat_command("session_123");
+
+// 编码为TCMP格式（Trailer + Command）
+let packet = encode_command_with_trailer(&heartbeat_cmd).unwrap();
+
+// 发送数据...
+```
 
 ## 贡献
 

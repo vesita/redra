@@ -1,0 +1,7 @@
+# 磨砂材质 - 高粗糙度
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.6, 0.6, 0.6, 1.0]
+perceptual_roughness = 0.9
+metallic = 0.0

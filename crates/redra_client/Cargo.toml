@@ -6,8 +6,9 @@ edition = "2024"
 [dependencies]
 log = "0.4"
 env_logger = "0.11"
-redra_proto = { path = "../redra_proto" }
+expto = { path = "../expto" }
 prost = "0.14"
+async-trait = "0.1"
 
 # Tokio 异步运行时 - 最小化 features:
 # net: TCP 网络 (TcpStream)
@@ -17,4 +18,4 @@ prost = "0.14"
 # macros: 宏支持 (#[tokio::test])
 # time: 时间功能 (sleep, timeout等)
 # rt-multi-thread: 多线程运行时支持 (#[tokio::main])
-tokio = { version = "1.51", features = ["net", "io-util", "sync", "rt", "macros", "time", "rt-multi-thread"] }
+tokio = { version = "1.52", features = ["net", "io-util", "sync", "rt", "macros", "time", "rt-multi-thread"] }

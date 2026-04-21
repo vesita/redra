@@ -1,0 +1,7 @@
+# 线材质 - 天蓝色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.2, 0.6, 1.0, 1.0]
+perceptual_roughness = 0.4
+metallic = 0.2

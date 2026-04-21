@@ -1,0 +1,75 @@
+[global]
+enabled = true
+description = "默认静态场景 - 包含三轴坐标系（使用角度制）"
+
+# X轴 - 红色圆柱体
+[[entities]]
+name = "X_Axis"
+type = "cylinder"
+position = [1.5, 0.0, 0.0]
+rotation = [0.0, 0.0, -90.0]  # 绕Z轴旋转-90度
+scale = [1.0, 1.0, 1.0]
+radius = 0.075
+height = 3.0
+material = "materials/base/red.toml"
+degrees = true
+
+# X轴 - 圆锥
+[[entities]]
+name = "X_Axis"
+type = "cone"
+position = [3.0, 0.0, 0.0]
+rotation = [0.0, 0.0, -90.0]  # 绕Z轴旋转-90度
+scale = [1.0, 1.0, 1.0]
+radius = 0.15
+height = 0.3
+material = "materials/base/red.toml"
+degrees = true
+
+# Y轴 - 绿色圆柱体
+[[entities]]
+name = "Y_Axis"
+type = "cylinder"
+position = [0.0, 1.5, 0.0]
+rotation = [0.0, 0.0, 0.0]  # 无旋转
+scale = [1.0, 1.0, 1.0]
+radius = 0.075
+height = 3.0
+material = "materials/base/green.toml"
+degrees = true
+
+# Y轴 - 圆锥
+[[entities]]
+name = "Y_Axis"
+type = "cone"
+position = [0.0, 3.0, 0.0]
+rotation = [0.0, 0.0, 0.0]  # 无旋转
+scale = [1.0, 1.0, 1.0]
+radius = 0.15
+height = 0.3
+material = "materials/base/green.toml"
+degrees = true
+
+# Z轴 - 蓝色圆柱体
+[[entities]]
+name = "Z_Axis"
+type = "cylinder"
+position = [0.0, 0.0, 1.5]
+rotation = [90.0, 0.0, 0.0]  # 绕X轴旋转90度
+scale = [1.0, 1.0, 1.0]
+radius = 0.075
+height = 3.0
+material = "materials/base/blue.toml"
+degrees = true
+
+# Z轴 - 圆锥
+[[entities]]
+name = "Z_Axis"
+type = "cone"
+position = [0.0, 0.0, 3.0]
+rotation = [90.0, 0.0, 0.0]  # 绕X轴旋转90度
+scale = [1.0, 1.0, 1.0]
+radius = 0.15
+height = 0.3
+material = "materials/base/blue.toml"
+degrees = true

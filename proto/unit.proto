@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+import "header.proto";
+import "stamp.proto";
+import "command.proto";
+import "object.proto";
+
+package unit;
+
+// 主Unit消息 - 包含命令和相关对象数据
+message Unit {
+  // 时间戳和元数据
+  stamp.ExStamp stamp = 1;
+  
+  // 命令类型，指示要对对象执行的操作
+  command.ExCommand command = 2;
+
+  // 对象列表，可以是一个对象或多个对象
+  // 这种设计支持批量操作，同时保持了协议的扁平化结构
+  repeated object.ExObject objects = 3;
+}

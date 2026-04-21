@@ -1,0 +1,5 @@
+# 绿色材质
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.2, 0.8, 0.2, 1.0]

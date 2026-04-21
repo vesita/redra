@@ -1,0 +1,7 @@
+# 木材材质 - 暖色调
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.6, 0.4, 0.2, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0

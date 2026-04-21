@@ -4,12 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# SQLite 数据库支持
-rusqlite = "0.39"
-
-# 日志支持
+expto = { path = "../expto" }
+tokio = { version = "1.52", features = ["rt"] }
 log = "0.4"
-
-[dev-dependencies]
-# 测试依赖
-tempfile = "3"
+dirs = "6.0"
+serde = { version = "1.0", features = ["derive"] }
+sea-orm = { version = "1.0", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
+chrono = { version = "0.4", features = ["serde"] }

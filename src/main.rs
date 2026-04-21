@@ -1,64 +1,22 @@
 use bevy::prelude::*;
-use redra::graph::communicate::channels::RDChannel;
-use redra::graph::init::material::initialize_materials;
-use redra::graph::init::rd_setup;
-use redra::graph::GraphPlugin;
-use redra::manager::Manager;
-use redra::{
-    module::parser::core::RDPack,
-    net::listener::RDListener,
-};
+use redra::RedraPlugin;
 use smooth_bevy_cameras::LookTransformPlugin;
-use smooth_bevy_cameras::controllers::fps::FpsCameraPlugin;
-use tokio::sync::{broadcast, mpsc};
 
-use log::info;
-
-use redra::render::frame::FrameRateState;
+use redra::renderer::frame_rate::FrameRateState;
 
 /// 程序主入口函数
 /// 
-/// 此函数启动应用程序，初始化网络通信、图形渲染系统和UI组件
-/// 使用Tokio异步运行时处理网络任务，并使用Bevy引擎渲染图形界面
-#[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-
-    // 初始化网络通信通道
-    // engine_sender 和 net_receiver 用于引擎向网络模块广播消息
-    // net_sender 和 engine_receiver 用于网络模块向引擎发送消息
-    let (engine_sender, net_receiver) = broadcast::channel::<RDPack>(1024);
-    let (net_sender, engine_receiver) = mpsc::channel::<RDPack>(1024);
-
-    // 创建通信通道结构体
-    let channel = RDChannel {
-        sender: engine_sender,
-        receiver: engine_receiver,
-    };
-    
-    info!("启动网络任务...");
-    
-    // 启动网络监听任务
-    tokio::spawn(async move {
-        let mut net = RDListener::new(net_sender, net_receiver);
-        net.run().await;
-    });
-
-
-
+/// 此函数启动应用程序，初始化图形渲染系统、UI组件和网络通信
+/// 使用Bevy引擎渲染图形界面，并通过NetworkPlugin处理网络逻辑
+fn main() {
     // 构建并运行Bevy应用程序
     App::new()
-        .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
         .add_plugins(DefaultPlugins) // 添加默认插件
-        .add_plugins(Manager::default())
-        .add_plugins(FpsCameraPlugin::default()) // 添加FPS相机插件
-        .add_plugins(LookTransformPlugin) // 添加相机变换插件
-        .add_plugins(GraphPlugin)
-        .insert_resource(channel) // 插入通信通道资源
-        .add_systems(Startup, rd_setup) // 添加rd_setup系统
-        .add_systems(Startup, initialize_materials) // 添加initialize_materials系统
+        .add_plugins(RedraPlugin) // 使用 RedraPlugin 替代单独的插件
+        .add_plugins(LookTransformPlugin)
+        .insert_resource(ClearColor(Color::srgb(0.7, 0.8, 0.9))) // 设置较亮的背景色
         .insert_resource(FrameRateState { change: true, frame_rate: 60.0 }) // 添加帧率状态资源
         .run();
-    Ok(())
 }
 
 
@@ -81,4 +39,4 @@ async fn main() -> Result<(), std::io::Error> {
 // 遵循这些规则可以确保代码一致性和项目质量.
 // 
 // ---
-// 
+// ```

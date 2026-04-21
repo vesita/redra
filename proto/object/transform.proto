@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package transform;
+
+message ExTransform {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float rx = 4;
+    float ry = 5;
+    float rz = 6;
+    float sx = 7; 
+    float sy = 8;
+    float sz = 9;
+}

@@ -1,0 +1,5 @@
+# 坐标轴 Z - 蓝色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.2, 0.2, 0.8, 1.0]

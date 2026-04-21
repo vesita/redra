@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package object;
+
+import "object/mesh.proto";
+import "object/transform.proto";
+
+
+message ExObject {
+    oneof u_object {
+        uint64 id = 1;
+        mesh.ExMesh mesh = 2;
+        transform.ExTransform transform = 3;
+        string material_id = 4;
+    }
+}

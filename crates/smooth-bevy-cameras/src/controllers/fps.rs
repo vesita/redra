@@ -127,7 +127,7 @@ pub enum ControlMessage {
 
 /// A marker component for tracking when the cursor needs to be reset next frame
 #[derive(Component)]
-struct ResetCursorNextFrame;
+pub struct ResetCursorNextFrame;
 
 define_on_controller_enabled_changed!(FpsCameraController);
 
