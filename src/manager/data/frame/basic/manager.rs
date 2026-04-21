@@ -12,6 +12,7 @@ impl FrameManager {
             frames: Vec::new(),
             temp_units: Vec::new(),
             temp_keyframe: None,
+            first_temp_unit_timestamp: None,
         }
     }
 
@@ -30,8 +31,14 @@ impl FrameManager {
                     match command_type {
                         CommandType::Frameend => {
                             self.add_frame(UnitPack::new_frame(self.last_keyframe_idx(), &self.temp_units));
+                            // 重置时间戳跟踪
+                            self.first_temp_unit_timestamp = None;
                         },
                         _ => {
+                            // 记录第一个 temp_unit 的时间戳
+                            if self.temp_units.is_empty() {
+                                self.first_temp_unit_timestamp = unit.stamp.as_ref().map(|s| s.timestamp);
+                            }
                             self.temp_units.push(unit.clone());
                         }
                     }
@@ -65,8 +72,26 @@ impl FrameManager {
     }
 
     pub fn should_generate_keyframe(&self) -> bool { 
-        self.temp_units.len() >= 50 ||
-        self.temp_keyframe.is_none()
+        if self.temp_units.is_empty() {
+            return false;
+        }
+
+        // 条件1: 数量达到阈值
+        if self.temp_units.len() >= 100 {
+            return true;
+        }
+
+        // 条件2: 超时判断（5秒 = 5000毫秒）
+        if let Some(first_timestamp) = self.first_temp_unit_timestamp {
+            if let Some(last_unit_stamp) = self.temp_units.last().and_then(|u| u.stamp.as_ref()) {
+                let current_timestamp = last_unit_stamp.timestamp;
+                if current_timestamp.saturating_sub(first_timestamp) >= 5000 {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     pub fn current_frame(&self) -> &KeyFrame { 
@@ -125,4 +150,3 @@ impl FrameManager {
         }
     }
 }
-

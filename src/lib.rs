@@ -10,8 +10,6 @@ pub mod manager;
 
 pub mod renderer;
 
-pub mod setup;
-
 // 导出子 crate
 pub extern crate expto;
 pub extern crate redra_storage;

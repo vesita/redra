@@ -98,9 +98,11 @@
 
 
 pub mod controllers;
+pub mod state_machine;
 
 mod look_angles;
 mod look_transform;
 
 pub use look_angles::*;
 pub use look_transform::*;
+pub use state_machine::*;

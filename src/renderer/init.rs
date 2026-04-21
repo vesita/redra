@@ -28,12 +28,12 @@ pub fn rd_setup(
         affects_lightmapped_meshes: true,
     };
 
-    // 添加FPS相机控制器
+    // 添加FPS相机控制器（3D场景）
     commands
         .spawn((
             Camera3d::default(),
             Camera {
-                order: 0,
+                order: 0,  // 3D相机渲染顺序为0
                 ..default()
             },
             Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -48,6 +48,15 @@ pub fn rd_setup(
             Vec3::new(0.0, 0.0, 0.0),    // 看向的目标点
             Vec3::Y,
         ));
+
+    // 添加 2D 相机用于 UI 渲染（轮盘菜单、egui 等）
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1,  // 2D相机渲染顺序为1，在3D场景之上
+            ..default()
+        },
+    ));
 
     // 注意：坐标轴由 graph/rendering/axis.rs 中的 AxisRenderingPlugin 自动生成
     // 此处不再手动调用 spawn_axis_setup，避免重复生成

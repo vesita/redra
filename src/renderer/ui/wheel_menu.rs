@@ -18,8 +18,9 @@ impl Plugin for WheelMenuGraphPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugins(WheelMenuPlugin)
-            .init_resource::<WheelMenuState>()
+            .init_resource::<WheelMenuManager>()  // 使用新的管理器资源
             .add_systems(Update, (
+                enforce_cursor_lock_policy,  // 优先执行：强制光标锁定策略
                 toggle_wheel_menu,
                 handle_wheel_select,
                 update_wheel_visuals,
@@ -27,11 +28,61 @@ impl Plugin for WheelMenuGraphPlugin {
     }
 }
 
-/// 轮盘菜单状态资源
+/// 轮盘菜单状态（状态机）
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WheelMenuState {
+    /// 菜单隐藏状态
+    #[default]
+    Hidden,
+    /// 菜单显示状态
+    Visible,
+}
+
+impl WheelMenuState {
+    /// 尝试切换到显示状态（需要光标未锁定）
+    pub fn try_show(&mut self, cursor_locked: bool) -> bool {
+        match self {
+            WheelMenuState::Hidden if !cursor_locked => {
+                *self = WheelMenuState::Visible;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// 切换到隐藏状态
+    pub fn hide(&mut self) -> bool {
+        match self {
+            WheelMenuState::Visible => {
+                *self = WheelMenuState::Hidden;
+                true
+            }
+            WheelMenuState::Hidden => false,
+        }
+    }
+
+    /// 强制隐藏（用于光标锁定等异常情况）
+    pub fn force_hide(&mut self) -> bool {
+        match self {
+            WheelMenuState::Visible => {
+                *self = WheelMenuState::Hidden;
+                true
+            }
+            WheelMenuState::Hidden => false,
+        }
+    }
+
+    /// 检查是否可见
+    pub fn is_visible(&self) -> bool {
+        matches!(self, WheelMenuState::Visible)
+    }
+}
+
+/// 轮盘菜单管理器资源（包含状态和实体引用）
 #[derive(Resource, Default)]
-pub struct WheelMenuState {
-    /// 菜单是否可见
-    pub visible: bool,
+pub struct WheelMenuManager {
+    /// 当前状态
+    pub state: WheelMenuState,
     /// 当前激活的轮盘菜单实体
     pub active_menu: Option<Entity>,
 }
@@ -80,11 +131,41 @@ mod wheel_theme {
     pub const CENTER_BG: Color = Color::srgba(0.08, 0.10, 0.14, 0.98);
 }
 
+/// 系统：强制执行光标锁定策略 - 如果光标被锁定且菜单可见，强制关闭菜单
+pub fn enforce_cursor_lock_policy(
+    mut commands: Commands,
+    cursor_options: bevy::prelude::Single<&bevy::window::CursorOptions>,
+    mut manager: ResMut<WheelMenuManager>,
+    mut visibility_writer: MessageWriter<WheelMenuVisibilityChanged>,
+    wheel_query: Query<Entity, With<WheelMenuRoot>>,
+) {
+    let cursor_locked = cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked;
+    
+    // 状态机转换：Visible + 光标锁定 → Hidden（强制）
+    if cursor_locked && manager.state.is_visible() {
+        manager.state.force_hide();
+        manager.active_menu = None;
+        
+        // 销毁菜单实体
+        for entity in wheel_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        
+        visibility_writer.write(WheelMenuVisibilityChanged {
+            visible: false,
+            menu_entity: Entity::PLACEHOLDER,
+        });
+        
+        info!("检测到光标锁定，强制关闭轮盘菜单");
+    }
+}
+
 /// 系统：使用 Tab 键切换轮盘菜单的显示/隐藏
 pub fn toggle_wheel_menu(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut state: ResMut<WheelMenuState>,
+    cursor_options: bevy::prelude::Single<&bevy::window::CursorOptions>,
+    mut manager: ResMut<WheelMenuManager>,
     mut visibility_writer: MessageWriter<WheelMenuVisibilityChanged>,
     wheel_query: Query<Entity, With<WheelMenuRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -93,36 +174,67 @@ pub fn toggle_wheel_menu(
 ) {
     // 检测 Tab 键按下
     if keyboard.just_pressed(KeyCode::Tab) {
-        state.visible = !state.visible;
-        
-        // 如果之前有菜单，先销毁
-        for entity in wheel_query.iter() {
-            commands.entity(entity).despawn();
+        // 如果光标被锁定（FPS模式），不打开菜单，但如果菜单已打开则关闭它
+        if cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked {
+            // 如果菜单当前是可见的，强制关闭它并恢复状态
+            if manager.state.is_visible() {
+                manager.state.force_hide();
+                manager.active_menu = None;
+                
+                // 销毁菜单实体
+                for entity in wheel_query.iter() {
+                    commands.entity(entity).despawn();
+                }
+                
+                visibility_writer.write(WheelMenuVisibilityChanged {
+                    visible: false,
+                    menu_entity: Entity::PLACEHOLDER,
+                });
+                
+                info!("检测到光标锁定，强制关闭轮盘菜单");
+            }
+            return;
         }
-        
-        if state.visible {
-            // 创建新的轮盘菜单（如果有字体则使用自定义字体，否则使用默认）
-            let menu_entity = match font_assets {
-                Some(font) => spawn_wheel_menu(&mut commands, &mut meshes, &mut mats, &font.bevy_font),
-                None => spawn_wheel_menu_default(&mut commands, &mut meshes, &mut mats),
-            };
-            state.active_menu = Some(menu_entity);
-            
-            visibility_writer.write(WheelMenuVisibilityChanged {
-                visible: true,
-                menu_entity,
-            });
-            
-            info!("打开轮盘菜单");
+
+        // 光标未锁定，正常切换菜单状态
+        let cursor_locked = cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked;
+        let toggled = if manager.state.is_visible() {
+            manager.state.hide();
+            true
         } else {
-            state.active_menu = None;
+            manager.state.try_show(cursor_locked)
+        };
+        
+        if toggled {
+            // 如果之前有菜单，先销毁
+            for entity in wheel_query.iter() {
+                commands.entity(entity).despawn();
+            }
             
-            visibility_writer.write(WheelMenuVisibilityChanged {
-                visible: false,
-                menu_entity: Entity::PLACEHOLDER,
-            });
-            
-            info!("关闭轮盘菜单");
+            if manager.state.is_visible() {
+                // 创建新的轮盘菜单（如果有字体则使用自定义字体，否则使用默认）
+                let menu_entity = match font_assets {
+                    Some(font) => spawn_wheel_menu(&mut commands, &mut meshes, &mut mats, &font.bevy_font),
+                    None => spawn_wheel_menu_default(&mut commands, &mut meshes, &mut mats),
+                };
+                manager.active_menu = Some(menu_entity);
+                
+                visibility_writer.write(WheelMenuVisibilityChanged {
+                    visible: true,
+                    menu_entity,
+                });
+                
+                info!("打开轮盘菜单");
+            } else {
+                manager.active_menu = None;
+                
+                visibility_writer.write(WheelMenuVisibilityChanged {
+                    visible: false,
+                    menu_entity: Entity::PLACEHOLDER,
+                });
+                
+                info!("关闭轮盘菜单");
+            }
         }
     }
 }
@@ -134,16 +246,16 @@ fn spawn_wheel_menu(
     mats: &mut Assets<ColorMaterial>,
     font_handle: &Handle<bevy::text::Font>,
 ) -> Entity {
-    // 定义菜单项（示例：8 个选项）
+    // 定义菜单项（示例：8 个选项，使用纯文本符号代替 Emoji）
     let menu_items = vec![
-        ("选项 1", "🔵"),
-        ("选项 2", "🟢"),
-        ("选项 3", "🔴"),
-        ("选项 4", "🟡"),
-        ("选项 5", "🟣"),
-        ("选项 6", "🟠"),
-        ("选项 7", "⚪"),
-        ("选项 8", "⚫"),
+        ("选项 1", "[A]"),
+        ("选项 2", "[B]"),
+        ("选项 3", "[C]"),
+        ("选项 4", "[D]"),
+        ("选项 5", "[E]"),
+        ("选项 6", "[F]"),
+        ("选项 7", "[G]"),
+        ("选项 8", "[H]"),
     ];
     
     let menu_config = WheelMenu {
@@ -260,16 +372,16 @@ fn spawn_wheel_menu_default(
     meshes: &mut Assets<Mesh>, 
     mats: &mut Assets<ColorMaterial>,
 ) -> Entity {
-    // 定义菜单项（示例：8 个选项）
+    // 定义菜单项（示例：8 个选项，使用纯文本符号代替 Emoji）
     let menu_items = vec![
-        ("选项 1", "🔵"),
-        ("选项 2", "🟢"),
-        ("选项 3", "🔴"),
-        ("选项 4", "🟡"),
-        ("选项 5", "🟣"),
-        ("选项 6", "🟠"),
-        ("选项 7", "⚪"),
-        ("选项 8", "⚫"),
+        ("选项 1", "[A]"),
+        ("选项 2", "[B]"),
+        ("选项 3", "[C]"),
+        ("选项 4", "[D]"),
+        ("选项 5", "[E]"),
+        ("选项 6", "[F]"),
+        ("选项 7", "[G]"),
+        ("选项 8", "[H]"),
     ];
     
     let menu_config = WheelMenu {
@@ -423,7 +535,7 @@ pub fn update_wheel_visuals(
 pub fn handle_wheel_select(
     mut commands: Commands,
     mut reader: MessageReader<WheelMenuSelected>,
-    mut state: ResMut<WheelMenuState>,
+    mut manager: ResMut<WheelMenuManager>,
     wheel_query: Query<Entity, With<WheelMenuRoot>>,
 ) {
     for event in reader.read() {
@@ -433,8 +545,8 @@ pub fn handle_wheel_select(
         // 例如：发送网络消息、执行动作等
         
         // 选择后自动关闭菜单
-        state.visible = false;
-        state.active_menu = None;
+        manager.state.hide();
+        manager.active_menu = None;
         
         // 销毁菜单
         for entity in wheel_query.iter() {

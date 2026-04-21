@@ -17,6 +17,7 @@ pub struct FrameManager {
     frames: Vec<UnitPack>,
     temp_units: Vec<Unit>,
     temp_keyframe: Option<KeyFrame>,
+    first_temp_unit_timestamp: Option<u64>,
 }
 
 pub struct UnitPack {

@@ -26,7 +26,7 @@ fn initialize_static_scene(
 ) {
     let config_path = "assets/init/default_scene.toml";
 
-    log::info!("[SceneInitializer] 开始加载静态场景配置...");
+    log::info!("开始加载静态场景配置...");
 
     match expto::config::load_static_scene_config(config_path) {
         Ok(config) => {
