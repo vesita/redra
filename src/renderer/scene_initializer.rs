@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use std::fs;
 
 use crate::manager::materials::MaterialManager;
 use crate::renderer::helpers;
@@ -18,37 +17,6 @@ impl Plugin for SceneInitializerPlugin {
     }
 }
 
-/// TOML 配置结构体
-#[derive(Debug, Clone, serde::Deserialize)]
-struct StaticSceneConfig {
-    global: GlobalConfig,
-    #[serde(default)]
-    entities: Vec<EntityConfig>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct GlobalConfig {
-    enabled: bool,
-    description: String,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct EntityConfig {
-    name: String,
-    #[serde(rename = "type")]
-    entity_type: String,
-    position: [f32; 3],
-    rotation: [f32; 3],  // 可以是弧度或角度，需要检测
-    scale: [f32; 3],
-    material: String,
-    // 几何体参数（根据类型可选）
-    radius: Option<f32>,
-    height: Option<f32>,
-    // 用于指定是否使用角度制
-    #[serde(default)]
-    degrees: bool,
-}
-
 /// 初始化静态场景
 fn initialize_static_scene(
     mut commands: Commands,
@@ -60,168 +28,55 @@ fn initialize_static_scene(
 
     log::info!("[SceneInitializer] 开始加载静态场景配置...");
 
-    match fs::read_to_string(config_path) {
-        Ok(content) => {
-            match toml::from_str::<StaticSceneConfig>(&content) {
-                Ok(config) => {
-                    if config.global.enabled {
-                        log::info!(
-                            "从 TOML 配置文件加载 {} 个静态实体",
-                            config.entities.len()
-                        );
-                        log::info!("   描述: {}", config.global.description);
+    match expto::config::load_static_scene_config(config_path) {
+        Ok(config) => {
+            if config.global.enabled {
+                log::info!(
+                    "从 TOML 配置文件加载 {} 个静态实体",
+                    config.entities.len()
+                );
+                log::info!("   描述: {}", config.global.description);
 
-                        // 为每个实体生成 Unit 并转换为 Inpto
-                        let mut keyframe = crate::manager::data::frame::KeyFrame::new(0);
-                        
-                        for (idx, entity_config) in config.entities.iter().enumerate() {
-                            // 生成唯一的 entity_id（从1开始，避免与动态实体冲突）
-                            let entity_id = (idx + 1) as u64;
-                            
-                            // 将 TOML 配置转换为 Unit 协议数据
-                            let unit = config_to_unit(entity_config, entity_id);
-                            
-                            // 通过 KeyFrame 的标准流程将 Unit 转换为 Inpto
-                            keyframe.update(&unit);
-                            
-                            log::debug!(
-                                "转换静态实体: {} (ID: {})",
-                                entity_config.name,
-                                entity_id
-                            );
-                        }
-
-                        // 渲染所有静态实体
-                        render_static_entities(
-                            &mut commands,
-                            &mut meshes,
-                            &asset_server,
-                            &material_manager,
-                            &keyframe,
-                        );
-
-                        log::info!("静态场景加载完成");
-                    } else {
-                        log::info!("静态场景已禁用，仅显示基础坐标轴");
-                        spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager);
-                    }
+                // 为每个实体生成 Unit 并转换为 Inpto
+                let mut keyframe = crate::manager::data::frame::KeyFrame::new(0);
+                
+                for (idx, entity_config) in config.entities.iter().enumerate() {
+                    // 生成唯一的 entity_id（从1开始，避免与动态实体冲突）
+                    let entity_id = (idx + 1) as u64;
+                    
+                    // 使用 expto 的 config_to_unit 将配置转换为 Unit 协议数据
+                    let unit = expto::config::config_to_unit(entity_config, entity_id);
+                    
+                    // 通过 KeyFrame 的标准流程将 Unit 转换为 Inpto
+                    keyframe.update(&unit);
+                    
+                    log::debug!(
+                        "转换静态实体: {} (ID: {})",
+                        entity_config.name,
+                        entity_id
+                    );
                 }
-                Err(e) => {
-                    log::warn!("TOML 解析失败，使用默认坐标轴: {}", e);
-                    spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager);
-                }
+
+                // 渲染所有静态实体
+                render_static_entities(
+                    &mut commands,
+                    &mut meshes,
+                    &asset_server,
+                    &material_manager,
+                    &keyframe,
+                );
+
+                log::info!("静态场景加载完成");
+            } else {
+                log::info!("静态场景已禁用，仅显示基础坐标轴");
+                spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager);
             }
         }
         Err(e) => {
-            log::warn!("配置文件读取失败，使用默认坐标轴: {}", e);
+            log::warn!("配置文件加载失败，使用默认坐标轴: {}", e);
             spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager);
         }
     }
-}
-
-/// 将 TOML 配置转换为 Unit 协议数据
-fn config_to_unit(config: &EntityConfig, entity_id: u64) -> expto::rdmp::Unit {
-    use expto::rdmp::{ExTransform, ex_object::UObject};
-    
-    let mut unit = expto::rdmp::auto::unit::generate_unit();
-    
-    // 设置命令类型为 Spawn
-    unit.set_spawn().expect("Failed to set spawn command");
-    
-    // 构建网格数据
-    let mesh = build_mesh_from_config(config);
-    
-    // 构建变换数据（处理角度到弧度的转换）
-    let rotation_rad = if config.degrees {
-        log::debug!(
-            "实体 '{}' 使用角度制旋转: [{:.1}, {:.1}, {:.1}]°",
-            config.name,
-            config.rotation[0],
-            config.rotation[1],
-            config.rotation[2]
-        );
-        // 如果标记为角度制，则转换为弧度
-        [
-            config.rotation[0].to_radians(),
-            config.rotation[1].to_radians(),
-            config.rotation[2].to_radians(),
-        ]
-    } else {
-        log::debug!(
-            "实体 '{}' 使用弧度制旋转: [{:.3}, {:.3}, {:.3}] rad",
-            config.name,
-            config.rotation[0],
-            config.rotation[1],
-            config.rotation[2]
-        );
-        // 默认已经是弧度制
-        config.rotation
-    };
-    
-    let transform = ExTransform {
-        x: config.position[0],
-        y: config.position[1],
-        z: config.position[2],
-        rx: rotation_rad[0],
-        ry: rotation_rad[1],
-        rz: rotation_rad[2],
-        sx: config.scale[0],
-        sy: config.scale[1],
-        sz: config.scale[2],
-    };
-    
-    // 添加对象到 Unit（按照 react_spawn 的期望顺序：Id + Mesh + Transform + MaterialId）
-    unit.objects = vec![
-        expto::rdmp::ExObject {
-            u_object: Some(UObject::Id(entity_id)),
-        },
-        expto::rdmp::ExObject {
-            u_object: Some(UObject::Mesh(mesh)),
-        },
-        expto::rdmp::ExObject {
-            u_object: Some(UObject::Transform(transform)),
-        },
-        expto::rdmp::ExObject {
-            u_object: Some(UObject::MaterialId(config.material.clone())),
-        },
-    ];
-    
-    unit
-}
-
-/// 根据配置构建网格数据
-fn build_mesh_from_config(config: &EntityConfig) -> expto::rdmp::ExMesh {
-    use expto::rdmp::Point;
-    use expto::rdmp::mesh::ex_mesh::UMesh;
-    
-    let mesh = match config.entity_type.as_str() {
-        "cylinder" => {
-            let radius = config.radius.unwrap_or(0.1);
-            let height = config.height.unwrap_or(1.0);
-            UMesh::Cylinder(expto::rdmp::Cylinder { radius, height })
-        }
-        "cone" => {
-            let radius = config.radius.unwrap_or(0.1);
-            let height = config.height.unwrap_or(1.0);
-            UMesh::Cone(expto::rdmp::Cone { radius, height })
-        }
-        "sphere" => {
-            let radius = config.radius.unwrap_or(0.5);
-            UMesh::Sphere(expto::rdmp::Sphere { 
-                location: Some(Point { x: 0.0, y: 0.0, z: 0.0 }),
-                radius 
-            })
-        }
-        _ => {
-            log::warn!("未知的实体类型: {}，使用默认球体", config.entity_type);
-            UMesh::Sphere(expto::rdmp::Sphere { 
-                location: Some(Point { x: 0.0, y: 0.0, z: 0.0 }),
-                radius: 0.5 
-            })
-        }
-    };
-    
-    expto::rdmp::ExMesh { u_mesh: Some(mesh) }
 }
 
 /// 渲染静态实体（复用 FrameRenderer 和 parser 的逻辑）
