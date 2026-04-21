@@ -1,6 +1,6 @@
 use prost::Message;
 
-use crate::rdmp::{Command, CommandType, Object, Unit, auto::generate_stamp};
+use crate::rdmp::{ExCommand, CommandType, ExObject, Unit, auto::generate_stamp};
 
 pub fn generate_unit() -> Unit { 
     Unit { 
@@ -29,26 +29,26 @@ impl Unit {
     // }
 
     pub fn set_unknown(&mut self) -> Result<(), String> {
-        self.command = Some(Command { a_command: CommandType::Unknown as i32 });
+        self.command = Some(ExCommand { u_command: CommandType::Unknown as i32 });
         Ok(())
     }
 
     pub fn set_spawn(&mut self) -> Result<(), String> {
-        self.command = Some(Command { a_command: CommandType::Spawn as i32 });
+        self.command = Some(ExCommand { u_command: CommandType::Spawn as i32 });
         Ok(())
     }
 
     pub fn set_update(&mut self) -> Result<(), String> {
-        self.command = Some(Command { a_command: CommandType::Update as i32 });
+        self.command = Some(ExCommand { u_command: CommandType::Update as i32 });
         Ok(())
     }
 
     pub fn set_destroy(&mut self) -> Result<(), String> {
-        self.command = Some(Command { a_command: CommandType::Destroy as i32 });
+        self.command = Some(ExCommand { u_command: CommandType::Destroy as i32 });
         Ok(())
     }
 
-    pub fn set_object<T: Into<Object>>(&mut self, object: T) -> Result<(), String> {
+    pub fn set_object<T: Into<ExObject>>(&mut self, object: T) -> Result<(), String> {
         self.objects = vec![object.into()];
         Ok(())
     }

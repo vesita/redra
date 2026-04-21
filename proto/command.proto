@@ -7,8 +7,9 @@ enum CommandType {
     SPAWN = 1;
     UPDATE = 2;
     DESTROY = 3;
+    FRAMEEND = 4;
 }
 
-message Command {
-    CommandType a_command = 1;
+message ExCommand {
+    CommandType u_command = 1;
 }

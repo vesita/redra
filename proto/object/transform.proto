@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package transform;
 
-message Transform {
+message ExTransform {
     float x = 1;
     float y = 2;
     float z = 3;

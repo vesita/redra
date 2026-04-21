@@ -1,0 +1,172 @@
+# 多材质配置文件
+# 每个材质通过 [materials.名称] 定义
+#
+# Material ID 映射说明：
+# 客户端可以在 Object 中使用 material_id 字段指定材质，例如：
+#   - "point", "line", "sphere", "cylinder", "cone" → 根据网格类型自动选择
+#   - "metal", "glass", "glow" → 特殊效果材质
+#   - "axis_x", "axis_y", "axis_z" → 坐标轴颜色
+#   - "red", "green", "blue", "white" → 快捷颜色
+# 如果未指定 material_id，将根据网格类型自动匹配
+
+# ==================== 基础默认材质 ====================
+
+[materials.default]
+type = "StandardMaterial"
+base_color = [0.7, 0.7, 0.7, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.0
+
+[materials.grid]
+type = "StandardMaterial"
+base_color = [0.2, 0.2, 0.2, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0
+
+# ==================== 基础颜色材质 ====================
+
+[materials.red]
+type = "StandardMaterial"
+base_color = [0.8, 0.2, 0.2, 1.0]
+
+[materials.green]
+type = "StandardMaterial"
+base_color = [0.2, 0.8, 0.2, 1.0]
+
+[materials.blue]
+type = "StandardMaterial"
+base_color = [0.2, 0.2, 0.8, 1.0]
+
+[materials.white]
+type = "StandardMaterial"
+base_color = [1.0, 1.0, 1.0, 1.0]
+
+[materials.yellow]
+type = "StandardMaterial"
+base_color = [1.0, 1.0, 0.2, 1.0]
+
+[materials.cyan]
+type = "StandardMaterial"
+base_color = [0.2, 1.0, 1.0, 1.0]
+
+[materials.magenta]
+type = "StandardMaterial"
+base_color = [1.0, 0.2, 1.0, 1.0]
+
+# ==================== 坐标轴材质 ====================
+
+[materials.axis_x]
+type = "StandardMaterial"
+base_color = [0.8, 0.2, 0.2, 1.0]
+
+[materials.axis_y]
+type = "StandardMaterial"
+base_color = [0.2, 0.8, 0.2, 1.0]
+
+[materials.axis_z]
+type = "StandardMaterial"
+base_color = [0.2, 0.2, 0.8, 1.0]
+
+# ==================== 按网格类型分类的材质 ====================
+
+# Point - 点（用小圆球表示）
+[materials.point_material]
+type = "StandardMaterial"
+base_color = [1.0, 0.8, 0.2, 1.0]  # 金黄色
+perceptual_roughness = 0.3
+metallic = 0.5
+
+# Line - 线（用细圆柱表示）
+[materials.line_material]
+type = "StandardMaterial"
+base_color = [0.2, 0.6, 1.0, 1.0]  # 天蓝色
+perceptual_roughness = 0.4
+metallic = 0.2
+
+# Sphere - 球体
+[materials.sphere_material]
+type = "StandardMaterial"
+base_color = [0.9, 0.3, 0.6, 1.0]  # 粉红色
+perceptual_roughness = 0.2
+metallic = 0.7
+
+# Cylinder - 圆柱体
+[materials.cylinder_material]
+type = "StandardMaterial"
+base_color = [0.3, 0.7, 0.9, 1.0]  # 青蓝色
+perceptual_roughness = 0.3
+metallic = 0.6
+
+# Cone - 圆锥体
+[materials.cone_material]
+type = "StandardMaterial"
+base_color = [0.8, 0.5, 0.2, 1.0]  # 橙棕色
+perceptual_roughness = 0.4
+metallic = 0.5
+
+# ==================== 特殊效果材质 ====================
+
+# 金属材质 - 高反射、低粗糙度
+[materials.metal]
+type = "StandardMaterial"
+base_color = [0.7, 0.8, 0.9, 1.0]
+metallic = 0.9
+perceptual_roughness = 0.1
+
+# 发光材质 - 自发光效果
+[materials.glow]
+type = "StandardMaterial"
+base_color = [0.1, 0.8, 0.5, 1.0]
+emissive = [0.3, 2.4, 1.5, 1.0]
+
+# 玻璃材质 - 半透明
+[materials.glass]
+type = "StandardMaterial"
+base_color = [0.5, 0.8, 0.9, 0.7]
+alpha_mode = "Blend"
+perceptual_roughness = 0.1
+metallic = 0.5
+
+# 磨砂材质 - 高粗糙度
+[materials.matte]
+type = "StandardMaterial"
+base_color = [0.6, 0.6, 0.6, 1.0]
+perceptual_roughness = 0.9
+metallic = 0.0
+
+# 塑料材质 - 中等粗糙度
+[materials.plastic]
+type = "StandardMaterial"
+base_color = [0.9, 0.9, 0.9, 1.0]
+perceptual_roughness = 0.6
+metallic = 0.0
+
+# 木材材质 - 暖色调
+[materials.wood]
+type = "StandardMaterial"
+base_color = [0.6, 0.4, 0.2, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0
+
+# ==================== 调试和测试材质 ====================
+
+# 线框风格（用高对比度颜色模拟）
+[materials.wireframe]
+type = "StandardMaterial"
+base_color = [0.0, 1.0, 0.0, 1.0]  # 亮绿色
+perceptual_roughness = 0.0
+metallic = 0.0
+
+# 高亮选中状态
+[materials.highlight]
+type = "StandardMaterial"
+base_color = [1.0, 1.0, 0.0, 1.0]  # 黄色
+emissive = [1.0, 1.0, 0.0, 1.0]
+perceptual_roughness = 0.2
+
+# 禁用/不可用状态
+[materials.disabled]
+type = "StandardMaterial"
+base_color = [0.4, 0.4, 0.4, 0.5]
+alpha_mode = "Blend"
+perceptual_roughness = 0.8

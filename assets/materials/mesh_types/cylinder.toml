@@ -1,0 +1,7 @@
+# 圆柱材质 - 青蓝色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.3, 0.7, 0.9, 1.0]
+perceptual_roughness = 0.3
+metallic = 0.6

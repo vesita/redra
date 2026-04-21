@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package stamp;
 
-message Stamp {
+message ExStamp {
     uint64 timestamp = 1; // 时间戳（毫秒）
     string session_id = 2; // 会话ID
     uint32 sequence_number = 3; // 序列号，用于保证消息顺序

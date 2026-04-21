@@ -1,6 +1,6 @@
 use expto::prelude::*;
 use expto::rdmp::auto::unit::generate_unit;
-use expto::rdmp::{Object, Mesh, Point};
+use expto::rdmp::{ExObject, ExMesh, Point, Cylinder, Cone};
 
 use crate::client::link::get_link;
 
@@ -30,8 +30,8 @@ pub async fn send_point(
 ) -> Result<(), String> {
     let mut unit = generate_unit();
     let point: Point = (x, y, z).into();
-    let mesh: Mesh = point.into();
-    let object: Object = mesh.into();
+    let mesh: ExMesh = point.into();
+    let object: ExObject = mesh.into();
     let _ = unit.set_object(object);
 
     unit.send().await?;
@@ -50,8 +50,8 @@ pub async fn send_line(
     let point1: Point = (x1, y1, z1).into();
     let point2: Point = (x2, y2, z2).into();
     let line: Line = (point1, point2).into();
-    let mesh: Mesh = line.into();
-    let object: Object = mesh.into();
+    let mesh: ExMesh = line.into();
+    let object: ExObject = mesh.into();
     let _ = unit.set_object(object);
     unit.send().await?;
     Ok(())
@@ -66,8 +66,34 @@ pub async fn send_sphere(
     let mut unit = generate_unit();
     let point: Point = (x, y, z).into();
     let sphere: Sphere = (point, radius).into();
-    let mesh: Mesh = sphere.into();
-    let object: Object = mesh.into();
+    let mesh: ExMesh = sphere.into();
+    let object: ExObject = mesh.into();
+    let _ = unit.set_object(object);
+    unit.send().await?;
+    Ok(())
+}
+
+pub async fn send_cylinder(
+    radius: f32,
+    height: f32,
+) -> Result<(), String> {
+    let mut unit = generate_unit();
+    let cylinder: Cylinder = (radius, height).into();
+    let mesh: ExMesh = cylinder.into();
+    let object: ExObject = mesh.into();
+    let _ = unit.set_object(object);
+    unit.send().await?;
+    Ok(())
+}
+
+pub async fn send_cone(
+    radius: f32,
+    height: f32,
+) -> Result<(), String> {
+    let mut unit = generate_unit();
+    let cone: Cone = (radius, height).into();
+    let mesh: ExMesh = cone.into();
+    let object: ExObject = mesh.into();
     let _ = unit.set_object(object);
     unit.send().await?;
     Ok(())

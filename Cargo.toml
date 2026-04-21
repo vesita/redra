@@ -10,19 +10,19 @@ pyri_tooltip = { path = "crates/pyri_tooltip" }
 redra_client = { path = "crates/redra_client", optional = true }
 redra_storage = { path = "crates/redra_storage" }
 expto = { path = "crates/expto" }
-inpto = { path = "crates/inpto" }  # 添加inpto依赖
 redra_net = { path = "crates/redra_net" }
 utils ={ path = "crates/utils" }
-parser = { path = "crates/parser" }  # 添加parser crate依赖
 
 bevy = { version = "0.18", optional = true }
 log = "0.4"
 nalgebra = "0.34"
 prost = "0.14"
 ringbuf = "0.4"
-tokio = { version = "1.51", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 approx = "0.5"
 serde = { version = "1.0", optional = true, features = ["derive"] }
+serde_json = "1.0"
+toml = "0.9"
 bevy_egui = { version = "0.39", optional = true }
 spin_sleep = "1.3"
 dirs = "6.0"
@@ -37,12 +37,10 @@ members = [
     "crates/redra_storage",
     "crates/expto",
     "crates/redra_net", 
-    "crates/parser",
     "crates/utils",
-    "crates/inpto"
 ]
 
 [features]
 default = ["graph"]
 client = ["redra_client"]
-graph = ["dep:bevy", "dep:bevy_egui"]
+graph = ["dep:bevy", "dep:bevy_egui", "dep:serde"]

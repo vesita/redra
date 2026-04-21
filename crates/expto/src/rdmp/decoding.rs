@@ -2,11 +2,11 @@ use prost::Message;
 use log;
 use serde::de;
 
-use crate::rdmp::{Header, Unit};
+use crate::rdmp::{ExHeader, Unit};
 
-pub fn decode_header(data: &[u8]) -> Result<Header, String> {
+pub fn decode_header(data: &[u8]) -> Result<ExHeader, String> {
     let mut cursor = &data[..];
-    match Header::decode_length_delimited(&mut cursor) {
+    match ExHeader::decode_length_delimited(&mut cursor) {
         Ok(h) => Ok(h),
         Err(e) => {
             log::error!("协议头解码失败: {}", e);

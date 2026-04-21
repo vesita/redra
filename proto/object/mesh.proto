@@ -2,11 +2,13 @@ syntax = "proto3";
 
 package mesh;
 
-message Mesh {
-    oneof a_mesh {
+message ExMesh {
+    oneof u_mesh {
         Point point = 1;
         Line line = 2;
         Sphere sphere = 3;
+        Cylinder cylinder = 4;
+        Cone cone = 5;
     }
 }
 
@@ -26,3 +28,12 @@ message Sphere {
     float radius = 2;
 }
 
+message Cylinder {
+    float radius = 1;
+    float height = 2;
+}
+
+message Cone {
+    float radius = 1;
+    float height = 2;
+}

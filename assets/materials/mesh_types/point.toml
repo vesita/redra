@@ -1,0 +1,7 @@
+# 点材质 - 金黄色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.8, 0.2, 1.0]
+perceptual_roughness = 0.3
+metallic = 0.5

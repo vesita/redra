@@ -6,10 +6,11 @@ import "object/mesh.proto";
 import "object/transform.proto";
 
 
-message Object {
-    oneof a_object {
+message ExObject {
+    oneof u_object {
         uint64 id = 1;
-        mesh.Mesh mesh = 2;
-        transform.Transform transform = 3;
+        mesh.ExMesh mesh = 2;
+        transform.ExTransform transform = 3;
+        string material_id = 4;
     }
 }

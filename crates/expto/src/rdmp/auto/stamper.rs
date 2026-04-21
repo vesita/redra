@@ -1,13 +1,13 @@
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
-use crate::rdmp::Stamp;
+use crate::rdmp::{ExStamp};
 
 static TIMESTAMP: AtomicU64 = AtomicU64::new(0);
 static SEQUENCE_NUMBER: AtomicU32 = AtomicU32::new(0);
 
 pub struct Stamper;
 
-pub fn generate_stamp() -> Stamp { 
+pub fn generate_stamp() -> ExStamp { 
     Stamper::generate_stamp()
 }
 
@@ -18,13 +18,13 @@ impl Stamper {
     }
 
     /// 生成一个新的stamp，自动填充时间戳和序列号
-    pub fn generate_stamp() -> Stamp {
+    pub fn generate_stamp() -> ExStamp {
         let ts = Self::get_current_timestamp();
         TIMESTAMP.store(ts, Ordering::Relaxed);
         
         let seq = SEQUENCE_NUMBER.fetch_add(1, Ordering::SeqCst);
         
-        Stamp {
+        ExStamp {
             timestamp: ts,
             session_id: String::default(), // 使用默认值
             sequence_number: seq,

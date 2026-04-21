@@ -1,8 +1,8 @@
-use crate::rdmp::{Stamp, Unit};
+use crate::rdmp::stamp;
 
 pub mod stamper;
 pub mod unit;
-pub mod shape;
+pub mod mesh;
 pub mod object;
 
 pub use stamper::*;

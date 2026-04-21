@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use redra::RedraPlugin;
 use smooth_bevy_cameras::LookTransformPlugin;
 
-use redra::graph::frame_rate::FrameRateState;
+use redra::renderer::frame_rate::FrameRateState;
 
 /// 程序主入口函数
 /// 

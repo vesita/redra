@@ -1,7 +1,7 @@
 use prost::Message;
 use log;
 
-use crate::rdmp::{Header, Unit};
+use crate::rdmp::{ExHeader, Unit};
 
 pub fn encode(message: &Unit) -> Result<Vec<u8>, String> {
     log::debug!("开始编码协议包");
@@ -9,13 +9,13 @@ pub fn encode(message: &Unit) -> Result<Vec<u8>, String> {
     let unit_data = Unit::encode_to_vec(&message);
     let unit_len = unit_data.len() as u32;
     
-    let temp_header = Header {
+    let temp_header = ExHeader {
         me: 1,  // 占位符
         next: unit_len,
     };
     let trailer_size = temp_header.encoded_len() as u32;
     
-    let header = Header {
+    let header = ExHeader {
         me: trailer_size,
         next: unit_len,
     };
