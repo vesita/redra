@@ -34,12 +34,12 @@ fn render_current_frame(
 ) {
     // 获取当前关键帧数据
     let Some(keyframe) = frame_manager.get_current_keyframe() else {
-        log::debug!("⏸️ [FrameRenderer] 当前无可用帧数据");
+        log::debug!("[FrameRenderer] 当前无可用帧数据");
         return;
     };
 
     log::debug!(
-        "🎬 [FrameRenderer] 渲染第 {} 帧，包含 {} 个实体",
+        "[FrameRenderer] 渲染第 {} 帧，包含 {} 个实体",
         frame_manager.current_frame_index(),
         keyframe.entity_count()
     );
@@ -55,7 +55,7 @@ fn render_current_frame(
         if let Some(&entity) = entity_map.get(&entity_id) {
             // 实体已存在，更新变换
             update_entity_transform(&mut commands, entity, &inpto.transform);
-            log::trace!("🔄 [FrameRenderer] 更新实体 {} 的变换", entity_id);
+            log::trace!("[FrameRenderer] 更新实体 {} 的变换", entity_id);
         } else {
             // 实体不存在，创建新实体
             let new_entity = spawn_entity_from_inpto(
@@ -67,7 +67,7 @@ fn render_current_frame(
                 entity_id,
             );
             entity_map.insert(entity_id, new_entity);
-            log::info!("✨ [FrameRenderer] 创建新实体 {} (名称: {})", entity_id, inpto.name());
+            log::info!("[FrameRenderer] 创建新实体 {} (名称: {})", entity_id, inpto.name());
         }
     }
 }
@@ -84,7 +84,7 @@ fn spawn_entity_from_inpto(
     // 转换 Mesh
     let mesh_handle = conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
         .unwrap_or_else(|| {
-            log::warn!("⚠️ [FrameRenderer] 网格转换失败，使用备用球体 (实体 {})", entity_id);
+            log::warn!("[FrameRenderer] 网格转换失败，使用备用球体 (实体 {})", entity_id);
             Mesh3d(meshes.add(Sphere::new(0.1)))
         });
 
@@ -105,7 +105,7 @@ fn spawn_entity_from_inpto(
         .id();
 
     log::debug!(
-        "✅ [FrameRenderer] 实体 {} 生成成功 (材质: {})",
+        "[FrameRenderer] 实体 {} 生成成功 (材质: {})",
         entity_id,
         inpto.material_path()
     );
@@ -130,7 +130,7 @@ fn cleanup_removed_entities(
         if !current_entity_ids.contains_key(&entity_id) {
             commands.entity(entity).despawn();
             removed_ids.push(entity_id);
-            log::info!("🗑️ [FrameRenderer] 销毁实体 {}", entity_id);
+            log::info!("[FrameRenderer] 销毁实体 {}", entity_id);
         }
     }
 

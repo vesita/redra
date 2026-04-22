@@ -145,6 +145,15 @@ impl RDLinker {
                     total_bytes_received += len;
                     packets_received += 1;
                     
+                    // 打印前几个字节的十六进制表示用于调试
+                    if packets_received <= 3 {
+                        let hex_bytes: Vec<String> = buffer[..len.min(20)].iter()
+                            .map(|b| format!("{:02x}", b))
+                            .collect();
+                        debug!("TCP连接 ID: {} 原始数据 (前{}字节): {}", 
+                                self.id, len.min(20), hex_bytes.join(" "));
+                    }
+                    
                     debug!("从TCP连接 ID: {} 接收到 {} 字节数据，累计接收: {} 字节，数据包序号: {}", 
                             self.id, len, total_bytes_received, packets_received);
                     
@@ -153,7 +162,7 @@ impl RDLinker {
                     
                     // 处理累积缓冲区中的完整数据包
                     loop {
-                        match decode_and_next(&mut accum_buffer) {
+                        match decode_and_next(&accum_buffer) {
                             Ok((unit, remaining)) => {
                                 // 发送解析出的协议单元
                                 if let Err(e) = self.sender.send(unit).await {
@@ -161,8 +170,16 @@ impl RDLinker {
                                     break;
                                 }
                                 
+                                // 计算已处理的字节数
+                                let consumed = accum_buffer.len() - remaining.len();
+                                
                                 // 更新累积缓冲区为剩余数据
-                                accum_buffer = remaining.to_vec();
+                                if remaining.is_empty() {
+                                    accum_buffer.clear();
+                                } else {
+                                    // 将剩余数据移到缓冲区开头
+                                    accum_buffer.drain(..consumed);
+                                }
                             }
                             Err(e) => {
                                 debug!("解析数据包时出错或没有完整数据包: {}，等待更多数据", e);

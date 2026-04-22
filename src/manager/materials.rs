@@ -41,7 +41,7 @@ impl MaterialManager {
         // 注册默认的 material_id 映射
         manager.register_default_material_id_mappings();
         
-        info!("✅ 材质管理器初始化完成（使用 bevy_materialize）");
+        info!("材质管理器初始化完成（使用 bevy_materialize）");
         manager
     }
 
@@ -224,7 +224,7 @@ impl MaterialManager {
                 material_name.to_string()
             } else {
                 // 否则当作默认材质处理
-                warn!("⚠️ 未知材质 '{}', 使用默认材质", material_name);
+                warn!("未知材质 '{}', 使用默认材质", material_name);
                 "materials/default.toml".to_string()
             }
         };

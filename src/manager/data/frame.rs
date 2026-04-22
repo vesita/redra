@@ -57,9 +57,16 @@ pub fn update_frame_manager(
     mut frame_manager: ResMut<FrameManager>,
     mut channel: ResMut<RDChannel>
 ) { 
-    // 使用 try_recv 进行非阻塞接收，适配 Bevy 同步系统
-    if let Ok(unit) = channel.redra_recver.try_recv() {
+    // 使用循环处理所有可用的 Unit，避免数据堆积
+    let mut processed_count = 0;
+    while let Ok(unit) = channel.redra_recver.try_recv() {
         frame_manager.submit(&unit);
+        processed_count += 1;
     }
+    
+    if processed_count > 0 {
+        log::debug!("帧管理器处理了 {} 个 Unit", processed_count);
+    }
+    
     frame_manager.generate_keyframe();
 }

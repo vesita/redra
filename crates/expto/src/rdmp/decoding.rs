@@ -1,6 +1,5 @@
 use prost::Message;
 use log;
-use serde::de;
 
 use crate::rdmp::{ExHeader, Unit};
 
@@ -21,7 +20,18 @@ pub fn decode(data: &[u8]) -> Result<Unit, String> {
     let header = decode_header(data)?;
     
     // 获取header之后的数据部分
-    let payload_data = &data[(header.me as usize + 1)..];
+    // encode_length_delimited 格式: varint(header长度) + header内容 + payload
+    // header.me 是 header 内容的长度（不包括 varint）
+    // 需要找到 varint 的实际长度来计算 payload 的起始位置
+    
+    // 简单方法：重新编码 header 来获取实际占用的字节数
+    let mut header_buf = Vec::new();
+    if let Err(e) = header.encode_length_delimited(&mut header_buf) {
+        return Err(format!("header 重新编码失败: {}", e));
+    }
+    let header_total_len = header_buf.len();
+    
+    let payload_data = &data[header_total_len..];
     
     // 检查数据长度是否符合header中描述的下一部分长度
     if payload_data.len() < header.next as usize {
@@ -47,11 +57,32 @@ pub fn decode(data: &[u8]) -> Result<Unit, String> {
     Ok(message)
 }
 
-pub fn decode_and_next(data: &mut [u8]) -> Result<(Unit, &[u8]), String> {
+pub fn decode_and_next(data: &[u8]) -> Result<(Unit, &[u8]), String> {
+    if data.is_empty() {
+        return Err("empty data".to_string());
+    }
+    
     let header = decode_header(data)?;
-    let payload_data = &data[(header.me as usize + 1)..];
+    
+    // 重新编码 header 来获取实际占用的字节数（包括 varint）
+    let mut header_buf = Vec::new();
+    if let Err(e) = header.encode_length_delimited(&mut header_buf) {
+        return Err(format!("header 重新编码失败: {}", e));
+    }
+    let header_total_len = header_buf.len();
+    
+    // 检查是否有足够的 payload 数据
+    if data.len() < header_total_len + header.next as usize {
+        return Err(format!(
+            "数据不足：需要 {} 字节，实际 {} 字节",
+            header_total_len + header.next as usize,
+            data.len()
+        ));
+    }
+    
+    let payload_data = &data[header_total_len..header_total_len + header.next as usize];
 
-        // 解析消息内容
+    // 解析消息内容
     let message = match Unit::decode(payload_data) {
         Ok(unit) => unit,
         Err(e) => {
@@ -60,11 +91,7 @@ pub fn decode_and_next(data: &mut [u8]) -> Result<(Unit, &[u8]), String> {
         }
     };
 
-    let consumed_len = header.me as usize + header.next as usize;
-    if consumed_len <= data.len() {
-        let (_, remaining) = data.split_at_mut(consumed_len);
-        Ok((message, remaining))
-    } else {
-        Err("consumed length exceeds data length".to_string())
-    }
+    // 返回剩余数据（从当前消息结束之后开始）
+    let remaining = &data[header_total_len + header.next as usize..];
+    Ok((message, remaining))
 }

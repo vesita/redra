@@ -16,10 +16,9 @@ impl KeyFrame {
     }
 
     pub fn update(&mut self, unit: &Unit) {
-        let Some(cmd) = parse_command(unit) else {
-            return;
-        };
-        self.match_command(&cmd, unit);
+        // 如果没有命令，默认当作 Spawn 处理（兼容无命令的 Unit）
+        let command = parse_command(unit).unwrap_or(CommandType::Spawn);
+        self.match_command(&command, unit);
     }
 
     pub fn match_command(&mut self, command: &CommandType, unit: &Unit) {

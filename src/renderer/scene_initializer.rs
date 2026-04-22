@@ -324,5 +324,5 @@ fn spawn_default_axes(
         "Z_Axis_Cone",
     );
 
-    log::info!("✅ 默认坐标轴生成完成（包含圆柱体和圆锥箭头）");
+    log::info!("默认坐标轴生成完成（包含圆柱体和圆锥箭头）");
 }

@@ -17,7 +17,7 @@ impl Plugin for FramePlaybackPlugin {
 }
 
 /// 播放状态资源
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct PlaybackState {
     /// 是否正在播放
     pub is_playing: bool,
@@ -25,6 +25,16 @@ pub struct PlaybackState {
     pub playback_speed: f32,
     /// 累积的时间（用于控制帧率）
     accumulated_time: f32,
+}
+
+impl Default for PlaybackState {
+    fn default() -> Self {
+        Self {
+            is_playing: false,
+            playback_speed: 30.0, // 默认30 FPS
+            accumulated_time: 0.0,
+        }
+    }
 }
 
 impl PlaybackState {
@@ -39,13 +49,13 @@ impl PlaybackState {
     /// 开始播放
     pub fn play(&mut self) {
         self.is_playing = true;
-        log::info!("▶️ [Playback] 开始播放");
+        log::info!("[Playback] 开始播放");
     }
 
     /// 暂停播放
     pub fn pause(&mut self) {
         self.is_playing = false;
-        log::info!("⏸️ [Playback] 暂停播放");
+        log::info!("[Playback] 暂停播放");
     }
 
     /// 切换播放/暂停状态
@@ -60,7 +70,7 @@ impl PlaybackState {
     /// 设置播放速度
     pub fn set_speed(&mut self, speed: f32) {
         self.playback_speed = speed.max(1.0);
-        log::info!("⚡ [Playback] 播放速度设置为 {} FPS", self.playback_speed);
+        log::info!("[Playback] 播放速度设置为 {} FPS", self.playback_speed);
     }
 }
 
@@ -84,13 +94,13 @@ fn auto_advance_frame(
     if playback_state.accumulated_time >= frame_interval {
         if frame_manager.next_frame() {
             log::debug!(
-                "🎬 [Playback] 自动切换到第 {} 帧",
+                "[Playback] 自动切换到第 {} 帧",
                 frame_manager.current_frame_index()
             );
         } else {
             // 到达最后一帧，停止播放或循环
             playback_state.pause();
-            log::info!("🏁 [Playback] 播放完毕");
+            log::info!("[Playback] 播放完毕");
         }
         playback_state.accumulated_time = 0.0;
     }

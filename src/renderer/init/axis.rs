@@ -19,7 +19,7 @@ pub fn axis_setup(
             match toml::from_str::<crate::manager::data_flow::config_adapter::SceneConfig>(&content) {
                 Ok(config) => {
                     if config.global.enabled {
-                        log::info!("✅ [Renderer/Startup] 从 TOML 配置文件加载 {} 个测试实体", config.entities.len());
+                        log::info!("[Renderer/Startup] 从 TOML 配置文件加载 {} 个测试实体", config.entities.len());
                         log::info!("   描述: {}", config.global.description);
                         
                         // 使用 helpers API 生成实体

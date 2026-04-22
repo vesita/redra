@@ -30,7 +30,23 @@ impl FrameManager {
                 if let Some(command_type) = CommandType::try_from(cmd.u_command).ok() {
                     match command_type {
                         CommandType::Frameend => {
+                            // 创建当前帧并添加
                             self.add_frame(UnitPack::new_frame(self.last_keyframe_idx(), &self.temp_units));
+                            
+                            // 同时生成 KeyFrame（供渲染器使用）
+                            if !self.temp_units.is_empty() {
+                                let mut keyframe = KeyFrame::new(self.timestamp);
+                                for temp_unit in &self.temp_units {
+                                    keyframe.update(temp_unit);
+                                }
+                                self.add_keyframe(keyframe);
+                                log::info!("帧管理器：完成一帧，包含 {} 个 Unit，生成 KeyFrame", self.temp_units.len());
+                            } else {
+                                log::warn!("帧管理器：收到 Frameend 但 temp_units 为空");
+                            }
+                            
+                            // 清空临时单元，为下一帧做准备
+                            self.temp_units.clear();
                             // 重置时间戳跟踪
                             self.first_temp_unit_timestamp = None;
                         },
@@ -45,6 +61,11 @@ impl FrameManager {
                 }
             },
             None => {
+                // 没有命令的单元也加入临时列表
+                if self.temp_units.is_empty() {
+                    self.first_temp_unit_timestamp = unit.stamp.as_ref().map(|s| s.timestamp);
+                }
+                self.temp_units.push(unit.clone());
             },
         }
     }

@@ -118,7 +118,7 @@ pub mod helpers {
     ) -> Entity {
         let mesh_handle = super::conversion::proto_mesh_to_bevy(meshes, mesh)
             .unwrap_or_else(|| {
-                log::warn!("⚠️ 网格转换失败，使用备用球体");
+                log::warn!("网格转换失败，使用备用球体");
                 Mesh3d(meshes.add(Sphere::new(0.1)))
             });
         

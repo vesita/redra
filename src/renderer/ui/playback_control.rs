@@ -1,26 +1,37 @@
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, egui};
+use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 use crate::manager::data::frame::{FrameManager, PlaybackState};
 use crate::manager::interaction::font_manager::FontLoadStatus;
 
-/// 回放 UI 插件
+/// 帧回放控制 UI 插件
+///
+/// 注册以下系统：
+/// - `playback_ui_system`: 在 EguiPrimaryContextPass 阶段渲染 UI
+/// - `keyboard_shortcuts`: 在 Update 阶段处理键盘输入
 pub struct PlaybackUiPlugin;
 
 impl Plugin for PlaybackUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (
+        app.add_systems(EguiPrimaryContextPass, (
             playback_ui_system.run_if(font_loaded),
-            keyboard_shortcuts, // 添加键盘快捷键处理
-        ));
+        ))
+        .add_systems(Update, keyboard_shortcuts);
     }
 }
 
-/// 字体加载状态检查函数
+/// 字体加载状态检查
 fn font_loaded(font_status: Res<FontLoadStatus>) -> bool {
     *font_status == FontLoadStatus::Loaded
 }
 
 /// 键盘快捷键处理系统
+///
+/// 支持的快捷键：
+/// - `Space`: 播放/暂停
+/// - `ArrowLeft`: 上一帧
+/// - `ArrowRight`: 下一帧
+/// - `Home`: 跳转到首帧
+/// - `End`: 跳转到尾帧
 fn keyboard_shortcuts(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut frame_manager: ResMut<FrameManager>,
@@ -92,7 +103,7 @@ pub fn playback_ui_system(
     let current_frame = frame_manager.current_frame_index();
     let has_data = total_frames > 0;
 
-    // 主控制面板
+    // 主控制面板 - 使用标准窗口配置
     egui::Window::new("帧回放控制")
         .fixed_pos(egui::pos2(10.0, 10.0))
         .collapsible(true)
@@ -103,18 +114,15 @@ pub fn playback_ui_system(
             
             // 数据状态提示
             if !has_data {
-                ui.horizontal(|ui| {
-                    ui.colored_label(
-                        egui::Color32::from_rgb(255, 200, 100),
-                        "等待数据..."
-                    );
-                });
+                ui.colored_label(
+                    egui::Color32::from_rgb(255, 200, 100),
+                    "等待数据..."
+                );
                 ui.label("当前没有接收到帧数据");
                 ui.label("请检查网络连接或数据源");
                 
                 ui.separator();
                 
-                // 即使没有数据，也显示快捷键说明
                 ui.collapsing("快捷键", |ui| {
                     ui.label("空格 - 播放/暂停");
                     ui.label("左/右箭头 - 上一帧/下一帧");
@@ -122,7 +130,7 @@ pub fn playback_ui_system(
                     ui.label("Alt - 显示/隐藏 UI");
                 });
                 
-                return; // 没有数据时提前返回
+                return;
             }
             
             // 有数据时的正常显示
@@ -136,28 +144,24 @@ pub fn playback_ui_system(
             
             ui.separator();
             
-            // 播放控制按钮
+            // 播放控制按钮 - 直接使用 enabled 属性
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
                 
                 // 跳转到首帧
                 let can_jump_to_start = current_frame > 0;
-                ui.add_enabled_ui(can_jump_to_start, |ui| {
-                    if ui.button("|<").clicked() {
-                        frame_manager.seek_to_frame(0);
-                        log::info!("跳转到第 1 帧");
-                    }
-                });
+                if ui.add_enabled(can_jump_to_start, egui::Button::new("|<")).clicked() {
+                    frame_manager.seek_to_frame(0);
+                    log::info!("跳转到第 1 帧");
+                }
                 
                 // 上一帧
                 let can_prev = current_frame > 0;
-                ui.add_enabled_ui(can_prev, |ui| {
-                    if ui.button("<").clicked() {
-                        if frame_manager.prev_frame() {
-                            log::info!("上一帧: {}", frame_manager.current_frame_index() + 1);
-                        }
+                if ui.add_enabled(can_prev, egui::Button::new("<")).clicked() {
+                    if frame_manager.prev_frame() {
+                        log::info!("上一帧: {}", frame_manager.current_frame_index() + 1);
                     }
-                });
+                }
                 
                 // 播放/暂停
                 let play_button_text = if playback_state.is_playing { "||" } else { ">" };
@@ -167,22 +171,18 @@ pub fn playback_ui_system(
                 
                 // 下一帧
                 let can_next = current_frame < total_frames - 1;
-                ui.add_enabled_ui(can_next, |ui| {
-                    if ui.button(">").clicked() {
-                        if frame_manager.next_frame() {
-                            log::info!("下一帧: {}", frame_manager.current_frame_index() + 1);
-                        }
+                if ui.add_enabled(can_next, egui::Button::new(">")).clicked() {
+                    if frame_manager.next_frame() {
+                        log::info!("下一帧: {}", frame_manager.current_frame_index() + 1);
                     }
-                });
+                }
                 
                 // 跳转到尾帧
                 let can_jump_to_end = current_frame < total_frames - 1;
-                ui.add_enabled_ui(can_jump_to_end, |ui| {
-                    if ui.button(">|").clicked() {
-                        frame_manager.seek_to_frame(total_frames - 1);
-                        log::info!("跳转到第 {} 帧", total_frames);
-                    }
-                });
+                if ui.add_enabled(can_jump_to_end, egui::Button::new(">|")).clicked() {
+                    frame_manager.seek_to_frame(total_frames - 1);
+                    log::info!("跳转到第 {} 帧", total_frames);
+                }
             });
             
             ui.separator();
@@ -206,7 +206,8 @@ pub fn playback_ui_system(
             ui.horizontal(|ui| {
                 ui.label("自定义:");
                 let mut speed = playback_state.playback_speed;
-                if ui.add(egui::Slider::new(&mut speed, 1.0..=240.0).text("FPS")).changed() {
+                let slider = egui::Slider::new(&mut speed, 1.0..=240.0).text("FPS");
+                if ui.add(slider).changed() {
                     playback_state.set_speed(speed);
                 }
             });
@@ -217,10 +218,9 @@ pub fn playback_ui_system(
             ui.horizontal(|ui| {
                 ui.label("跳转:");
                 let mut frame_idx = current_frame as f32;
-                if ui.add(
-                    egui::Slider::new(&mut frame_idx, 0.0..=(total_frames - 1) as f32)
-                        .text("帧索引")
-                ).changed() {
+                let slider = egui::Slider::new(&mut frame_idx, 0.0..=(total_frames - 1) as f32)
+                    .text("帧索引");
+                if ui.add(slider).changed() {
                     frame_manager.seek_to_frame(frame_idx as usize);
                     log::info!("跳转到第 {} 帧", frame_idx as usize + 1);
                 }
