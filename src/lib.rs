@@ -1,4 +1,4 @@
-use bevy::app::prelude::*;
+use bevy::prelude::*;
 
 // Redra 核心模块 - 按职责分类
 // 
