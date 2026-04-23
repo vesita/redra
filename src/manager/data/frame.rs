@@ -2,12 +2,16 @@ use std::collections::HashMap;
 
 use expto::rdmp::{ExMesh, Unit};
 use bevy::prelude::*;
-use redra_net::{NetworkPlugin, RDChannel};
+use redra_net::RDChannel;
 
 pub mod basic;
 pub mod play;
+pub mod storage;
 
 pub use play::*;
+// 注意：storage::FrameStorage 现在是 Bevy Resource，用于文件保存
+// 如果需要数据库功能，使用 storage::DatabaseFrameStorage
+pub use storage::{FrameStorage, FrameStoragePlugin};
 
 #[derive(Resource, Default)]
 pub struct FrameManager { 

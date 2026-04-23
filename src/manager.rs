@@ -1,5 +1,4 @@
 use bevy::app::prelude::*;
-use bevy::asset::AssetApp;
 use redra_net::NetworkPlugin;
 
 use crate::manager::materials::MaterialManager;
@@ -45,6 +44,8 @@ impl Plugin for Manager {
             .add_plugins(interaction::font_manager::FontPlugin)
             // 【数据管理层】- 帧数据管理插件
             .add_plugins(data::frame::FrameManagerPlugin)
+            // 【帧存储】- 数据持久化插件
+            .add_plugins(data::frame::storage::FrameStoragePlugin)
             // 【播放控制】- 帧播放控制插件
             .add_plugins(data::frame::FramePlaybackPlugin);
     }

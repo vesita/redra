@@ -39,7 +39,7 @@ impl NetworkListenerService {
         let listener = TcpListener::bind(socket_addr).await
             .map_err(|e| format!("绑定网络地址失败: {}", e))?;
         
-        info!("[NetworkListener] 成功绑定到地址: {}", address);
+        info!("成功绑定到地址: {}", address);
         
         Ok(Self {
             listener,
@@ -48,8 +48,8 @@ impl NetworkListenerService {
     }
     
     /// 启动监听器服务的主循环
-    pub async fn run(mut self) {
-        info!("[NetworkListener] 启动监听器服务");
+    pub async fn run(self) {
+        info!("启动监听器服务");
         
         let mut id_pool = ShareID::new();
         let (release, mut holder) = mpsc::channel(64);
@@ -60,22 +60,22 @@ impl NetworkListenerService {
                 result = self.listener.accept() => {
                     match result {
                         Ok((socket, addr)) => {
-                            info!("[NetworkListener] 接受新的客户端连接: {}", addr);
+                            info!("接受新的客户端连接: {}", addr);
                             
                             let sender = self.to_engine_sender.clone();
                             let id = id_pool.get_id();
                             let release_copy = release.clone();
                             
                             tokio::spawn(async move {
-                                info!("[Linker] 启动Linker任务, ID: {}", id);
+                                info!("启动Linker任务, ID: {}", id);
                                 // 创建一个虚拟的 broadcast receiver，因为 start_linker 需要它
                                 let (dummy_sender, _) = broadcast::channel::<Unit>(1);
                                 start_linker(id, release_copy, socket, sender, dummy_sender.subscribe()).await;
-                                info!("[Linker] Linker任务结束, ID: {}", id);
+                                info!("Linker任务结束, ID: {}", id);
                             });
                         },
                         Err(e) => {
-                            error!("[NetworkListener] 接受客户端连接时出错: {}", e);
+                            error!("接受客户端连接时出错: {}", e);
                         }
                     }
                 },
@@ -84,11 +84,11 @@ impl NetworkListenerService {
                 id = holder.recv() => {
                     match id {
                         Some(id) => {
-                            info!("[NetworkListener] 回收ID: {}", id);
+                            info!("回收ID: {}", id);
                             id_pool.release(id);
                         },
                         None => {
-                            warn!("[NetworkListener] ID回收通道已关闭");
+                            warn!("ID回收通道已关闭");
                         }
                     }
                 },
@@ -106,10 +106,10 @@ impl NetworkListenerService {
 pub fn setup_listener(
     mut command: Commands,
 ) {
-    info!("[NetworkPlugin] 开始初始化网络监听器");
+    info!("开始初始化网络监听器");
     
     let address = get_addr();
-    info!("[NetworkPlugin] 目标监听地址: {}", address);
+    info!("目标监听地址: {}", address);
 
     // 创建Bevy引擎与网络模块之间的通信通道
     let (redra_sender, link_recver) = broadcast::channel::<Unit>(1024);
@@ -125,13 +125,13 @@ pub fn setup_listener(
     command.insert_resource(NetworkStatus::default());
 
     // 在独立的Tokio运行时中启动网络监听器服务
-    info!("[NetworkPlugin] 启动网络监听器服务...");
+    info!("启动网络监听器服务...");
     
     let address_clone = address.clone();
     std::thread::Builder::new()
         .name("redra-network-listener".to_string())
         .spawn(move || {
-            info!("[NetworkListener] 网络监听线程开始执行");
+            info!("网络监听线程开始执行");
             
             let rt = tokio::runtime::Runtime::new()
                 .expect("无法创建网络监听的Tokio运行时");
@@ -143,19 +143,19 @@ pub fn setup_listener(
                     link_sender,  // 发送到 RDChannel.redra_recver
                 ).await {
                     Ok(service) => {
-                        info!("[NetworkListener] 服务初始化成功，开始运行");
+                        info!("服务初始化成功，开始运行");
                         service.run().await;
                     },
                     Err(e) => {
-                        error!("[NetworkListener] 服务初始化失败: {}", e);
+                        error!("服务初始化失败: {}", e);
                         panic!("网络监听器启动失败: {}", e);
                     }
                 }
             });
             
-            info!("[NetworkListener] 网络监听线程结束");
+            info!("网络监听线程结束");
         })
         .expect("无法创建网络监听线程");
     
-    info!("[NetworkPlugin] 网络监听线程已启动");
+    info!("网络监听线程已启动");
 }

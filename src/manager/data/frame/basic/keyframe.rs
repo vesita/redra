@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 use expto::rdmp::{CommandType, Unit, ex_object::UObject};
+use serde::{Serialize, Deserialize};
 
 use crate::manager::{data::frame::{Inpto, KeyFrame}, data_flow::parser::{e2i_transform, parse_command, parse_object}};
 
@@ -154,3 +155,96 @@ impl KeyFrame {
     }
 }
 
+// ============================================================================
+// 序列化支持
+// ============================================================================
+
+/// 可序列化的变换数据
+#[derive(Serialize, Deserialize)]
+struct SerializableTransform {
+    translation: [f32; 3],
+    rotation: [f32; 4],
+    scale: [f32; 3],
+}
+
+impl From<Transform> for SerializableTransform {
+    fn from(t: Transform) -> Self {
+        Self {
+            translation: t.translation.into(),
+            rotation: t.rotation.into(),
+            scale: t.scale.into(),
+        }
+    }
+}
+
+impl From<SerializableTransform> for Transform {
+    fn from(s: SerializableTransform) -> Self {
+        Self {
+            translation: s.translation.into(),
+            rotation: bevy::math::Quat::from_array(s.rotation),
+            scale: s.scale.into(),
+        }
+    }
+}
+
+/// 可序列化的 Inpto
+#[derive(Serialize, Deserialize)]
+pub struct SerializableInpto {
+    mesh: expto::rdmp::ExMesh,
+    material: String,
+    transform: SerializableTransform,
+}
+
+impl From<&Inpto> for SerializableInpto {
+    fn from(inpto: &Inpto) -> Self {
+        Self {
+            mesh: inpto.mesh,
+            material: inpto.material.clone(),
+            transform: inpto.transform.into(),
+        }
+    }
+}
+
+impl From<SerializableInpto> for Inpto {
+    fn from(s: SerializableInpto) -> Self {
+        Self {
+            mesh: s.mesh,
+            material: s.material,
+            transform: s.transform.into(),
+        }
+    }
+}
+
+/// 可序列化的 KeyFrame
+#[derive(Serialize, Deserialize)]
+pub struct SerializableKeyFrame {
+    pub timestamp: u64,
+    pub entities: Vec<(u64, SerializableInpto)>,
+}
+
+impl From<&KeyFrame> for SerializableKeyFrame {
+    fn from(kf: &KeyFrame) -> Self {
+        let entities = kf.iter_entities()
+            .map(|(id, inpto)| (id, SerializableInpto::from(inpto)))
+            .collect();
+        
+        Self {
+            timestamp: kf.timestamp,
+            entities,
+        }
+    }
+}
+
+impl From<SerializableKeyFrame> for KeyFrame {
+    fn from(s: SerializableKeyFrame) -> Self {
+        let mut keyframe = KeyFrame::new(s.timestamp);
+        
+        for (id, serializable_inpto) in s.entities {
+            let inpto = Inpto::from(serializable_inpto);
+            keyframe.ids.insert(id, keyframe.packs.len());
+            keyframe.packs.push(inpto);
+        }
+        
+        keyframe
+    }
+}

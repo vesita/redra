@@ -12,7 +12,6 @@ pub mod renderer;
 
 // 导出子 crate
 pub extern crate expto;
-pub extern crate redra_storage;
 
 // 导出主要插件
 pub use redra_plugin::RedraPlugin;

@@ -170,4 +170,26 @@ impl FrameManager {
             false
         }
     }
+
+    /// 获取所有关键帧的引用（用于序列化保存）
+    pub fn get_all_keyframes(&self) -> &[KeyFrame] {
+        &self.keyframes
+    }
+
+    /// 清空所有帧数据（用于加载新文件前）
+    pub fn clear(&mut self) {
+        self.current_frame = 0;
+        self.timestamp = 0;
+        self.keyframes.clear();
+        self.frames.clear();
+        self.temp_units.clear();
+        self.temp_keyframe = None;
+        self.first_temp_unit_timestamp = None;
+        log::info!("帧管理器已清空");
+    }
+
+    /// 检查是否有帧数据
+    pub fn has_frames(&self) -> bool {
+        !self.keyframes.is_empty()
+    }
 }
