@@ -33,6 +33,9 @@ pub use frame_rate::FrameRatePlugin;
 // Frame 渲染器
 pub use frame_renderer::FrameRendererPlugin;
 
+// 拾取相关组件（从interaction模块导出）
+pub use interaction::picking::{PickableEntity, Selected};
+
 // 场景初始化器
 pub use scene_initializer::SceneInitializerPlugin;
 
@@ -103,6 +106,7 @@ pub mod conversion {
 pub mod helpers {
     use super::*;
     use crate::manager::materials::MaterialManager;
+    use bevy::picking::Pickable;
     use expto::rdmp::{ExMesh, ExTransform};
     
     /// 快速生成单个实体（用于启动场景、测试等）
@@ -125,11 +129,22 @@ pub mod helpers {
         let material = material_manager.load_generic_material(material_name, asset_server);
         let transform_comp = super::conversion::proto_transform_to_bevy(transform);
         
+        // 生成一个唯一的entity_id（使用时间戳避免冲突）
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let entity_id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64;
+        
         commands.spawn((
             mesh_handle,
             GenericMaterial3d(material),
             transform_comp,
             Name::new(name.to_string()),
+            Pickable::default(), // Bevy拾取支持
+            crate::renderer::interaction::picking::PickableEntity { // 自定义标记组件
+                entity_id,
+            },
         )).id()
     }
     

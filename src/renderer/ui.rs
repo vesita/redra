@@ -5,6 +5,7 @@
 //! - 帧回放控制面板
 //! - 轮盘菜单系统
 //! - 文件管理（保存/加载）
+//! - 标签显示系统
 //!
 //! # 架构设计
 //!
@@ -13,12 +14,14 @@
 //! ├── mod.rs              // 主入口，初始化 EguiPlugin
 //! ├── playback_control.rs // 帧回放控制 UI
 //! ├── wheel_menu.rs       // 轮盘菜单 UI
-//! └── file_manager.rs     // 文件管理 UI（保存/加载）
+//! ├── file_manager.rs     // 文件管理 UI（保存/加载）
+//! └── label.rs            // 标签显示 UI
 //! ```
 
 pub mod playback_control;
 pub mod wheel_menu;
 pub mod file_manager;
+pub mod label;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
@@ -26,6 +29,7 @@ use bevy_egui::EguiPlugin;
 use playback_control::PlaybackUiPlugin;
 use wheel_menu::WheelMenuGraphPlugin;
 use file_manager::FileManagerUiPlugin;
+use label::LabelUiPlugin;
 
 /// UI 主插件
 ///
@@ -44,6 +48,7 @@ impl Plugin for UiModule {
         app
             .add_plugins(PlaybackUiPlugin)
             .add_plugins(WheelMenuGraphPlugin)
-            .add_plugins(FileManagerUiPlugin);
+            .add_plugins(FileManagerUiPlugin)
+            .add_plugins(LabelUiPlugin);
     }
 }

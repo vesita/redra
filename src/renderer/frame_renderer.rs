@@ -2,15 +2,20 @@ use std::collections::HashMap;
 
 use bevy::prelude::*;
 
-use crate::manager::{
+use crate::{manager::{
     data::frame::{FrameManager, Inpto},
     materials::MaterialManager,
-};
+}, renderer::interaction::picking::handle_entity_pick};
 use crate::renderer::conversion;
+use crate::renderer::interaction::picking::PickableEntity;
 
 /// 选中标记组件（用于标识用户选中的实体）
 #[derive(Component, Default)]
 pub struct Selected;
+
+/// 隐藏标记组件（用于标识被用户隐藏的实体）
+#[derive(Component, Default)]
+pub struct Hidden;
 
 /// 实体映射资源（用于跟踪帧数据生成的实体）
 #[derive(Resource, Default)]
@@ -48,6 +53,8 @@ fn render_current_frame(
     material_manager: Res<MaterialManager>,
     frame_manager: Res<FrameManager>,
     mut entity_map: ResMut<EntityMap>,
+    pickable_check_query: Query<(Entity, &Name, &PickableEntity)>,
+    hidden_query: Query<(), With<Hidden>>,
 ) {
     // 获取当前关键帧数据
     let Some(keyframe) = frame_manager.get_current_keyframe() else {
@@ -71,7 +78,7 @@ fn render_current_frame(
     for (&entity_id, inpto) in &current_entity_ids {
         if let Some(&entity) = entity_map.map.get(&entity_id) {
             // 实体已存在，更新变换
-            update_entity_transform(&mut commands, entity, &inpto.transform);
+            update_entity_transform(&mut commands, entity, &inpto.transform, &hidden_query);
             log::trace!("更新实体 {} 的变换", entity_id);
         } else {
             // 实体不存在，创建新实体
@@ -86,6 +93,13 @@ fn render_current_frame(
             entity_map.map.insert(entity_id, new_entity);
             log::info!("创建新实体 {} (名称: {})", entity_id, inpto.name());
         }
+    }
+    
+    // 3. 验证所有具有PickableEntity的实体
+    log::debug!("=== PickableEntity组件验证 ===");
+    log::debug!("当前可拾取实体数量: {}", pickable_check_query.iter().count());
+    for (entity, name, pickable) in pickable_check_query.iter() {
+        log::debug!("实体 {:?}: {} (PickableEntity ID: {})", entity, name.as_str(), pickable.entity_id);
     }
 }
 
@@ -111,28 +125,46 @@ fn spawn_entity_from_inpto(
         asset_server,
     );
 
-    // 生成实体
+    // 生成实体，添加拾取支持
     let entity = commands
         .spawn((
             mesh_handle,
-            crate::renderer::GenericMaterial3d(material_handle),
+            crate::renderer::GenericMaterial3d(material_handle.clone()),
             inpto.transform,
             Name::new(format!("FrameEntity_{}", entity_id)),
+            Pickable::default(), // Bevy拾取支持
+            crate::renderer::interaction::picking::PickableEntity { entity_id }, // 业务逻辑ID
         ))
+        .observe(handle_entity_pick)
         .id();
 
-    log::debug!(
-        "实体 {} 生成成功 (材质: {})",
+    log::info!(
+        "实体 {} 生成成功 (Bevy Entity: {:?}, 材质: {})",
         entity_id,
+        entity,
         inpto.material_path()
     );
 
     entity
 }
 
-/// 更新实体的变换组件
-fn update_entity_transform(commands: &mut Commands, entity: Entity, transform: &Transform) {
+/// 更新实体的变换组件（保留 Hidden 状态）
+fn update_entity_transform(
+    commands: &mut Commands,
+    entity: Entity,
+    transform: &Transform,
+    hidden_query: &Query<(), With<Hidden>>,
+) {
+    // 检查实体是否有 Hidden 组件
+    let has_hidden = hidden_query.get(entity).is_ok();
+    
+    // 更新变换
     commands.entity(entity).insert(*transform);
+    
+    // 如果之前是隐藏的，重新添加 Hidden 组件
+    if has_hidden {
+        commands.entity(entity).insert(Hidden);
+    }
 }
 
 /// 清理已移除的实体
@@ -145,13 +177,12 @@ fn cleanup_removed_entities(
 
     for (&entity_id, &entity) in entity_map.iter() {
         if !current_entity_ids.contains_key(&entity_id) {
-            commands.entity(entity).despawn();
             removed_ids.push(entity_id);
-            log::info!("销毁实体 {}", entity_id);
+            commands.entity(entity).despawn();
+            log::debug!("销毁实体 {} (Bevy Entity: {:?})", entity_id, entity);
         }
     }
 
-    // 从映射表中移除已销毁的实体
     for entity_id in removed_ids {
         entity_map.remove(&entity_id);
     }

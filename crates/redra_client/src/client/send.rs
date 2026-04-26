@@ -1,6 +1,6 @@
 use expto::prelude::*;
 use expto::rdmp::auto::unit::generate_unit;
-use expto::rdmp::{ExObject, ExMesh, Point, Cylinder, Cone};
+use expto::rdmp::{ExObject, ExMesh, Point, Cylinder, Cone, Tag, TagStyle};
 
 use crate::client::link::get_link;
 
@@ -94,6 +94,63 @@ pub async fn send_cone(
     let cone: Cone = (radius, height).into();
     let mesh: ExMesh = cone.into();
     let object: ExObject = mesh.into();
+    let _ = unit.set_object(object);
+    unit.send().await?;
+    Ok(())
+}
+
+/// 发送标签到指定对象
+/// 
+/// # 参数
+/// * `target_id` - 目标对象的 ID
+/// * `text` - 标签文本内容
+/// 
+/// # 示例
+/// ```no_run
+/// use redra_client::client::send::send_tag;
+/// 
+/// // 发送简单标签
+/// send_tag(1, "Hello World").await.unwrap();
+/// ```
+pub async fn send_tag(
+    target_id: u64,
+    text: impl Into<String>,
+) -> Result<(), String> {
+    let mut unit = generate_unit();
+    let tag = Tag::new(text);
+    let object: ExObject = tag.into();
+    let _ = unit.set_object(object);
+    unit.send().await?;
+    Ok(())
+}
+
+/// 发送带样式的标签
+/// 
+/// # 参数
+/// * `target_id` - 目标对象的 ID
+/// * `text` - 标签文本内容
+/// * `style` - 标签样式配置
+/// 
+/// # 示例
+/// ```no_run
+/// use redra_client::client::send::send_tag_with_style;
+/// use expto::rdmp::TagStyle;
+/// 
+/// let style = TagStyle::default_style()
+///     .with_font_size(16.0)
+///     .with_bg_color(0.2, 0.3, 0.8, 0.9)
+///     .with_text_color(1.0, 1.0, 1.0, 1.0);
+///     
+/// send_tag_with_style(1, "Important", style).await.unwrap();
+/// ```
+pub async fn send_tag_with_style(
+    target_id: u64,
+    text: impl Into<String>,
+    style: TagStyle,
+) -> Result<(), String> {
+    let mut unit = generate_unit();
+    let tag = Tag::new(text).with_style(style);
+    let object: ExObject = tag.into();
     let _ = unit.set_object(object);
     unit.send().await?;
     Ok(())

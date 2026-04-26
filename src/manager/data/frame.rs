@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use expto::rdmp::{ExMesh, Unit};
+use expto::rdmp::{ExMesh, Unit, Tag};
 use bevy::prelude::*;
 use redra_net::RDChannel;
 
@@ -33,6 +33,7 @@ pub struct Inpto {
     pub mesh: ExMesh,
     pub material: String,
     pub transform: Transform,
+    pub tag: Option<Tag>,
 }
 
 pub struct KeyFrame {

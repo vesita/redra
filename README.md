@@ -78,11 +78,44 @@ cargo build --target x86_64-unknown-linux-gnu --release
 
 ## 示例
 
+### 运行主程序
+
 要运行带有图形界面的完整版本：
 
 ```bash
 cargo run
 ```
+
+### 测试示例
+
+项目提供了多个测试示例来验证不同功能：
+
+#### 数据管理功能测试
+
+发送多帧3D对象数据，用于测试帧回放UI：
+
+```bash
+cargo run --example redra_test --package redra_client
+```
+
+此示例会发送5帧数据，包含对象的创建、移动、新增和删除操作。
+
+#### 标签功能测试
+
+发送带标签的3D对象数据，用于测试标签显示功能：
+
+```bash
+cargo run --example label_test --package redra_client
+```
+
+此示例会发送5帧数据，测试以下标签功能：
+- 基础标签显示（默认样式）
+- 自定义位置偏移
+- 自定义样式（颜色、字体大小、圆角）
+- 多个标签同时显示
+- 复杂混合配置
+
+运行测试示例前，请确保服务器正在运行。
 
 ## UI 控制说明
 

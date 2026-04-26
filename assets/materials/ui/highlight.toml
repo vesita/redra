@@ -1,7 +1,7 @@
-# 高亮选中状态 - 黄色发光
+# 高亮选中状态 - 黄色
 type = "StandardMaterial"
 
 [material]
 base_color.Srgba = [1.0, 1.0, 0.0, 1.0]
-emissive.Lrgba = [1.0, 1.0, 0.0, 1.0]
 perceptual_roughness = 0.2
+metallic = 0.8

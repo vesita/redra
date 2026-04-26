@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use expto::rdmp::{CommandType, Unit, ex_object::UObject};
 use serde::{Serialize, Deserialize};
 
-use crate::manager::{data::frame::{Inpto, KeyFrame}, data_flow::parser::{e2i_transform, parse_command, parse_object}};
+use crate::manager::{data::frame::{Inpto, KeyFrame}, data_flow::parser::{e2i_transform, parse_command, extract_id, extract_material_id, extract_tag}};
 
 
 impl KeyFrame {
@@ -24,7 +24,7 @@ impl KeyFrame {
 
     pub fn match_command(&mut self, command: &CommandType, unit: &Unit) {
         match command {
-            CommandType::Unknown => todo!(),
+            CommandType::Unknown => {},
             CommandType::Spawn => {
                 self.react_spawn(unit);
             },
@@ -34,51 +34,41 @@ impl KeyFrame {
             CommandType::Destroy => {
                 self.react_destroy(unit);
             },
-            CommandType::Frameend => todo!(),
+            CommandType::Frameend => {},
         }
     }
 
     pub fn react_spawn(&mut self, unit: &Unit) {
-        let objects = parse_object(unit);
-        match objects.len() {
-            2 => {
-                // Id + Mesh（无变换和材质，使用默认值）
-                match (&objects[0], &objects[1]) {
-                    (UObject::Id(id), UObject::Mesh(mesh)) => {
-                        let material_id = Self::extract_material_id(unit);
-                        
-                        self.ids.insert(*id, self.packs.len());
-                        self.packs.push(Inpto::new(mesh.clone(), material_id, Transform::default()));
-                    },
-                    _ => {}
+        // 基于类型识别提取对象，而非依赖固定位置
+        let mut id: Option<u64> = None;
+        let mut mesh: Option<expto::rdmp::ExMesh> = None;
+        let mut transform: Option<expto::rdmp::ExTransform> = None;
+        
+        for obj in &unit.objects {
+            if let Some(u_object) = &obj.u_object {
+                match u_object {
+                    UObject::Id(obj_id) => id = Some(*obj_id),
+                    UObject::Mesh(mesh_data) => mesh = Some(*mesh_data),
+                    UObject::Transform(transform_data) => transform = Some(*transform_data),
+                    _ => {} // 忽略 MaterialId 和 Tag，通过辅助函数提取
                 }
-            },
-            3 => {
-                // Id + Mesh + Transform（带变换，材质从Unit中提取）
-                match (&objects[0], &objects[1], &objects[2]) {
-                    (UObject::Id(id), UObject::Mesh(mesh), UObject::Transform(transform)) => {
-                        let material_id = Self::extract_material_id(unit);
-                        let bevy_transform = e2i_transform(transform.clone());
-                        
-                        self.ids.insert(*id, self.packs.len());
-                        self.packs.push(Inpto::new(mesh.clone(), material_id, bevy_transform));
-                    },
-                    _ => {}
-                }
-            },
-            4 => {
-                // Id + Mesh + Transform + MaterialId（完整信息）
-                match (&objects[0], &objects[1], &objects[2], &objects[3]) {
-                    (UObject::Id(id), UObject::Mesh(mesh), UObject::Transform(transform), UObject::MaterialId(material_id)) => {
-                        let bevy_transform = e2i_transform(transform.clone());
-                        
-                        self.ids.insert(*id, self.packs.len());
-                        self.packs.push(Inpto::new(mesh.clone(), material_id.clone(), bevy_transform));
-                    },
-                    _ => {}
-                }
-            },
-            _ => {}
+            }
+        }
+        
+        // 必须包含 ID 和 Mesh 才能创建实体
+        if let (Some(entity_id), Some(mesh_data)) = (id, mesh) {
+            let material_id = extract_material_id(unit).unwrap_or_default();
+            let tag = extract_tag(unit);
+            let bevy_transform = transform
+                .map(|t| e2i_transform(t))
+                .unwrap_or(Transform::default());
+            
+            self.ids.insert(entity_id, self.packs.len());
+            let mut inpto = Inpto::new(mesh_data, material_id, bevy_transform);
+            if let Some(tag_data) = tag {
+                inpto.tag = Some(tag_data);
+            }
+            self.packs.push(inpto);
         }
     }
     
@@ -93,50 +83,74 @@ impl KeyFrame {
         String::new()
     }
 
+    /// 从 Unit 中提取 Tag（如果存在）
+    fn extract_tag(unit: &Unit) -> Option<expto::rdmp::Tag> {
+        for obj in &unit.objects {
+            if let Some(UObject::Tag(tag)) = &obj.u_object {
+                return Some(tag.clone());
+            }
+        }
+        None
+    }
+
     pub fn react_update(&mut self, unit: &Unit) {
-        let objects = parse_object(unit);
-        match objects.len() {
-            2 => {
-                match (&objects[0], &objects[1]) {
-                    (UObject::Id(id), UObject::Transform(transform)) => {
-                        if let Some(idx) = self.ids.get(id) {
-                            self.packs[*idx].transform = e2i_transform(transform.clone());
-                        }
-                    },
-                    _ => {
-
-                    }
+        // 基于类型识别提取更新信息
+        let mut id: Option<u64> = None;
+        let mut transform: Option<expto::rdmp::ExTransform> = None;
+        let mut material_id: Option<String> = None;
+        let mut tag: Option<expto::rdmp::Tag> = None;
+        
+        for obj in &unit.objects {
+            if let Some(u_object) = &obj.u_object {
+                match u_object {
+                    UObject::Id(obj_id) => id = Some(*obj_id),
+                    UObject::Transform(transform_data) => transform = Some(*transform_data),
+                    UObject::MaterialId(mat_id) => material_id = Some(mat_id.clone()),
+                    UObject::Tag(tag_data) => tag = Some(tag_data.clone()),
+                    _ => {}
                 }
-            },
-            3 => {
-                match (&objects[0], &objects[1], &objects[2]) {
-                    (UObject::Id(id), UObject::MaterialId(material_id), UObject::Transform(transform)) => {
-                        if let Some(idx) = self.ids.get(id) {
-                            self.packs[*idx].material = material_id.clone();
-                            self.packs[*idx].transform = e2i_transform(transform.clone());
-                        }
-                    },
-                    _ => {
-                    }
+            }
+        }
+        
+        // 必须有 ID 才能更新
+        if let Some(entity_id) = id {
+            if let Some(idx) = self.ids.get(&entity_id) {
+                // 更新变换（如果存在）
+                if let Some(transform_data) = transform {
+                    self.packs[*idx].transform = e2i_transform(transform_data);
                 }
-            },
-            _ => {
-
+                
+                // 更新材质（如果存在）
+                if let Some(mat_id) = material_id {
+                    self.packs[*idx].material = mat_id;
+                }
+                
+                // 更新标签（如果存在）
+                if let Some(tag_data) = tag {
+                    self.packs[*idx].tag = Some(tag_data);
+                }
             }
         }
     }
 
     pub fn react_destroy(&mut self, unit: &Unit) {
-        let objects = parse_object(unit);
-        if objects.len() == 1 {
-            match &objects[0] {
-                UObject::Id(id) => {
-                    if let Some(idx) = self.ids.get(id) {
-                        self.packs.remove(*idx);
-                    }
-                },
-                _ => {
-                }
+        // 提取要销毁的 ID
+        if let Some(entity_id) = extract_id(unit) {
+            if let Some(idx) = self.ids.get(&entity_id) {
+                let idx = *idx;
+                self.packs.remove(idx);
+                
+                // 重新构建索引映射
+                self.rebuild_index_after_remove(idx);
+            }
+        }
+    }
+    
+    /// 在删除元素后重建索引映射
+    fn rebuild_index_after_remove(&mut self, removed_idx: usize) {
+        for (_, idx) in self.ids.iter_mut() {
+            if *idx > removed_idx {
+                *idx -= 1;
             }
         }
     }
@@ -193,6 +207,7 @@ pub struct SerializableInpto {
     mesh: expto::rdmp::ExMesh,
     material: String,
     transform: SerializableTransform,
+    tag: Option<expto::rdmp::Tag>,
 }
 
 impl From<&Inpto> for SerializableInpto {
@@ -201,6 +216,7 @@ impl From<&Inpto> for SerializableInpto {
             mesh: inpto.mesh,
             material: inpto.material.clone(),
             transform: inpto.transform.into(),
+            tag: inpto.tag.clone(),
         }
     }
 }
@@ -211,6 +227,7 @@ impl From<SerializableInpto> for Inpto {
             mesh: s.mesh,
             material: s.material,
             transform: s.transform.into(),
+            tag: s.tag,
         }
     }
 }
@@ -246,5 +263,195 @@ impl From<SerializableKeyFrame> for KeyFrame {
         }
         
         keyframe
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use expto::rdmp::{ExMesh, ExTransform, Tag, ex_mesh::UMesh};
+    use expto::rdmp::proto::mesh::{Sphere, Point};
+
+    fn create_test_unit_with_tag(
+        id: u64,
+        position: [f32; 3],
+        scale: [f32; 3],
+        material: String,
+        tag_text: String,
+    ) -> Unit {
+        let mut unit = Unit {
+            stamp: None,
+            command: None,
+            objects: Vec::new(),
+        };
+        
+        // 添加ID对象
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Id(id)),
+        });
+        
+        // 设置网格对象
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Mesh(ExMesh {
+                u_mesh: Some(UMesh::Sphere(Sphere { 
+                    location: Some(Point { x: 0.0, y: 0.0, z: 0.0 }), 
+                    radius: 1.0 
+                })),
+            })),
+        });
+
+        // 设置变换对象
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Transform(ExTransform {
+                x: position[0],
+                y: position[1],
+                z: position[2],
+                rx: 0.0,
+                ry: 0.0,
+                rz: 0.0,
+                sx: scale[0],
+                sy: scale[1],
+                sz: scale[2],
+            })),
+        });
+        
+        // 设置材质对象
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::MaterialId(material)),
+        });
+
+        // 设置标签对象
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Tag(Tag {
+                text: tag_text,
+                offset: None,
+                style: None,
+            })),
+        });
+
+        unit
+    }
+
+    #[test]
+    fn test_parse_spawn_with_tag() {
+        let mut keyframe = KeyFrame::new(0);
+        
+        // 创建包含5个对象的Unit（ID + Mesh + Transform + MaterialId + Tag）
+        let unit = create_test_unit_with_tag(
+            1,
+            [1.0, 2.0, 3.0],
+            [1.0, 1.0, 1.0],
+            "red".to_string(),
+            "测试标签".to_string(),
+        );
+        
+        keyframe.react_spawn(&unit);
+        
+        // 验证实体已添加
+        assert_eq!(keyframe.entity_count(), 1);
+        
+        // 验证实体数据
+        let entities: Vec<_> = keyframe.iter_entities().collect();
+        assert_eq!(entities.len(), 1);
+        
+        let (id, inpto) = entities[0];
+        assert_eq!(id, 1);
+        assert_eq!(inpto.material, "red");
+        assert!((inpto.transform.translation.x - 1.0).abs() < f32::EPSILON);
+        assert!((inpto.transform.translation.y - 2.0).abs() < f32::EPSILON);
+        assert!((inpto.transform.translation.z - 3.0).abs() < f32::EPSILON);
+        
+        // 验证标签
+        assert!(inpto.tag.is_some());
+        let tag = inpto.tag.as_ref().unwrap();
+        assert_eq!(tag.text, "测试标签");
+    }
+
+    #[test]
+    fn test_parse_update_with_tag() {
+        let mut keyframe = KeyFrame::new(0);
+        
+        // 先添加一个实体
+        let spawn_unit = create_test_unit_with_tag(
+            1,
+            [0.0, 0.0, 0.0],
+            [1.0, 1.0, 1.0],
+            "red".to_string(),
+            "原始标签".to_string(),
+        );
+        keyframe.react_spawn(&spawn_unit);
+        
+        // 创建更新Unit（ID + Transform + Tag）
+        let mut update_unit = Unit {
+            stamp: None,
+            command: None,
+            objects: Vec::new(),
+        };
+        update_unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Id(1)),
+        });
+        update_unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Transform(ExTransform {
+                x: 10.0,
+                y: 20.0,
+                z: 30.0,
+                rx: 0.0,
+                ry: 0.0,
+                rz: 0.0,
+                sx: 1.0,
+                sy: 1.0,
+                sz: 1.0,
+            })),
+        });
+        update_unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Tag(Tag {
+                text: "新标签".to_string(),
+                offset: None,
+                style: None,
+            })),
+        });
+        
+        keyframe.react_update(&update_unit);
+        
+        // 验证更新
+        let entities: Vec<_> = keyframe.iter_entities().collect();
+        let (_, inpto) = entities[0];
+        
+        assert!((inpto.transform.translation.x - 10.0).abs() < f32::EPSILON);
+        assert!((inpto.transform.translation.y - 20.0).abs() < f32::EPSILON);
+        assert!((inpto.transform.translation.z - 30.0).abs() < f32::EPSILON);
+        assert_eq!(inpto.tag.as_ref().unwrap().text, "新标签");
+    }
+
+    #[test]
+    fn test_parse_without_material_and_tag() {
+        let mut keyframe = KeyFrame::new(0);
+        
+        // 创建只包含ID和Mesh的Unit
+        let mut unit = Unit {
+            stamp: None,
+            command: None,
+            objects: Vec::new(),
+        };
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Id(42)),
+        });
+        unit.objects.push(expto::rdmp::ExObject {
+            u_object: Some(UObject::Mesh(ExMesh {
+                u_mesh: Some(UMesh::Sphere(Sphere { 
+                    location: Some(Point { x: 0.0, y: 0.0, z: 0.0 }), 
+                    radius: 1.0 
+                })),
+            })),
+        });
+        
+        keyframe.react_spawn(&unit);
+        
+        // 验证实体已添加，材质为空字符串，标签为None
+        assert_eq!(keyframe.entity_count(), 1);
+        let entities: Vec<_> = keyframe.iter_entities().collect();
+        let (_, inpto) = entities[0];
+        assert_eq!(inpto.material, "");
+        assert!(inpto.tag.is_none());
     }
 }

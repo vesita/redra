@@ -88,6 +88,7 @@ fn render_static_entities(
     keyframe: &crate::manager::data::frame::KeyFrame,
 ) {
     use crate::manager::data_flow::parser;
+    use bevy::picking::Pickable;
     
     for (entity_id, inpto) in keyframe.iter_entities() {
         // 使用 conversion API 转换 Mesh
@@ -100,12 +101,16 @@ fn render_static_entities(
         // 使用 parser API 加载材质
         let material_handle = parser::inpto_to_generic_material(inpto, material_manager, asset_server);
 
-        // 生成实体
+        // 生成实体，添加拾取支持
         commands.spawn((
             mesh_handle,
             crate::renderer::GenericMaterial3d(material_handle),
             inpto.transform,
             Name::new(format!("StaticEntity_{}", entity_id)),
+            Pickable::default(), // Bevy拾取支持
+            crate::renderer::interaction::picking::PickableEntity { // 自定义标记组件
+                entity_id,
+            },
         ));
 
         log::debug!(

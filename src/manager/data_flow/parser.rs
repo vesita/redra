@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use expto::rdmp::{CommandType, ExTransform, Unit, ex_object::UObject};
+use expto::rdmp::{CommandType, ExMesh, ExTransform, Unit, Tag, ex_object::UObject};
 
 use crate::{manager::{data::frame::Inpto, materials::MaterialManager}, renderer::GenericMaterial};
 
@@ -19,6 +19,100 @@ pub fn parse_object(unit: &Unit) -> Vec<UObject> {
     }
     res
 }
+
+/// Trait：定义从 Unit 中提取特定类型对象的能力
+pub trait ExtractFromUnit {
+    /// 提取函数名（用于日志）
+    fn type_name() -> &'static str;
+    
+    /// 尝试从 UObject 中提取此类型的值
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> where Self: Sized;
+}
+
+// 为各种类型实现 ExtractFromUnit
+impl ExtractFromUnit for u64 {
+    fn type_name() -> &'static str { "Id" }
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
+        if let expto::rdmp::ex_object::UObject::Id(id) = u_object {
+            Some(*id)
+        } else {
+            None
+        }
+    }
+}
+
+impl ExtractFromUnit for ExMesh {
+    fn type_name() -> &'static str { "Mesh" }
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
+        if let expto::rdmp::ex_object::UObject::Mesh(mesh) = u_object {
+            Some(*mesh)
+        } else {
+            None
+        }
+    }
+}
+
+impl ExtractFromUnit for ExTransform {
+    fn type_name() -> &'static str { "Transform" }
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
+        if let expto::rdmp::ex_object::UObject::Transform(transform) = u_object {
+            Some(*transform)
+        } else {
+            None
+        }
+    }
+}
+
+impl ExtractFromUnit for String {
+    fn type_name() -> &'static str { "MaterialId" }
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
+        if let expto::rdmp::ex_object::UObject::MaterialId(id) = u_object {
+            Some(id.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl ExtractFromUnit for Tag {
+    fn type_name() -> &'static str { "Tag" }
+    fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
+        if let expto::rdmp::ex_object::UObject::Tag(tag) = u_object {
+            Some(tag.clone())
+        } else {
+            None
+        }
+    }
+}
+
+/// 通用提取函数：从 Unit 中提取指定类型的对象
+/// 如果找到多个，返回第一个并记录警告
+pub fn extract_object<T: ExtractFromUnit>(unit: &Unit) -> Option<T> {
+    let mut found = Vec::new();
+    for obj in &unit.objects {
+        if let Some(u_object) = &obj.u_object {
+            if let Some(value) = T::try_extract(u_object) {
+                found.push(value);
+            }
+        }
+    }
+    
+    match found.len() {
+        0 => None,
+        1 => Some(found.into_iter().next().unwrap()),
+        _ => {
+            log::warn!("Unit 中包含 {} 个 {} 对象，使用第一个", found.len(), T::type_name());
+            Some(found.into_iter().next().unwrap())
+        }
+    }
+}
+
+// 便捷函数包装器
+pub fn extract_id(unit: &Unit) -> Option<u64> { extract_object::<u64>(unit) }
+pub fn extract_mesh(unit: &Unit) -> Option<ExMesh> { extract_object::<ExMesh>(unit) }
+pub fn extract_transform(unit: &Unit) -> Option<ExTransform> { extract_object::<ExTransform>(unit) }
+pub fn extract_material_id(unit: &Unit) -> Option<String> { extract_object::<String>(unit) }
+pub fn extract_tag(unit: &Unit) -> Option<Tag> { extract_object::<Tag>(unit) }
 
 pub fn parse_command(unit: &Unit) -> Option<CommandType> { 
     match unit.command {
@@ -77,4 +171,3 @@ pub fn inpto_to_generic_material(inpto: &Inpto, material_manager: &MaterialManag
     let path = inpto_material_path(inpto, material_manager);
     material_manager.load_generic_material(&path, asset_server)
 }
-

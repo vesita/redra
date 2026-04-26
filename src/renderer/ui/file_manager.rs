@@ -380,15 +380,30 @@ fn delete_selected_entities_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut save_state: ResMut<FileSaveState>,
-    query: Query<Entity, With<crate::renderer::frame_renderer::Selected>>,
+    query: Query<(Entity, &crate::renderer::interaction::picking::PickableEntity), With<crate::renderer::Selected>>,
+    mut entity_map: ResMut<EntityMap>,
+    mut frame_manager: ResMut<crate::manager::data::frame::FrameManager>,
 ) {
     // 检查 Delete 键是否按下或 UI 请求删除
     if keyboard.just_pressed(KeyCode::Delete) || save_state.delete_requested {
         let mut deleted_count = 0;
+        let mut entity_ids_to_delete = Vec::new();
         
-        for entity in query.iter() {
+        // 收集所有要删除的实体ID
+        for (entity, pickable) in query.iter() {
+            entity_ids_to_delete.push(pickable.entity_id);
+            
+            // 从 EntityMap 中移除映射
+            entity_map.map.remove(&pickable.entity_id);
+            
+            // 销毁 Bevy 实体
             commands.entity(entity).despawn();
             deleted_count += 1;
+        }
+        
+        // 从帧数据中永久删除这些实体
+        if !entity_ids_to_delete.is_empty() {
+            frame_manager.delete_entities(&entity_ids_to_delete);
         }
         
         if deleted_count > 0 {
@@ -451,6 +466,12 @@ fn file_load_system(
         save_state.is_loading = false;
     }
 }
+
+
+
+
+
+
 
 
 

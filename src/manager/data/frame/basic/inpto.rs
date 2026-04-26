@@ -1,5 +1,5 @@
 use bevy::transform::components::Transform;
-use expto::rdmp::{ExMesh};
+use expto::rdmp::{ExMesh, Tag};
 
 use crate::manager::data::frame::Inpto;
 
@@ -11,7 +11,14 @@ impl Inpto {
             mesh: mesh,
             material,
             transform: transform,
+            tag: None,
         }
+    }
+
+    /// 设置标签
+    pub fn with_tag(mut self, tag: Tag) -> Self {
+        self.tag = Some(tag);
+        self
     }
 
     // ==================== 数据访问接口（供 FrameRenderer 使用）====================

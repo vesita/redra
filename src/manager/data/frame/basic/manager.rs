@@ -192,4 +192,38 @@ impl FrameManager {
     pub fn has_frames(&self) -> bool {
         !self.keyframes.is_empty()
     }
+
+    /// 从所有关键帧中删除指定的实体
+    /// 返回实际删除的实体数量
+    pub fn delete_entities(&mut self, entity_ids: &[u64]) -> usize {
+        let mut deleted_count = 0;
+        
+        for keyframe in &mut self.keyframes {
+            for &entity_id in entity_ids {
+                // 使用 react_destroy 的逻辑来删除实体
+                if keyframe.ids.contains_key(&entity_id) {
+                    // 找到索引
+                    if let Some(idx) = keyframe.ids.get(&entity_id).copied() {
+                        keyframe.packs.remove(idx);
+                        keyframe.ids.remove(&entity_id);
+                        
+                        // 重新构建索引映射
+                        for (_, idx_ref) in keyframe.ids.iter_mut() {
+                            if *idx_ref > idx {
+                                *idx_ref -= 1;
+                            }
+                        }
+                        
+                        deleted_count += 1;
+                    }
+                }
+            }
+        }
+        
+        if deleted_count > 0 {
+            log::info!("从帧数据中删除了 {} 个实体", deleted_count);
+        }
+        
+        deleted_count
+    }
 }

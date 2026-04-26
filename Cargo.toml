@@ -6,13 +6,12 @@ edition = "2024"
 [dependencies]
 smooth-bevy-cameras = { path = "crates/smooth-bevy-cameras" }
 bevy_wheel_menu = { path = "crates/bevy_wheel_menu" }
-pyri_tooltip = { path = "crates/pyri_tooltip" }
 redra_client = { path = "crates/redra_client", optional = true }
 expto = { path = "crates/expto" }
 redra_net = { path = "crates/redra_net" }
 utils ={ path = "crates/utils" }
 
-bevy = { version = "0.18", optional = true, features = ["bevy_window"] }
+bevy = { version = "0.18", optional = true, features = ["bevy_window", "bevy_picking"] }
 log = "0.4"
 nalgebra = "0.34"
 prost = "0.14"
@@ -32,7 +31,6 @@ rfd = { version = "0.17.2", optional = true }
 
 [workspace]
 members = [
-    "crates/pyri_tooltip",
     "crates/bevy_wheel_menu",
     "crates/smooth-bevy-cameras",
     "crates/redra_client",
