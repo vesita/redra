@@ -112,7 +112,7 @@ pub fn setup_listener(
     info!("目标监听地址: {}", address);
 
     // 创建Bevy引擎与网络模块之间的通信通道
-    let (redra_sender, link_recver) = broadcast::channel::<Unit>(1024);
+    let (redra_sender, _link_recver) = broadcast::channel::<Unit>(1024);
     let (link_sender, redra_recver) = mpsc::channel::<Unit>(1024);
 
     // 插入通道资源，供其他系统使用
