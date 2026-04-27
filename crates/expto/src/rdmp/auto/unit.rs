@@ -1,5 +1,3 @@
-use prost::Message;
-
 use crate::rdmp::{ExCommand, CommandType, ExObject, Unit, auto::generate_stamp};
 
 pub fn generate_unit() -> Unit { 
