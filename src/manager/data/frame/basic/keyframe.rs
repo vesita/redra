@@ -167,6 +167,11 @@ impl KeyFrame {
     pub fn iter_entities(&self) -> impl Iterator<Item = (u64, &Inpto)> {
         self.ids.iter().map(|(&id, &idx)| (id, &self.packs[idx]))
     }
+
+    /// 根据业务ID获取实体数据
+    pub fn get_entity(&self, entity_id: u64) -> Option<&Inpto> {
+        self.ids.get(&entity_id).map(|&idx| &self.packs[idx])
+    }
 }
 
 // ============================================================================

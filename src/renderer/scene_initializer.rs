@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::manager::materials::MaterialManager;
 use crate::renderer::helpers;
+use crate::renderer::interaction::picking::PickableEntity;
 
 /// 静态场景初始化插件
 /// 
@@ -101,17 +102,21 @@ fn render_static_entities(
         // 使用 parser API 加载材质
         let material_handle = parser::inpto_to_generic_material(inpto, material_manager, asset_server);
 
-        // 生成实体，添加拾取支持
+        // 生成实体，添加拾取支持和静态实体标记
+        use crate::renderer::interaction::picking::{StaticEntity, handle_static_entity_pick};
+        
         commands.spawn((
             mesh_handle,
             crate::renderer::GenericMaterial3d(material_handle),
             inpto.transform,
             Name::new(format!("StaticEntity_{}", entity_id)),
             Pickable::default(), // Bevy拾取支持
-            crate::renderer::interaction::picking::PickableEntity { // 自定义标记组件
+            PickableEntity { // 自定义标记组件
                 entity_id,
             },
-        ));
+            StaticEntity, // 标记为静态实体
+        ))
+        .observe(handle_static_entity_pick); // 注册静态实体观察者
 
         log::debug!(
             "静态实体 {} 生成成功 (名称: {}, 材质: {})",

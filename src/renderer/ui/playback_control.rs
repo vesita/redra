@@ -12,10 +12,11 @@ pub struct PlaybackUiPlugin;
 
 impl Plugin for PlaybackUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(EguiPrimaryContextPass, (
-            playback_ui_system.run_if(font_loaded),
-        ))
-        .add_systems(Update, keyboard_shortcuts);
+        app
+            .add_systems(EguiPrimaryContextPass, (
+                playback_ui_system.run_if(font_loaded),
+            ))
+            .add_systems(Update, keyboard_shortcuts);
     }
 }
 

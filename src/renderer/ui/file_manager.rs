@@ -14,7 +14,6 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
-use rfd::MessageDialogResult;
 
 use crate::manager::data::frame::{FrameManager, storage::FrameStorage, basic::SerializableKeyFrame};
 use crate::manager::data::frame::KeyFrame;

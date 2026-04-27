@@ -44,11 +44,20 @@ impl Plugin for UiModule {
         // 1. 初始化 bevy_egui（必须在所有 UI 插件之前）
         app.add_plugins(EguiPlugin::default());
 
-        // 2. 注册子 UI 插件
+        // 2. 初始化UI状态资源
+        app.init_resource::<UIStates>();
+
+        // 3. 注册子 UI 插件
         app
             .add_plugins(PlaybackUiPlugin)
             .add_plugins(WheelMenuGraphPlugin)
             .add_plugins(FileManagerUiPlugin)
             .add_plugins(LabelUiPlugin);
     }
+}
+
+
+#[derive(Component, Resource, Default)]
+pub struct UIStates {
+    pub show_label_panel: bool,
 }

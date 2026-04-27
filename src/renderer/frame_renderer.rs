@@ -5,9 +5,9 @@ use bevy::prelude::*;
 use crate::{manager::{
     data::frame::{FrameManager, Inpto},
     materials::MaterialManager,
-}, renderer::interaction::picking::handle_entity_pick};
+}, renderer::interaction::picking::handle_dynamic_entity_pick};
 use crate::renderer::conversion;
-use crate::renderer::interaction::picking::PickableEntity;
+use crate::renderer::interaction::picking::{PickableEntity, DynamicEntity};
 
 /// 选中标记组件（用于标识用户选中的实体）
 #[derive(Component, Default)]
@@ -125,7 +125,7 @@ fn spawn_entity_from_inpto(
         asset_server,
     );
 
-    // 生成实体，添加拾取支持
+    // 生成实体，添加拾取支持和动态实体标记
     let entity = commands
         .spawn((
             mesh_handle,
@@ -133,9 +133,10 @@ fn spawn_entity_from_inpto(
             inpto.transform,
             Name::new(format!("FrameEntity_{}", entity_id)),
             Pickable::default(), // Bevy拾取支持
-            crate::renderer::interaction::picking::PickableEntity { entity_id }, // 业务逻辑ID
+            PickableEntity { entity_id }, // 业务逻辑ID
+            DynamicEntity, // 标记为动态实体
         ))
-        .observe(handle_entity_pick)
+        .observe(handle_dynamic_entity_pick)
         .id();
 
     log::info!(
