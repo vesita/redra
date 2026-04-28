@@ -1,0 +1,8 @@
+# 玻璃材质 - 半透明
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.5, 0.8, 0.9, 0.7]
+alpha_mode = "Blend"
+perceptual_roughness = 0.1
+metallic = 0.5

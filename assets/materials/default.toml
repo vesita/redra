@@ -1,0 +1,14 @@
+# 默认材质 - 灰色基础材质
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.7, 0.7, 0.7, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.0
+# Reflectance
+reflectance = 0.5
+
+# Optional custom properties
+[properties]
+# This one is built-in, and sets the entity's Visibility when the material is applied.
+visibility = "Visible"

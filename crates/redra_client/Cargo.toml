@@ -3,13 +3,12 @@ name = "redra_client"
 version = "0.1.0"
 edition = "2024"
 
-# 用于编译 protobuf 文件
-[build-dependencies]
-prost-build = "0.14"
-
 [dependencies]
-# protobuf 序列化/反序列化
-prost = "0.14.3"
+log = "0.4"
+env_logger = "0.11"
+expto = { path = "../expto" }
+prost = "0.14"
+async-trait = "0.1"
 
 # Tokio 异步运行时 - 最小化 features:
 # net: TCP 网络 (TcpStream)
@@ -17,4 +16,6 @@ prost = "0.14.3"
 # sync: 异步锁 (Mutex)
 # rt: 运行时支持
 # macros: 宏支持 (#[tokio::test])
-tokio = { version = "1.50", features = ["net", "io-util", "sync", "rt", "macros"] }
+# time: 时间功能 (sleep, timeout等)
+# rt-multi-thread: 多线程运行时支持 (#[tokio::main])
+tokio = { version = "1.52", features = ["net", "io-util", "sync", "rt", "macros", "time", "rt-multi-thread"] }

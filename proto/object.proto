@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package object;
+
+import "object/mesh.proto";
+import "object/transform.proto";
+
+
+message ExObject {
+    oneof u_object {
+        uint64 id = 1;
+        mesh.ExMesh mesh = 2;
+        transform.ExTransform transform = 3;
+        string material_id = 4;
+        Tag tag = 5;
+    }
+}
+
+// 标签消息 - 用于在 3D 对象附近显示文本标签
+message Tag {
+    // 标签文本内容
+    string text = 1;
+    // 标签位置偏移（相对于关联对象的局部坐标）
+    transform.ExTransform offset = 2;
+    // 标签样式配置（可选）
+    TagStyle style = 3;
+}
+
+// 标签样式配置
+message TagStyle {
+    // 字体大小
+    float font_size = 1;
+    // 背景颜色 (RGBA)
+    float bg_r = 2;
+    float bg_g = 3;
+    float bg_b = 4;
+    float bg_a = 5;
+    // 文字颜色 (RGBA)
+    float text_r = 6;
+    float text_g = 7;
+    float text_b = 8;
+    float text_a = 9;
+    // 边框圆角半径
+    float corner_radius = 10;
+}

@@ -1,0 +1,7 @@
+# 禁用/不可用状态 - 半透明灰色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.4, 0.4, 0.4, 0.5]
+alpha_mode = "Blend"
+perceptual_roughness = 0.8

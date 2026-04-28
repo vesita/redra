@@ -1,0 +1,5 @@
+# 白色材质
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 1.0, 1.0, 1.0]

@@ -1,26 +1,26 @@
 # ============================================================================
 # Git 提交规范 - 定义 commit message 的格式和语言规范
 # ============================================================================
-# 📌 定位：示例规则插件 (演示如何扩展规则系统)
-# 优先级：P4 | mandatory: false (建议遵守，允许例外)
+# 📌 定位：核心开发规范
+# 优先级：P2 | mandatory: true (必须遵守)
 # 依赖：lang_001 (语言偏好 - commit message 使用中文)
 # 
 # 💡 用途：
-#   - 作为教学示例展示如何创建新的规则插件
-#   - 可根据项目需要启用或禁用
-#   - 不是核心规则的一部分
+#   - 统一团队提交消息格式
+#   - 提高代码审查效率
+#   - 便于生成变更日志
 # ============================================================================
 
 rule_index:
   id: "git_001"
   category: "development_workflow"
-  plugin: true                   # 标记为插件规则
-  enabled: true                 # 默认不启用，需手动开启
+  plugin: false                  # 核心规则，非插件
+  enabled: true                 # 默认启用
   depends_on: ["lang_001"]
 
 # 📝 Commit Message 基本格式
 # 格式：<type>(<scope>): <subject>
-# 示例：feat(tracker): 集成卡尔曼滤波库并升级依赖版本
+# 示例：refactor(graph): 重构回放UI系统并优化相机管理
 commit_format:
   # 单行格式 (推荐保持在 50 字符以内，最多不超过 72 字符)
   single_line:
@@ -33,6 +33,8 @@ commit_format:
     enabled: true
     separator: "空行分隔"          # body 与 subject 之间用空行分隔
     line_length: 72                # 每行最多 72 字符
+    body_format: "列表形式"         # body 使用列表形式列出变更点
+    no_summary_paragraph: true     # ❗ 禁止在 body 末尾添加总结性段落
 
 # 🏷️ Commit Type 类型定义
 commit_types:
@@ -55,15 +57,19 @@ commit_types:
 # 🎯 Scope 范围定义 (可选)
 # 用于标识改动涉及的模块或组件
 scopes:
-  - "tracker"           # 追踪器模块
-  - "cloud"             # 点云处理模块
-  - "color"             # 颜色检测模块
+  - "graph"             # 图形渲染模块
+  - "net"               # 网络通信模块
+  - "proto"             # 协议定义模块
+  - "geometry"          # 几何数学模块
+  - "client"            # 客户端库
+  - "manager"           # 资源管理模块
+  - "ui"                # 用户界面
+  - "camera"            # 相机控制
   - "config"            # 配置模块
   - "utils"             # 工具函数
   - "deps"              # 依赖管理
   - "ci"                # 持续集成
   - "docs"              # 文档
-  - "ui"                # 用户界面 (如果有)
 
 # 🗣️ 语言规范
 language:
@@ -72,15 +78,30 @@ language:
   imperative_mood: true            # 使用祈使句语气
   
   # 示例:
-  # ✅ 正确："添加卡尔曼滤波器" (祈使句)
-  # ❌ 错误："添加了卡尔曼滤波器" (完成时)
-  # ❌ 错误："Adding Kalman Filter" (英文)
+  # ✅ 正确："重构回放UI系统" (祈使句)
+  # ❌ 错误："重构了回放UI系统" (完成时)
+  # ❌ 错误："Refactor playback UI" (英文)
 
 # 📋 Body 和 Footer (可选)
 body_and_footer:
-  # Body: 详细描述为什么做这个改动 (是什么问题，而不是做了什么)
+  # Body: 详细列出具体的变更点（使用列表形式）
   body_required: false             # 不强制要求，但建议复杂改动添加
   body_language: "Chinese"
+  body_style: "bullet_list"        # 使用无序列表列出变更点
+  
+  # ❗ 重要：不要添加总结性段落
+  # 正文应该只包含具体的变更点列表，不需要额外的总结说明
+  # 
+  # ✅ 正确示例：
+  #   - 删除废弃的 src/render.rs 文件
+  #   - 从 graph/ui.rs 中移除未使用的导入
+  #   - 在 playback_control.rs 中添加专用的 UI 相机系统
+  #
+  # ❌ 错误示例：
+  #   - 删除废弃的 src/render.rs 文件
+  #   - 从 graph/ui.rs 中移除未使用的导入
+  #   
+  #   此举将渲染相关功能完全迁移至 graph 模块，提高了代码组织性。
   
   # Footer: 引用 issue、破坏性变更说明等
   footer_keywords:
@@ -97,23 +118,36 @@ body_and_footer:
 examples:
   # 简单提交 (单行)
   simple:
-    - "feat(tracker): 集成卡尔曼滤波库"
-    - "fix(cloud): 修复点云分类错误"
+    - "feat(graph): 添加数据回放控制面板"
+    - "fix(proto): 修复形状编码错误"
     - "docs: 更新快速指南"
-    - "refactor(utils): 简化排序逻辑"
+    - "refactor(net): 简化连接管理逻辑"
   
-  # 详细提交 (带 body 和 footer)
+  # 详细提交 (带 body，无总结段落)
   detailed: |
-    feat(tracker): 集成卡尔曼滤波库并升级依赖版本
+    refactor(graph): 重构回放UI系统并优化相机管理
     
-    - 将 pcd-rs 从 0.12 升级到 0.13
-    - 将 toml 从 0.9 升级到 1.1
-    - 添加 adskalman 本地依赖（卡尔曼滤波库）
-    - 添加 approx 0.5 依赖
-    - 新增 crates/adskalman-rs 子目录
+    - 删除废弃的 src/render.rs 文件
+    - 从 graph/ui.rs 中移除未使用的导入
+    - 在 playback_control.rs 中添加专用的 UI 相机系统
+      - 实现 setup_playback_ui_camera 系统在启动时初始化 UI 相机
+      - 添加 update_viewport_for_panels 系统动态调整视口
+      - 创建 PlaybackPanelState 资源存储面板尺寸信息
+    - 改进 Egui 集成
+      - 使用 EguiPrimaryContextPass 阶段处理 UI 渲染和输入
+      - 禁用自动创建主上下文以手动控制相机配置
+    - 清理 lib.rs 中的废弃模块引用
+
+  # 带 footer 的提交
+  with_footer: |
+    feat(client): 添加全局客户端管理功能
+    
+    - 实现 connect_and_init 函数初始化全局 Sender
+    - 添加 send_point、send_segment 等便捷发送函数
+    - 使用 tokio::sync::Mutex 确保线程安全
+    - 所有发送函数检查客户端初始化状态
     
     Closes: #45
-    BREAKING CHANGE: Tracker API 需要更新参数
 
 # ⚠️ 常见错误示例
 common_mistakes:
@@ -121,13 +155,26 @@ common_mistakes:
     - "更新了代码"                    # ❌ 太模糊，没有 type 和 scope
     - "feat: 修复了一个 bug"         # ❌ type 和实际内容不符
     - "Fixed some bugs"               # ❌ 使用了英文
-    - "feat(tracker): 添加了新功能"   # ❌ 描述过于笼统
-    - "fix: 修改了 tracker 模块的一些问题，然后还优化了性能，顺便重构了代码"  # ❌ 一次提交做了太多事
+    - "feat(graph): 添加了新功能"     # ❌ 描述过于笼统
+    - "fix: 修改了 graph 模块的一些问题，然后还优化了性能，顺便重构了代码"  # ❌ 一次提交做了太多事
+    - |
+      refactor(graph): 重构UI系统
+      
+      - 删除旧文件
+      - 添加新系统
+      
+      此举提高了代码质量。  # ❌ 不要添加总结性段落
   
   valid:
-    - "feat(tracker): 集成卡尔曼滤波库"
-    - "fix(tracker): 修复目标丢失问题"
-    - "perf(tracker): 优化预测算法性能"
+    - "feat(graph): 集成数据回放功能"
+    - "fix(proto): 修复坐标系转换错误"
+    - "perf(net): 优化TCP连接池性能"
+    - |
+      refactor(graph): 统一相机管理策略
+      
+      - 从 main.rs 移除相机插件注册
+      - 在 graph/interaction/camera.rs 集中管理相机
+      - 删除重复的相机初始化代码
 
 # 💡 应用提示
 # ────────────────────────────────────────
@@ -135,15 +182,15 @@ common_mistakes:
 #   1. 一次提交只做一件事
 #   2. 使用清晰的 type 和 scope
 #   3. Subject 用祈使句、中文、简洁明了
-#   4. 复杂改动在 body 中说明原因
-#   5. 相关 issue 在 footer 中引用
+#   4. 复杂改动在 body 中用列表列出具体变更点
+#   5. ❗ 不要在 body 末尾添加总结性段落
+#   6. 相关 issue 在 footer 中引用
 # 
 # 🛠️ 工具辅助 (可选):
 #   - commitlint: commit message 检查工具
 #   - cz-cli: Commitizen 交互式提交工具
-#   - gitmoji: emoji commit 规范 (可选)
 # 
 # ⚠️ 注意:
-#   - 这是建议性规范 (mandatory: false)
-#   - 紧急修复可以简化格式
+#   - 这是强制性规范 (mandatory: true)
+#   - 紧急修复可以简化格式，但仍需遵守基本要求
 #   - 合并提交等特殊场景可以例外

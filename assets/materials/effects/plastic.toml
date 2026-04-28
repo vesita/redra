@@ -1,0 +1,7 @@
+# 塑料材质 - 中等粗糙度
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.9, 0.9, 0.9, 1.0]
+perceptual_roughness = 0.6
+metallic = 0.0

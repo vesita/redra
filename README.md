@@ -78,20 +78,142 @@ cargo build --target x86_64-unknown-linux-gnu --release
 
 ## 示例
 
+### 运行主程序
+
 要运行带有图形界面的完整版本：
 
 ```bash
 cargo run
 ```
 
-## 协议
+### 测试示例
 
-Redra 使用 Protobuf 定义通信协议，支持多种数据类型和命令，包括：
+项目提供了多个测试示例来验证不同功能：
 
-- 形状数据（点、线、立方体、球体等）
-- 格式数据（图像等）
-- 变换命令（位置、旋转、缩放）
-- 设计命令（创建实体等）
+#### 数据管理功能测试
+
+发送多帧3D对象数据，用于测试帧回放UI：
+
+```bash
+cargo run --example redra_test --package redra_client
+```
+
+此示例会发送5帧数据，包含对象的创建、移动、新增和删除操作。
+
+#### 标签功能测试
+
+发送带标签的3D对象数据，用于测试标签显示功能：
+
+```bash
+cargo run --example label_test --package redra_client
+```
+
+此示例会发送5帧数据，测试以下标签功能：
+- 基础标签显示（默认样式）
+- 自定义位置偏移
+- 自定义样式（颜色、字体大小、圆角）
+- 多个标签同时显示
+- 复杂混合配置
+
+运行测试示例前，请确保服务器正在运行。
+
+## UI 控制说明
+
+Redra 提供了直观的可视化界面来控制帧回放和场景交互。
+
+### 帧回放控制面板
+
+启动程序后，左上角会显示"📊 帧回放控制"面板，提供以下功能：
+
+#### 播放控制
+- **⏮ / ⏭** - 跳转到首帧/尾帧
+- **◀ / ▶** - 上一帧/下一帧（逐帧浏览）
+- **▶ / ⏸** - 播放/暂停（自动按设定速度推进）
+
+#### 速度调节
+- **预设档位**: 10/30/60/120 FPS 快速切换
+- **自定义滑块**: 支持 1-240 FPS 无级调节
+
+#### 帧跳转
+- **时间轴滑块**: 拖动即可快速定位到任意帧
+- **实时显示**: 当前帧索引 / 总帧数（如: 5/100）
+
+#### 键盘快捷键
+| 按键 | 功能 |
+|------|------|
+| `空格` | 播放/暂停切换 |
+| `左箭头` / `右箭头` | 上一帧/下一帧 |
+| `Home` / `End` | 跳转到首帧/尾帧 |
+| `Alt` | 显示/隐藏所有 UI（同时锁定/释放鼠标） |
+| `Tab` | 打开/关闭轮盘菜单 |
+
+### 轮盘菜单
+
+按 `Tab` 键可呼出径向菜单，支持：
+- WASD 或方向键导航
+- Enter/Space 确认选择
+- 鼠标悬停高亮
+
+### UI 显示/隐藏
+
+- 按 `Alt` 键可切换 UI 可见性
+- UI 隐藏时，鼠标会被锁定并隐藏（FPS 相机模式）
+- UI 显示时，鼠标自由移动，可进行界面交互
+
+## TCMP协议 (Trailer-Command Messaging Protocol)
+
+Redra 使用TCMP协议进行通信，该协议基于Protobuf定义消息结构，使用Trailer协议定义数据包边界。
+
+### 协议结构
+
+```
+[Trailer][Command]
+```
+
+**Trailer结构**:
+```protobuf
+message Trailer {
+  uint32 me = 1;    // trailer自身的大小
+  uint32 next = 2;  // 后续payload的大小
+}
+```
+
+**Command结构**:
+```protobuf
+message Command {
+  oneof cmd_pack {
+    target.ConceptionCMD conception = 1;
+    designation.DesignCMD designation = 2;
+    transform.TransCMD transform = 3;
+    resource.RsrcPack resource = 4;
+    shape.ShapePack shape = 5;
+    pointcloud.PointCloudPack point_cloud = 6;
+    MacroCmd macro = 7;  // 新增宏指令
+  }
+  int64 timestamp = 4;
+  string command_id = 5;
+}
+```
+
+**宏指令支持**:
+- `ConnectionControl`: 用于连接管理
+- `Heartbeat`: 用于维持连接活跃状态
+- `BatchCmd`: 用于批量命令处理
+- `MetaCmd`: 用于元数据传输
+
+### 使用示例
+
+```rust
+use redra_proto::coding::encoding::{encode_command_with_trailer, create_heartbeat_command};
+
+// 创建心跳命令
+let heartbeat_cmd = create_heartbeat_command("session_123");
+
+// 编码为TCMP格式（Trailer + Command）
+let packet = encode_command_with_trailer(&heartbeat_cmd).unwrap();
+
+// 发送数据...
+```
 
 ## 贡献
 
