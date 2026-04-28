@@ -95,6 +95,7 @@ impl MaterialManager {
                     Some(UMesh::Sphere(_)) => Some("materials/mesh_types/sphere.toml"),
                     Some(UMesh::Cylinder(_)) => Some("materials/mesh_types/cylinder.toml"),
                     Some(UMesh::Cone(_)) => Some("materials/mesh_types/cone.toml"),
+                    Some(UMesh::Cube(_)) => Some("materials/mesh_types/cube.toml"),
                     None => None,
                 };
             }

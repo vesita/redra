@@ -1,4 +1,4 @@
-use crate::rdmp::{Cone, Cylinder, ExMesh, Line, Point, Sphere, ex_mesh };
+use crate::rdmp::{Cone, Cube, Cylinder, ExMesh, Line, Point, Sphere, ex_mesh };
 
 impl ExMesh {
     pub fn set_point<T: Into<Point>>(&mut self, point: T) -> Result<(), String> {
@@ -23,6 +23,11 @@ impl ExMesh {
 
     pub fn set_cone<T: Into<Cone>>(&mut self, cone: T) -> Result<(), String> {
         self.u_mesh = Some(ex_mesh::UMesh::Cone(cone.into()));
+        Ok(())
+    }
+
+    pub fn set_cube(&mut self, cube: Cube) -> Result<(), String> {
+        self.u_mesh = Some(ex_mesh::UMesh::Cube(cube));
         Ok(())
     }
 }
@@ -67,6 +72,14 @@ impl From<Cone> for ExMesh {
     }
 }
 
+impl From<Cube> for ExMesh {
+    fn from(cube: Cube) -> Self {
+        ExMesh {
+            u_mesh: Some(ex_mesh::UMesh::Cube(cube)),
+        }
+    }
+}
+
 // 实现 Into<Point> trait 以便支持更多类型的输入
 impl From<(f32, f32, f32)> for Point {
     fn from((x, y, z): (f32, f32, f32)) -> Self {
@@ -105,5 +118,19 @@ impl From<(f32, f32)> for Cylinder {
 impl From<(f32, f32)> for Cone {
     fn from((radius, height): (f32, f32)) -> Self {
         Cone { radius, height }
+    }
+}
+
+// 实现 Cube 构造
+impl From<Vec<Point>> for Cube {
+    fn from(vertices: Vec<Point>) -> Self {
+        Cube { vertices }
+    }
+}
+
+impl<const N: usize> From<[(f32, f32, f32); N]> for Cube {
+    fn from(arr: [(f32, f32, f32); N]) -> Self {
+        let vertices = arr.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
+        Cube { vertices }
     }
 }

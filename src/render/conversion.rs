@@ -15,6 +15,20 @@ pub fn proto_mesh_to_bevy(meshes: &mut Assets<Mesh>, proto_mesh: &ExMesh) -> Opt
         }
         Some(UMesh::Cylinder(cylinder)) => Mesh3d(meshes.add(Cylinder::new(cylinder.radius, cylinder.height))),
         Some(UMesh::Cone(cone)) => Mesh3d(meshes.add(Cone::new(cone.radius, cone.height))),
+        Some(UMesh::Cube(cube)) => {
+            if cube.vertices.len() < 8 { return None; }
+            let mut min = [f32::MAX, f32::MAX, f32::MAX];
+            let mut max = [f32::MIN, f32::MIN, f32::MIN];
+            for v in &cube.vertices {
+                min[0] = min[0].min(v.x); min[1] = min[1].min(v.y); min[2] = min[2].min(v.z);
+                max[0] = max[0].max(v.x); max[1] = max[1].max(v.y); max[2] = max[2].max(v.z);
+            }
+            let w = max[0] - min[0];
+            let h = max[1] - min[1];
+            let d = max[2] - min[2];
+            if w < 0.001 || h < 0.001 || d < 0.001 { return None; }
+            Mesh3d(meshes.add(Cuboid::new(w, h, d)))
+        }
         None => return None,
     };
     Some(bevy_mesh)

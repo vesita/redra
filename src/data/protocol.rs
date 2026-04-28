@@ -33,7 +33,7 @@ impl ExtractFromUnit for u64 {
 impl ExtractFromUnit for ExMesh {
     fn type_name() -> &'static str { "Mesh" }
     fn try_extract(u_object: &expto::rdmp::ex_object::UObject) -> Option<Self> {
-        if let expto::rdmp::ex_object::UObject::Mesh(mesh) = u_object { Some(*mesh) } else { None }
+        if let expto::rdmp::ex_object::UObject::Mesh(mesh) = u_object { Some(mesh.clone()) } else { None }
     }
 }
 

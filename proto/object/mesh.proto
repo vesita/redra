@@ -9,6 +9,7 @@ message ExMesh {
         Sphere sphere = 3;
         Cylinder cylinder = 4;
         Cone cone = 5;
+        Cube cube = 6;
     }
 }
 
@@ -36,4 +37,8 @@ message Cylinder {
 message Cone {
     float radius = 1;
     float height = 2;
+}
+
+message Cube {
+    repeated Point vertices = 1;  // 8 corner points of the bounding box
 }

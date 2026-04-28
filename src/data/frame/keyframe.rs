@@ -43,7 +43,7 @@ impl KeyFrame {
             if let Some(u_object) = &obj.u_object {
                 match u_object {
                     UObject::Id(obj_id) => id = Some(*obj_id),
-                    UObject::Mesh(mesh_data) => mesh = Some(*mesh_data),
+                    UObject::Mesh(mesh_data) => mesh = Some(mesh_data.clone()),
                     UObject::Transform(transform_data) => transform = Some(*transform_data),
                     _ => {}
                 }
@@ -161,7 +161,7 @@ pub struct SerializableInpto {
 
 impl From<&Inpto> for SerializableInpto {
     fn from(inpto: &Inpto) -> Self {
-        Self { mesh: inpto.mesh, material: inpto.material.clone(), transform: inpto.transform.into(), tag: inpto.tag.clone() }
+        Self { mesh: inpto.mesh.clone(), material: inpto.material.clone(), transform: inpto.transform.into(), tag: inpto.tag.clone() }
     }
 }
 
