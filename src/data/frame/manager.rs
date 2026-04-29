@@ -1,10 +1,12 @@
+use std::time::Instant;
+
 use bevy::prelude::*;
 use expto::rdmp::{CommandType, Unit};
 
 use crate::data::frame::{KeyFrame, UnitPack};
 
 /// 帧管理器 — 核心数据管理资源
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct FrameManager {
     pub current_frame: usize,
     timestamp: u64,
@@ -13,10 +15,11 @@ pub struct FrameManager {
     temp_units: Vec<Unit>,
     temp_keyframe: Option<KeyFrame>,
     first_temp_unit_timestamp: Option<u64>,
+    first_temp_unit_at: Option<Instant>,
 }
 
-impl FrameManager {
-    pub fn new() -> Self {
+impl Default for FrameManager {
+    fn default() -> Self {
         Self {
             current_frame: 0,
             timestamp: 0,
@@ -25,7 +28,14 @@ impl FrameManager {
             temp_units: Vec::new(),
             temp_keyframe: None,
             first_temp_unit_timestamp: None,
+            first_temp_unit_at: None,
         }
+    }
+}
+
+impl FrameManager {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn add_keyframe(&mut self, keyframe: KeyFrame) {
@@ -57,10 +67,12 @@ impl FrameManager {
 
                             self.temp_units.clear();
                             self.first_temp_unit_timestamp = None;
+                            self.first_temp_unit_at = None;
                         }
                         _ => {
                             if self.temp_units.is_empty() {
                                 self.first_temp_unit_timestamp = unit.stamp.as_ref().map(|s| s.timestamp);
+                                self.first_temp_unit_at = Some(Instant::now());
                             }
                             self.temp_units.push(unit.clone());
                         }
@@ -70,6 +82,7 @@ impl FrameManager {
             None => {
                 if self.temp_units.is_empty() {
                     self.first_temp_unit_timestamp = unit.stamp.as_ref().map(|s| s.timestamp);
+                    self.first_temp_unit_at = Some(Instant::now());
                 }
                 self.temp_units.push(unit.clone());
             }
@@ -105,12 +118,19 @@ impl FrameManager {
         if self.temp_units.len() >= 100 {
             return true;
         }
+        // 检查 protobuf 时间戳差（多 Unit 场景）
         if let Some(first_timestamp) = self.first_temp_unit_timestamp {
             if let Some(last_unit_stamp) = self.temp_units.last().and_then(|u| u.stamp.as_ref()) {
                 let current_timestamp = last_unit_stamp.timestamp;
                 if current_timestamp.saturating_sub(first_timestamp) >= 5000 {
                     return true;
                 }
+            }
+        }
+        // 检查实时时间差（单 Unit 含大量对象的场景，如点云）
+        if let Some(first_time) = self.first_temp_unit_at {
+            if first_time.elapsed().as_millis() >= 5000 {
+                return true;
             }
         }
         false
@@ -177,6 +197,7 @@ impl FrameManager {
         self.temp_units.clear();
         self.temp_keyframe = None;
         self.first_temp_unit_timestamp = None;
+        self.first_temp_unit_at = None;
         log::info!("帧管理器已清空");
     }
 

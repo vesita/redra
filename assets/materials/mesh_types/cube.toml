@@ -1,0 +1,8 @@
+# 包围盒材质 - 半透明青蓝色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.2, 0.7, 0.9, 0.35]
+alpha_mode = "Blend"
+perceptual_roughness = 0.2
+metallic = 0.3

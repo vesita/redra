@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use expto::rdmp::{CommandType, ExMesh, ExTransform, Tag, Unit, ex_object::UObject};
@@ -6,6 +7,15 @@ use serde::{Serialize, Deserialize};
 
 use crate::data::protocol::{e2i_transform, parse_command, extract_id, extract_material_id, extract_tag};
 use crate::data::frame::Inpto;
+
+/// 生成一个单调递增的实体 ID（基于时间戳和当前 pack 数量）
+fn generate_entity_id(packs_len: usize) -> u64 {
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64;
+    ts ^ (packs_len as u64).rotate_left(32)
+}
 
 /// 关键帧 — 某一时刻的场景快照
 pub struct KeyFrame {
@@ -34,15 +44,72 @@ impl KeyFrame {
         }
     }
 
+    /// 将 Unit 对象列表按 Id 边界分组，每组生成一个实体
     fn react_spawn(&mut self, unit: &Unit) {
-        let mut id: Option<u64> = None;
+        // 检测是否有显式 Id 对象：有则按 Id 分组（batch 模式），无则按 legacy 单实体处理
+        let has_ids = unit.objects.iter().any(|obj| {
+            obj.u_object.as_ref().is_some_and(|u| matches!(u, UObject::Id(_)))
+        });
+
+        if !has_ids {
+            // Legacy 模式：所有对象属于同一个实体，自动生成 ID
+            return self.spawn_legacy(unit);
+        }
+
+        // Batch 模式：按 Id 对象切分，每组独立生成一个实体
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        for (i, obj) in unit.objects.iter().enumerate() {
+            let is_id = obj.u_object.as_ref().is_some_and(|u| matches!(u, UObject::Id(_)));
+            if is_id && !groups.is_empty() {
+                groups.push(vec![i]);
+            } else if groups.is_empty() {
+                groups.push(vec![i]);
+            } else {
+                groups.last_mut().unwrap().push(i);
+            }
+        }
+
+        for indices in &groups {
+            let mut entity_id: Option<u64> = None;
+            let mut mesh: Option<ExMesh> = None;
+            let mut transform: Option<ExTransform> = None;
+            let mut material: Option<String> = None;
+            let mut tag: Option<Tag> = None;
+
+            for &idx in indices {
+                if let Some(u_object) = &unit.objects[idx].u_object {
+                    match u_object {
+                        UObject::Id(id) => entity_id = Some(*id),
+                        UObject::Mesh(m) => mesh = Some(m.clone()),
+                        UObject::Transform(t) => transform = Some(*t),
+                        UObject::MaterialId(m) => material = Some(m.clone()),
+                        UObject::Tag(t) => tag = Some(t.clone()),
+                    }
+                }
+            }
+
+            let id = entity_id.unwrap_or_else(|| generate_entity_id(self.packs.len()));
+            if let Some(m) = mesh {
+                let bevy_t = transform.map(|t| e2i_transform(t)).unwrap_or_default();
+                let mat = material.unwrap_or_default();
+                self.ids.insert(id, self.packs.len());
+                let mut inpto = Inpto::new(m, mat, bevy_t);
+                if let Some(tag_data) = tag {
+                    inpto.tag = Some(tag_data);
+                }
+                self.packs.push(inpto);
+            }
+        }
+    }
+
+    /// Legacy 模式：Unit 中无 Id 对象时，自动生成 ID，收集所有对象属性创建单个实体
+    fn spawn_legacy(&mut self, unit: &Unit) {
         let mut mesh: Option<ExMesh> = None;
         let mut transform: Option<ExTransform> = None;
 
         for obj in &unit.objects {
             if let Some(u_object) = &obj.u_object {
                 match u_object {
-                    UObject::Id(obj_id) => id = Some(*obj_id),
                     UObject::Mesh(mesh_data) => mesh = Some(mesh_data.clone()),
                     UObject::Transform(transform_data) => transform = Some(*transform_data),
                     _ => {}
@@ -50,7 +117,8 @@ impl KeyFrame {
             }
         }
 
-        if let (Some(entity_id), Some(mesh_data)) = (id, mesh) {
+        if let Some(mesh_data) = mesh {
+            let entity_id = generate_entity_id(self.packs.len());
             let material_id = extract_material_id(unit).unwrap_or_default();
             let tag = extract_tag(unit);
             let bevy_transform = transform.map(|t| e2i_transform(t)).unwrap_or(Transform::default());

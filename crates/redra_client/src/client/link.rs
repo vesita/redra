@@ -50,19 +50,19 @@ impl Link {
     }
 }
 
-// 使用LazyLock自动初始化全局连接
-use std::sync::LazyLock;
+use tokio::sync::OnceCell;
 
-static GLOBAL_CONNECTION: LazyLock<Arc<Link>> = LazyLock::new(|| {
-    // 创建一个异步运行时来执行连接操作
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-    match rt.block_on(Link::connect()) {
-        Ok(conn) => Arc::new(conn),
-        Err(e) => panic!("Failed to initialize global connection: {}", e),
-    }
-});
+static GLOBAL_CONNECTION: OnceCell<Arc<Link>> = OnceCell::const_new();
 
-
-pub fn get_link() -> Arc<Link> {
-    GLOBAL_CONNECTION.clone()
+pub async fn get_link() -> Arc<Link> {
+    GLOBAL_CONNECTION
+        .get_or_init(|| async {
+            Arc::new(
+                Link::connect()
+                    .await
+                    .expect("Failed to initialize global connection"),
+            )
+        })
+        .await
+        .clone()
 }
