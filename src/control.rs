@@ -9,6 +9,7 @@
 
 use bevy::app::prelude::*;
 use redra_net::NetworkPlugin;
+use redra_calib::prelude::CalibPlugin;
 
 use crate::data::frame::{FrameManagerPlugin, FramePlaybackPlugin, FrameStoragePlugin};
 use crate::assets::fonts::FontPlugin;
@@ -26,6 +27,7 @@ impl Plugin for ControlPlugin {
             // 资源层
             .init_resource::<MaterialManager>()
             .add_plugins(FontPlugin)
+            .add_plugins(CalibPlugin)
             // 数据层
             .add_plugins(NetworkPlugin)
             .add_plugins(FrameManagerPlugin)

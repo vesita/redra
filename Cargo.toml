@@ -9,6 +9,7 @@ bevy_wheel_menu = { path = "crates/bevy_wheel_menu" }
 redra_client = { path = "crates/redra_client", optional = true }
 expto = { path = "crates/expto" }
 redra_net = { path = "crates/redra_net" }
+redra_calib = { path = "crates/redra_calib" }
 utils ={ path = "crates/utils" }
 
 bevy = { version = "0.18", optional = true, features = ["bevy_window", "bevy_picking"] }
@@ -36,8 +37,10 @@ members = [
     "crates/smooth-bevy-cameras",
     "crates/redra_client",
     "crates/expto",
-    "crates/redra_net", 
+    "crates/redra_net",
     "crates/utils",
+    "crates/redra_geo",
+    "crates/redra_calib",
 ]
 
 [features]
