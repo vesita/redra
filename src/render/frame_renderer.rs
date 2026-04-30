@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use bevy::render::render_resource::PrimitiveTopology;
+use expto::rdmp::mesh::ex_mesh::UMesh;
 
 use crate::data::frame::{FrameManager, Inpto};
 use crate::assets::materials::MaterialManager;
@@ -14,10 +16,16 @@ pub struct Hidden;
 #[derive(Resource, Default)]
 pub struct EntityMap {
     pub map: HashMap<u64, Entity>,
+    pub points_entity: Option<Entity>,
+    pub points_mesh: Option<Handle<Mesh>>,
 }
 
 impl EntityMap {
-    pub fn clear(&mut self) { self.map.clear(); }
+    pub fn clear(&mut self) {
+        self.map.clear();
+        self.points_entity = None;
+        self.points_mesh = None;
+    }
 }
 
 /// 帧渲染器插件
@@ -48,10 +56,21 @@ fn render_current_frame(
 
     log::debug!("渲染第 {} 帧，包含 {} 个实体", frame_manager.current_frame_index(), keyframe.entity_count());
 
-    let current_entity_ids: HashMap<u64, &Inpto> = keyframe.iter_entities().collect();
-    cleanup_removed_entities(&mut commands, &current_entity_ids, &mut entity_map.map);
+    // 分离 Point 和非 Point 实体
+    let mut points: Vec<Vec3> = Vec::new();
+    let mut non_point_ids: HashMap<u64, &Inpto> = HashMap::new();
 
-    for (&entity_id, inpto) in &current_entity_ids {
+    for (entity_id, inpto) in keyframe.iter_entities() {
+        if matches!(inpto.mesh.u_mesh, Some(UMesh::Point(_))) {
+            points.push(inpto.transform.translation);
+        } else {
+            non_point_ids.insert(entity_id, inpto);
+        }
+    }
+
+    cleanup_removed_entities(&mut commands, &non_point_ids, &mut entity_map.map);
+
+    for (&entity_id, inpto) in &non_point_ids {
         if let Some(&entity) = entity_map.map.get(&entity_id) {
             update_entity_transform(&mut commands, entity, &inpto.transform, &hidden_query);
         } else {
@@ -60,6 +79,9 @@ fn render_current_frame(
             log::info!("创建新实体 {} (名称: {})", entity_id, inpto.name());
         }
     }
+
+    // 聚合所有 Point 为单个 PointList mesh
+    update_aggregated_points(&mut commands, &mut meshes, &asset_server, &material_manager, &mut entity_map, &points);
 
     log::debug!("当前可拾取实体数量: {}", pickable_check_query.iter().count());
     for (entity, name, pickable) in pickable_check_query.iter() {
@@ -91,6 +113,47 @@ fn spawn_entity_from_inpto(
     ))
     .observe(crate::render::interaction::picking::handle_dynamic_entity_pick)
     .id()
+}
+
+/// 聚合所有 Point 位置为单个 PointList mesh，1 次 draw call 渲染
+fn update_aggregated_points(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    asset_server: &AssetServer,
+    material_manager: &MaterialManager,
+    entity_map: &mut EntityMap,
+    points: &[Vec3],
+) {
+    if points.is_empty() {
+        if let Some(entity) = entity_map.points_entity.take() {
+            commands.entity(entity).despawn();
+        }
+        entity_map.points_mesh = None;
+        return;
+    }
+
+    let positions: Vec<[f32; 3]> = points.iter().map(|p| [p.x, p.y, p.z]).collect();
+    let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+    // 复用已有 mesh handle，避免每帧重新分配
+    if let Some(handle) = &entity_map.points_mesh {
+        if let Some(mesh_ref) = meshes.get_mut(handle) {
+            *mesh_ref = mesh;
+            return;
+        }
+    }
+
+    let handle = meshes.add(mesh);
+    let material = material_manager.load_generic_material("materials/mesh_types/point.toml", asset_server);
+    let entity = commands.spawn((
+        Mesh3d(handle.clone()),
+        crate::render::GenericMaterial3d(material),
+        Transform::default(),
+        Name::new("AggregatedPoints"),
+    )).id();
+    entity_map.points_entity = Some(entity);
+    entity_map.points_mesh = Some(handle);
 }
 
 fn update_entity_transform(

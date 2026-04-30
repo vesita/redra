@@ -17,4 +17,5 @@ script/proto/
 // test logs
 tests/log/
 
+data/
 .claude/
