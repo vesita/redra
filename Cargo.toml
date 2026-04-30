@@ -10,6 +10,7 @@ redra_client = { path = "crates/redra_client", optional = true }
 expto = { path = "crates/expto" }
 redra_net = { path = "crates/redra_net" }
 redra_calib = { path = "crates/redra_calib" }
+redra_geo = { path = "crates/redra_geo" }
 utils ={ path = "crates/utils" }
 
 bevy = { version = "0.18", optional = true, features = ["bevy_window", "bevy_picking"] }

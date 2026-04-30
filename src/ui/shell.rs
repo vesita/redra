@@ -6,6 +6,7 @@ use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 use crate::data::frame::{FrameManager, PlaybackState, FrameStorage};
 use crate::ui::file_manager::{FileSaveState, files_content};
 use crate::ui::playback_control::playback_content;
+use crate::ui::axis_adjust::{axis_adjust_content, AxisAdjustState};
 use crate::ui::notifications::NotificationCenter;
 use crate::assets::fonts::FontLoadStatus;
 
@@ -14,6 +15,7 @@ pub enum SidebarView {
     #[default]
     Playback,
     Files,
+    AxisAdjust,
 }
 
 #[derive(Resource, Default)]
@@ -60,6 +62,7 @@ fn shell_system(
     mut save_state: ResMut<FileSaveState>,
     storage: Res<FrameStorage>,
     mut notifications: ResMut<NotificationCenter>,
+    mut axis_adjust_state: ResMut<AxisAdjustState>,
 ) {
     if cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked {
         return;
@@ -106,6 +109,19 @@ fn shell_system(
                 }
 
                 ui.add_space(4.0);
+
+                // 轴调整
+                let aa = sidebar.active_view == SidebarView::AxisAdjust;
+                if ui
+                    .add(icon_button("↕", aa, btn_size))
+                    .on_hover_text("轴调整")
+                    .clicked()
+                {
+                    sidebar.active_view = SidebarView::AxisAdjust;
+                    sidebar.visible = true;
+                }
+
+                ui.add_space(4.0);
                 ui.separator();
             });
         });
@@ -127,6 +143,7 @@ fn shell_system(
                 let header = match sidebar.active_view {
                     SidebarView::Playback => "回放控制",
                     SidebarView::Files => "文件管理",
+                    SidebarView::AxisAdjust => "轴调整",
                 };
                 ui.horizontal(|ui| {
                     ui.heading(header);
@@ -152,6 +169,9 @@ fn shell_system(
                             }
                             SidebarView::Files => {
                                 files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);
+                            }
+                            SidebarView::AxisAdjust => {
+                                axis_adjust_content(ui, &mut frame_manager, &mut axis_adjust_state);
                             }
                         }
                     });

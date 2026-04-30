@@ -150,6 +150,10 @@ impl FrameManager {
         self.keyframes.get(self.current_frame)
     }
 
+    pub fn get_current_keyframe_mut(&mut self) -> Option<&mut KeyFrame> {
+        self.keyframes.get_mut(self.current_frame)
+    }
+
     pub fn get_keyframe(&self, index: usize) -> Option<&KeyFrame> {
         self.keyframes.get(index)
     }
@@ -187,6 +191,10 @@ impl FrameManager {
 
     pub fn get_all_keyframes(&self) -> &[KeyFrame] {
         &self.keyframes
+    }
+
+    pub fn get_all_keyframes_mut(&mut self) -> &mut [KeyFrame] {
+        &mut self.keyframes
     }
 
     pub fn clear(&mut self) {
