@@ -19,3 +19,5 @@ tests/log/
 
 data/
 .claude/
+temp/
+redra/
