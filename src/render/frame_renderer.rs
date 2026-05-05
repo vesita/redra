@@ -7,6 +7,7 @@ use expto::rdmp::mesh::ex_mesh::UMesh;
 use crate::data::frame::{FrameManager, Inpto};
 use crate::assets::materials::MaterialManager;
 use crate::render::interaction::picking::PickableEntity;
+use crate::render::coord_system::{Handedness, apply_handedness};
 
 /// 隐藏标记组件
 #[derive(Component, Default)]
@@ -45,6 +46,7 @@ fn render_current_frame(
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
     frame_manager: Res<FrameManager>,
+    handedness: Res<Handedness>,
     mut entity_map: ResMut<EntityMap>,
     pickable_check_query: Query<(Entity, &Name, &PickableEntity)>,
     hidden_query: Query<(), With<Hidden>>,
@@ -72,16 +74,16 @@ fn render_current_frame(
 
     for (&entity_id, inpto) in &non_point_ids {
         if let Some(&entity) = entity_map.map.get(&entity_id) {
-            update_entity_transform(&mut commands, entity, &inpto.transform, &hidden_query);
+            update_entity_transform(&mut commands, entity, &inpto.transform, *handedness, &hidden_query);
         } else {
-            let new_entity = spawn_entity_from_inpto(&mut commands, &mut meshes, &asset_server, &material_manager, inpto, entity_id);
+            let new_entity = spawn_entity_from_inpto(&mut commands, &mut meshes, &asset_server, &material_manager, inpto, entity_id, *handedness);
             entity_map.map.insert(entity_id, new_entity);
             log::info!("创建新实体 {} (名称: {})", entity_id, inpto.name());
         }
     }
 
     // 聚合所有 Point 为单个 PointList mesh
-    update_aggregated_points(&mut commands, &mut meshes, &asset_server, &material_manager, &mut entity_map, &points);
+    update_aggregated_points(&mut commands, &mut meshes, &asset_server, &material_manager, &mut entity_map, &points, *handedness);
 
     log::debug!("当前可拾取实体数量: {}", pickable_check_query.iter().count());
     for (entity, name, pickable) in pickable_check_query.iter() {
@@ -96,16 +98,18 @@ fn spawn_entity_from_inpto(
     material_manager: &MaterialManager,
     inpto: &Inpto,
     entity_id: u64,
+    handedness: Handedness,
 ) -> Entity {
     let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
         .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体 (实体 {})", entity_id); Mesh3d(meshes.add(Sphere::new(0.1))) });
 
     let material_handle = material_manager.load_generic_material(&inpto.material_path(), asset_server);
+    let render_transform = apply_handedness(inpto.transform, handedness);
 
     commands.spawn((
         mesh_handle,
         crate::render::GenericMaterial3d(material_handle.clone()),
-        inpto.transform,
+        render_transform,
         Name::new(format!("FrameEntity_{}", entity_id)),
         Pickable::default(),
         PickableEntity { entity_id },
@@ -123,6 +127,7 @@ fn update_aggregated_points(
     material_manager: &MaterialManager,
     entity_map: &mut EntityMap,
     points: &[Vec3],
+    handedness: Handedness,
 ) {
     if points.is_empty() {
         if let Some(entity) = entity_map.points_entity.take() {
@@ -132,7 +137,10 @@ fn update_aggregated_points(
         return;
     }
 
-    let positions: Vec<[f32; 3]> = points.iter().map(|p| [p.x, p.y, p.z]).collect();
+    let positions: Vec<[f32; 3]> = points.iter().map(|p| {
+        let converted = apply_handedness(Transform::from_translation(*p), handedness);
+        [converted.translation.x, converted.translation.y, converted.translation.z]
+    }).collect();
     let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
@@ -160,10 +168,12 @@ fn update_entity_transform(
     commands: &mut Commands,
     entity: Entity,
     transform: &Transform,
+    handedness: Handedness,
     hidden_query: &Query<(), With<Hidden>>,
 ) {
+    let render_transform = apply_handedness(*transform, handedness);
     let has_hidden = hidden_query.get(entity).is_ok();
-    commands.entity(entity).insert(*transform);
+    commands.entity(entity).insert(render_transform);
     if has_hidden { commands.entity(entity).insert(Hidden); }
 }
 

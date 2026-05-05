@@ -6,7 +6,8 @@ use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 use crate::data::frame::{FrameManager, PlaybackState, FrameStorage};
 use crate::ui::file_manager::{FileSaveState, files_content};
 use crate::ui::playback_control::playback_content;
-use crate::ui::axis_adjust::{axis_adjust_content, AxisAdjustState};
+use crate::ui::axis_adjust::axis_adjust_content;
+use crate::render::coord_system::Handedness;
 use crate::ui::notifications::NotificationCenter;
 use crate::assets::fonts::FontLoadStatus;
 use crate::render::init::LightMode;
@@ -63,7 +64,7 @@ fn shell_system(
     mut save_state: ResMut<FileSaveState>,
     storage: Res<FrameStorage>,
     mut notifications: ResMut<NotificationCenter>,
-    mut axis_adjust_state: ResMut<AxisAdjustState>,
+    mut handedness: ResMut<Handedness>,
     mut light_mode: ResMut<LightMode>,
 ) {
     if cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked {
@@ -190,7 +191,7 @@ fn shell_system(
                                 files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);
                             }
                             SidebarView::AxisAdjust => {
-                                axis_adjust_content(ui, &mut frame_manager, &mut axis_adjust_state);
+                                axis_adjust_content(ui, &mut handedness);
                             }
                         }
                     });
