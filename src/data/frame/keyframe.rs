@@ -183,6 +183,15 @@ impl KeyFrame {
         }
     }
 
+    // ==================== 外部构造接口 ====================
+
+    /// 从外部直接插入实体（供文件导入使用）
+    pub fn insert_entity(&mut self, id: u64, mesh: ExMesh, transform: ExTransform) {
+        let bevy_t = e2i_transform(transform);
+        self.ids.insert(id, self.packs.len());
+        self.packs.push(Inpto::new(mesh, String::new(), bevy_t));
+    }
+
     // ==================== 数据访问接口 ====================
 
     pub fn entity_count(&self) -> usize { self.packs.len() }

@@ -10,6 +10,7 @@ redra_client = { path = "crates/redra_client", optional = true }
 expto = { path = "crates/expto" }
 redra_net = { path = "crates/redra_net" }
 redra_geo = { path = "crates/redra_geo" }
+redra_io = { path = "crates/redra_io", optional = true }
 utils ={ path = "crates/utils" }
 
 bevy = { version = "0.18", optional = true, features = ["bevy_window", "bevy_picking"] }
@@ -40,9 +41,10 @@ members = [
     "crates/redra_net",
     "crates/utils",
     "crates/redra_geo",
+    "crates/redra_io",
 ]
 
 [features]
 default = ["graph"]
 client = ["redra_client"]
-graph = ["dep:bevy", "dep:bevy_egui", "dep:serde", "dep:rfd", "dep:image"]
+graph = ["dep:bevy", "dep:bevy_egui", "dep:serde", "dep:rfd", "dep:image", "dep:redra_io"]

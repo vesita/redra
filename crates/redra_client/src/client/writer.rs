@@ -106,6 +106,11 @@ impl RdraWriter {
         self.entities.remove(&id);
     }
 
+    /// 清除当前帧中所有实体
+    pub fn destroy_all(&mut self) {
+        self.entities.clear();
+    }
+
     /// 结束当前帧，将实体快照保存为一个 keyframe。
     ///
     /// 实体状态会持续到下一帧（不清空）。

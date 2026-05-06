@@ -8,19 +8,37 @@ use crate::data::frame::{FrameManager, Inpto};
 use crate::assets::materials::MaterialManager;
 use crate::render::interaction::picking::PickableEntity;
 use crate::render::coord_system::{Handedness, apply_handedness};
+use crate::ui::file_manager::FileOpSet;
 
 /// 隐藏标记组件
 #[derive(Component, Default)]
 pub struct Hidden;
 
 /// 实体映射资源
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct EntityMap {
     pub map: HashMap<u64, Entity>,
     pub points_entity: Option<Entity>,
     pub points_mesh: Option<Handle<Mesh>>,
     /// 缓存上一帧的点云位置，用于 dirty check
     cached_positions: Vec<[f32; 3]>,
+    /// 每次 clear 递增，用于跳过 despawn 命令生效帧
+    generation: u64,
+    /// render_current_frame 上次处理的 generation
+    last_rendered_generation: u64,
+}
+
+impl Default for EntityMap {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+            points_entity: None,
+            points_mesh: None,
+            cached_positions: Vec::new(),
+            generation: 0,
+            last_rendered_generation: 0,
+        }
+    }
 }
 
 impl EntityMap {
@@ -29,6 +47,7 @@ impl EntityMap {
         self.points_entity = None;
         self.points_mesh = None;
         self.cached_positions.clear();
+        self.generation += 1;
     }
 }
 
@@ -38,7 +57,10 @@ pub struct FrameRendererPlugin;
 impl Plugin for FrameRendererPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EntityMap>()
-            .add_systems(Update, render_current_frame);
+            .add_systems(Update, (
+                ApplyDeferred,
+                render_current_frame,
+            ).chain().after(FileOpSet));
     }
 }
 
@@ -54,6 +76,13 @@ fn render_current_frame(
     pickable_check_query: Query<(Entity, &Name, &PickableEntity)>,
     hidden_query: Query<(), With<Hidden>>,
 ) {
+    // 文件加载/清空后跳过一帧，等 despawn 命令实际生效
+    if entity_map.generation != entity_map.last_rendered_generation {
+        entity_map.last_rendered_generation = entity_map.generation;
+        log::debug!("跳过渲染，等待 despawn 命令生效 (generation {})", entity_map.generation);
+        return;
+    }
+
     let Some(keyframe) = frame_manager.get_current_keyframe() else {
         log::debug!("当前无可用帧数据");
         return;

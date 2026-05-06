@@ -164,6 +164,10 @@ pub struct FileSaveState {
 // 插件
 // ============================================================================
 
+/// 文件操作系统集合，用于确保在渲染系统之前执行
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FileOpSet;
+
 pub struct FileManagerUiPlugin;
 
 impl Plugin for FileManagerUiPlugin {
@@ -171,12 +175,13 @@ impl Plugin for FileManagerUiPlugin {
         app.init_resource::<FileSaveState>()
             .init_resource::<ConfirmRequest>()
             .init_resource::<ConfirmResult>()
+            .configure_sets(Update, FileOpSet)
             .add_systems(EguiPrimaryContextPass, confirm_dialog_ui_system)
             .add_systems(Update, (
                 confirm_dialog_file_system,
                 file_op_system,
                 clear_all_data_system,
-            ));
+            ).in_set(FileOpSet));
     }
 }
 
@@ -231,6 +236,8 @@ fn confirm_dialog_file_system(
                         if let Some(path) = rfd::FileDialog::new()
                             .set_title("加载帧数据")
                             .add_filter("Redra Data", &["rdra"])
+                            .add_filter("PCD 点云", &["pcd"])
+                            .add_filter("所有文件", &["*"])
                             .pick_file()
                         {
                             state.pending_load_path = Some(path);
@@ -359,6 +366,8 @@ pub fn files_content(
             if let Some(path) = rfd::FileDialog::new()
                 .set_title("加载帧数据")
                 .add_filter("Redra Data", &["rdra"])
+                .add_filter("PCD 点云", &["pcd"])
+                .add_filter("所有文件", &["*"])
                 .pick_file()
             {
                 state.pending_load_path = Some(path);
@@ -410,34 +419,72 @@ fn file_op_system(
     };
 
     state.active_op = Some(FileOp::Loading);
-    match storage.load_from_file(&path) {
-        Ok(serializable_frames) => {
-            let frame_count = serializable_frames.len();
-            for box_entity in selection_boxes.iter() {
-                commands.entity(box_entity).despawn();
+
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "pcd" => {
+            match redra_io::pcd::load_pcd(&path) {
+                Ok(pcd_frame) => {
+                    clear_all_scene(&mut commands, &selection_boxes, &mut entity_map, &mut frame_manager);
+                    let entities = redra_io::pcd::points_to_entities(&pcd_frame.points);
+                    let mut kf = KeyFrame::new(0);
+                    for (id, mesh, transform) in entities {
+                        kf.insert_entity(id, mesh, transform);
+                    }
+                    let point_count = pcd_frame.points.len();
+                    frame_manager.add_keyframe(kf);
+                    frame_manager.seek_to_frame(0);
+                    notifications.notify(
+                        format!("已加载 PCD ({} 个点)", point_count),
+                        false,
+                    );
+                }
+                Err(e) => {
+                    notifications.notify(format!("PCD 加载失败: {}", e), true);
+                }
             }
-            for (_, entity) in entity_map.map.drain() {
-                commands.entity(entity).despawn();
-            }
-            if let Some(pe) = entity_map.points_entity.take() {
-                commands.entity(pe).despawn();
-            }
-            entity_map.points_mesh = None;
-            frame_manager.clear();
-            for sf in serializable_frames {
-                frame_manager.add_keyframe(KeyFrame::from(sf));
-            }
-            frame_manager.seek_to_frame(0);
-            notifications.notify(
-                format!("已加载 {} 帧 ({})", frame_count, path.file_name().unwrap_or_default().to_string_lossy()),
-                false,
-            );
         }
-        Err(e) => {
-            notifications.notify(format!("加载失败: {}", e), true);
+        _ => {
+            match storage.load_from_file(&path) {
+                Ok(serializable_frames) => {
+                    let frame_count = serializable_frames.len();
+                    clear_all_scene(&mut commands, &selection_boxes, &mut entity_map, &mut frame_manager);
+                    for sf in serializable_frames {
+                        frame_manager.add_keyframe(KeyFrame::from(sf));
+                    }
+                    frame_manager.seek_to_frame(0);
+                    notifications.notify(
+                        format!("已加载 {} 帧 ({})", frame_count, path.file_name().unwrap_or_default().to_string_lossy()),
+                        false,
+                    );
+                }
+                Err(e) => {
+                    notifications.notify(format!("加载失败: {}", e), true);
+                }
+            }
         }
     }
     state.active_op = None;
+}
+
+/// 清空场景中所有渲染实体和帧数据
+fn clear_all_scene(
+    commands: &mut Commands,
+    selection_boxes: &Query<Entity, With<SelectionBox>>,
+    entity_map: &mut EntityMap,
+    frame_manager: &mut FrameManager,
+) {
+    for box_entity in selection_boxes.iter() {
+        commands.entity(box_entity).despawn();
+    }
+    for (_, entity) in entity_map.map.drain() {
+        commands.entity(entity).despawn();
+    }
+    if let Some(pe) = entity_map.points_entity.take() {
+        commands.entity(pe).despawn();
+    }
+    entity_map.clear();
+    frame_manager.clear();
 }
 
 fn clear_all_data_system(
@@ -463,7 +510,7 @@ fn clear_all_data_system(
     if let Some(pe) = entity_map.points_entity.take() {
         commands.entity(pe).despawn();
     }
-    entity_map.points_mesh = None;
+    entity_map.clear();
     frame_manager.clear();
 
     notifications.notify(

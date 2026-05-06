@@ -1,0 +1,9 @@
+[package]
+name = "redra_io"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pcd-rs = "0.13"
+expto = { path = "../expto" }
+log = "0.4"
