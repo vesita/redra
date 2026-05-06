@@ -1,32 +1,45 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 use crate::data::frame::{FrameManager, PlaybackState};
+use crate::ui::shell::{SidebarState, SidebarView};
+use smooth_bevy_cameras::LookTransform;
+
+/// 视角回正请求资源
+#[derive(Resource, Default)]
+pub struct ResetCameraView(pub bool);
 
 pub struct PlaybackUiPlugin;
 
 impl Plugin for PlaybackUiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, keyboard_shortcuts);
+        app.init_resource::<ResetCameraView>()
+            .add_systems(Update, (keyboard_shortcuts, reset_camera_system));
     }
 }
 
 fn keyboard_shortcuts(
     keyboard: Res<ButtonInput<KeyCode>>,
+    sidebar: Res<SidebarState>,
     mut frame_manager: ResMut<FrameManager>,
     mut playback_state: ResMut<PlaybackState>,
 ) {
     let total_frames = frame_manager.total_frames();
-    if total_frames == 0 {
-        if keyboard.just_pressed(KeyCode::Space) {
+
+    // 空格播放/暂停仅在回放面板激活时生效
+    let playback_active = sidebar.visible && sidebar.active_view == SidebarView::Playback;
+    if playback_active && keyboard.just_pressed(KeyCode::Space) {
+        if total_frames == 0 {
             playback_state.toggle();
             if playback_state.is_playing {
                 log::warn!("没有帧数据，无法播放");
             }
+        } else {
+            playback_state.toggle();
         }
-        return;
     }
-    if keyboard.just_pressed(KeyCode::Space) {
-        playback_state.toggle();
+
+    if total_frames == 0 {
+        return;
     }
     if keyboard.just_pressed(KeyCode::ArrowLeft) {
         frame_manager.prev_frame();
@@ -141,18 +154,26 @@ pub fn playback_content(
 
     ui.separator();
 
-    // 跳转滑块
+    // 跳转 — 进度条 + 输入框
+    ui.label("跳转:");
     ui.horizontal(|ui| {
-        ui.label("跳转:");
-        let mut frame_idx = current_frame as f32;
+        let mut frame_idx = current_frame as i32;
+        let slider = egui::Slider::new(&mut frame_idx, 0..=(total_frames as i32 - 1))
+            .show_value(false);
+        if ui.add(slider).changed() {
+            frame_manager.seek_to_frame(frame_idx.max(0) as usize);
+        }
+        let mut edit_idx = current_frame as i32;
         if ui
             .add(
-                egui::Slider::new(&mut frame_idx, 0.0..=(total_frames - 1) as f32)
-                    .text("帧索引"),
+                egui::DragValue::new(&mut edit_idx)
+                    .range(0..=(total_frames as i32 - 1))
+                    .speed(1)
+                    .suffix(format!(" / {}", total_frames - 1)),
             )
             .changed()
         {
-            frame_manager.seek_to_frame(frame_idx as usize);
+            frame_manager.seek_to_frame(edit_idx.max(0) as usize);
         }
     });
 
@@ -163,4 +184,23 @@ pub fn playback_content(
         ui.label("Home/End - 首帧/尾帧");
         ui.label("Alt - 显示/隐藏 UI");
     });
+}
+
+const DEFAULT_EYE: Vec3 = Vec3::new(-2.5, 4.5, 9.0);
+const DEFAULT_TARGET: Vec3 = Vec3::ZERO;
+const DEFAULT_UP: Vec3 = Vec3::Y;
+
+fn reset_camera_system(
+    mut reset: ResMut<ResetCameraView>,
+    mut cameras: Query<&mut LookTransform>,
+) {
+    if !reset.0 {
+        return;
+    }
+    reset.0 = false;
+
+    for mut transform in cameras.iter_mut() {
+        *transform = LookTransform::new(DEFAULT_EYE, DEFAULT_TARGET, DEFAULT_UP);
+        log::info!("视角已回正：eye={:?}, target={:?}", DEFAULT_EYE, DEFAULT_TARGET);
+    }
 }

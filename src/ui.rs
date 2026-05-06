@@ -12,6 +12,7 @@ pub mod label;
 pub mod theme;
 pub mod shell;
 pub mod notifications;
+pub mod axis_adjust;
 
 #[derive(Component, Resource, Default)]
 pub struct UIStates {
@@ -36,6 +37,7 @@ impl Plugin for UiModule {
             .add_plugins(playback_control::PlaybackUiPlugin)
             .add_plugins(wheel_menu::WheelMenuGraphPlugin)
             .add_plugins(file_manager::FileManagerUiPlugin)
-            .add_plugins(label::LabelUiPlugin);
+            .add_plugins(label::LabelUiPlugin)
+            .add_plugins(axis_adjust::AxisAdjustPlugin);
     }
 }

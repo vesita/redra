@@ -1,10 +1,12 @@
 use expto::prelude::*;
 use expto::rdmp::auto::unit::generate_unit;
 use expto::rdmp::{Cube, ExObject, ExMesh, Point, Cylinder, Cone, Tag, TagStyle};
+use nalgebra::{UnitQuaternion, Vector3};
 
 use crate::client::link::get_link;
 
 // 定义一个 trait 来扩展 Unit 的功能
+#[allow(async_fn_in_trait)]
 pub trait AutoSend4Unit {
     async fn send(&self) -> Result<(), String>;
 }
@@ -13,7 +15,7 @@ impl AutoSend4Unit for Unit {
     async fn send(&self) -> Result<(), String> { 
         match encode(self) {
             Ok(buf) => {
-                let link = get_link();
+                let link = get_link().await;
                 link.send(&buf).await?;
             },
             Err(e) => return Err(format!("{}", e)),
@@ -38,6 +40,45 @@ pub async fn send_point(
     Ok(())
 }
 
+/// 批量发送点云（零拷贝：不重新分配内部数据，每条消息一个 Unit）
+///
+/// 将所有点打包到单个 Unit 中，每个点附带一个自动生成的 ID，
+/// 服务端会将每个 (Id, Mesh) 对解析为独立实体。
+/// 相比循环调用 `send_point`，这种方式大幅减少网络开销。
+///
+/// # 参数
+/// * `points` - 点云数组，每个元素为 `[x, y, z]`
+///
+/// # 示例
+/// ```no_run
+/// use redra_client::client::send::send_point_cloud;
+///
+/// let cloud = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+/// send_point_cloud(&cloud).await.unwrap();
+/// ```
+pub async fn send_point_cloud(points: &[[f32; 3]]) -> Result<(), String> {
+    let mut unit = generate_unit();
+
+    for (i, point) in points.iter().enumerate() {
+        // 自动生成 ID（从 1 开始，本地唯一即可）
+        unit.objects.push(ExObject::from(i as u64 + 1));
+
+        let p: Point = (point[0], point[1], point[2]).into();
+        let mesh: ExMesh = p.into();
+        unit.objects.push(ExObject::from(mesh));
+
+        // 设置位置（Point 网格渲染为小 sphere，需要 Transform 定位）
+        unit.objects.push(ExObject::from(ExTransform {
+            x: point[0], y: point[1], z: point[2],
+            rx: 0.0, ry: 0.0, rz: 0.0,
+            sx: 1.0, sy: 1.0, sz: 1.0,
+        }));
+    }
+
+    unit.send().await?;
+    Ok(())
+}
+
 pub async fn send_line(
     x1: f32,
     y1: f32,
@@ -47,12 +88,34 @@ pub async fn send_line(
     z2: f32,
 ) -> Result<(), String> {
     let mut unit = generate_unit();
-    let point1: Point = (x1, y1, z1).into();
-    let point2: Point = (x2, y2, z2).into();
-    let line: Line = (point1, point2).into();
-    let mesh: ExMesh = line.into();
-    let object: ExObject = mesh.into();
-    let _ = unit.set_object(object);
+
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let dz = z2 - z1;
+    let len = (dx * dx + dy * dy + dz * dz).sqrt();
+    if len < 1e-6 {
+        return Ok(());
+    }
+
+    // Line mesh (server renders as Cylinder along Y-axis)
+    let line: Line = (Point { x: x1, y: y1, z: z1 }, Point { x: x2, y: y2, z: z2 }).into();
+    unit.objects.push(ExObject::from(ExMesh::from(line)));
+
+    // Transform: position at midpoint, rotate Y-axis to direction
+    let dir = Vector3::new(dx / len, dy / len, dz / len);
+    let y = Vector3::y();
+    let q = UnitQuaternion::rotation_between(&y, &dir)
+        .unwrap_or(UnitQuaternion::identity());
+    let (rx, ry, rz) = q.euler_angles();
+
+    unit.objects.push(ExObject::from(ExTransform {
+        x: (x1 + x2) / 2.0,
+        y: (y1 + y2) / 2.0,
+        z: (z1 + z2) / 2.0,
+        rx, ry, rz,
+        sx: 1.0, sy: 1.0, sz: 1.0,
+    }));
+
     unit.send().await?;
     Ok(())
 }
@@ -113,7 +176,7 @@ pub async fn send_cone(
 /// send_tag(1, "Hello World").await.unwrap();
 /// ```
 pub async fn send_tag(
-    target_id: u64,
+    _target_id: u64,
     text: impl Into<String>,
 ) -> Result<(), String> {
     let mut unit = generate_unit();
@@ -144,7 +207,7 @@ pub async fn send_tag(
 /// send_tag_with_style(1, "Important", style).await.unwrap();
 /// ```
 pub async fn send_tag_with_style(
-    target_id: u64,
+    _target_id: u64,
     text: impl Into<String>,
     style: TagStyle,
 ) -> Result<(), String> {
@@ -226,6 +289,59 @@ pub async fn send_cube_with_tag(
     let tag = Tag::new(text);
     unit.objects.push(ExObject::from(tag));
 
+    unit.send().await?;
+    Ok(())
+}
+
+// ==================== 材质 & 控制 API ====================
+
+/// 更新已有实体的材质
+///
+/// 发送 `CommandType::Update` 指令，修改指定 ID 实体的材质。
+/// `material_id` 可以是预定义材质名（`"red"`, `"green"`, `"glass"`, `"metal"` 等），
+/// 也可以是自定义材质 TOML 文件路径。
+///
+/// # 参数
+/// * `entity_id` - 目标实体的 ID
+/// * `material_id` - 材质标识符
+///
+/// # 示例
+/// ```no_run
+/// use redra_client::client::send::send_set_material;
+/// send_set_material(1, "red").await.unwrap();
+/// send_set_material(2, "glass").await.unwrap();
+/// ```
+pub async fn send_set_material(
+    entity_id: u64,
+    material_id: impl Into<String>,
+) -> Result<(), String> {
+    let mut unit = generate_unit();
+    unit.set_update().unwrap();
+    unit.objects.push(ExObject::from(entity_id));
+    use expto::rdmp::ex_object::UObject;
+    unit.objects.push(ExObject {
+        u_object: Some(UObject::MaterialId(material_id.into())),
+    });
+    unit.send().await?;
+    Ok(())
+}
+
+/// 删除指定 ID 的实体
+///
+/// 发送 `CommandType::Destroy` 指令，从当前帧中移除实体。
+///
+/// # 参数
+/// * `entity_id` - 要删除的实体 ID
+///
+/// # 示例
+/// ```no_run
+/// use redra_client::client::send::send_destroy;
+/// send_destroy(1).await.unwrap();
+/// ```
+pub async fn send_destroy(entity_id: u64) -> Result<(), String> {
+    let mut unit = generate_unit();
+    unit.set_destroy().unwrap();
+    unit.objects.push(ExObject::from(entity_id));
     unit.send().await?;
     Ok(())
 }

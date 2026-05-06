@@ -2,13 +2,23 @@ use bevy::prelude::*;
 use bevy_materialize::prelude::*;
 use smooth_bevy_cameras::controllers::fps::{FpsCameraBundle, FpsCameraController};
 
+/// 环境光照模式
+#[derive(Resource, Default, PartialEq, Eq, Clone, Copy)]
+pub enum LightMode {
+    #[default]
+    Light,
+    Dark,
+}
+
 pub struct InitPlugin;
 
 impl Plugin for InitPlugin {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<LightMode>()
             .add_plugins(MaterializePlugin::new(TomlMaterialDeserializer))
-            .add_systems(Startup, rd_setup);
+            .add_systems(Startup, rd_setup)
+            .add_systems(Update, sync_light_mode);
     }
 }
 
@@ -37,4 +47,19 @@ pub fn rd_setup(
         Camera2d,
         Camera { order: 1, ..default() },
     ));
+}
+
+fn sync_light_mode(
+    light_mode: Res<LightMode>,
+    mut clear_color: ResMut<ClearColor>,
+) {
+    if !light_mode.is_changed() { return; }
+    match *light_mode {
+        LightMode::Light => {
+            *clear_color = ClearColor(Color::srgb(0.7, 0.8, 0.9));
+        }
+        LightMode::Dark => {
+            *clear_color = ClearColor(Color::srgb(0.05, 0.05, 0.08));
+        }
+    }
 }

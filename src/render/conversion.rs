@@ -1,11 +1,17 @@
 use bevy::prelude::*;
+use bevy::render::render_resource::PrimitiveTopology;
 use expto::rdmp::{ExMesh, ExTransform};
 
+/// 将协议网格转为 Bevy Mesh3d。
 pub fn proto_mesh_to_bevy(meshes: &mut Assets<Mesh>, proto_mesh: &ExMesh) -> Option<Mesh3d> {
     use expto::rdmp::mesh::ex_mesh::UMesh;
     let bevy_mesh = match &proto_mesh.u_mesh {
         Some(UMesh::Sphere(sphere)) => Mesh3d(meshes.add(Sphere::new(sphere.radius))),
-        Some(UMesh::Point(_point)) => Mesh3d(meshes.add(Sphere::new(0.05))),
+        Some(UMesh::Point(_point)) => {
+            let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
+            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0, 0.0, 0.0]]);
+            Mesh3d(meshes.add(mesh))
+        }
         Some(UMesh::Line(line)) => {
             let start = line.start.as_ref()?;
             let end = line.end.as_ref()?;

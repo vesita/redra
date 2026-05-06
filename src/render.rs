@@ -14,6 +14,7 @@ pub mod scene;
 pub mod framerate;
 pub mod conversion;
 pub mod helpers;
+pub mod coord_system;
 
 pub use crate::assets::materials::{MaterialManager, GenericMaterial, GenericMaterial3d};
 
@@ -24,6 +25,7 @@ pub struct RenderPlugin;
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_plugins(coord_system::CoordSystemPlugin)
             .add_plugins(scene::SceneInitializerPlugin)
             .add_plugins(init::InitPlugin)
             .add_plugins(interaction::InteractionPlugin)

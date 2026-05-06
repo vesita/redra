@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use expto::rdmp::{CommandType, ExMesh, ExTransform, Unit, Tag, ex_object::UObject};
+use redra_geo::axis::AxisConvention;
 
 use crate::data::frame::Inpto;
 use crate::assets::materials::MaterialManager;
@@ -100,6 +101,36 @@ pub fn e2i_transform(transform: ExTransform) -> Transform {
         rotation: Quat::from_euler(EulerRot::XYZ, transform.rx, transform.ry, transform.rz),
         scale: Vec3::new(transform.sx, transform.sy, transform.sz),
     }
+}
+
+/// 将 Bevy Transform 转换为协议 ExTransform
+pub fn i2e_transform(t: Transform) -> ExTransform {
+    let (rx, ry, rz) = t.rotation.to_euler(EulerRot::XYZ);
+    ExTransform {
+        x: t.translation.x,
+        y: t.translation.y,
+        z: t.translation.z,
+        rx, ry, rz,
+        sx: t.scale.x,
+        sy: t.scale.y,
+        sz: t.scale.z,
+    }
+}
+
+/// 通过 redra_geo 管线在不同坐标轴约定间转换 Bevy Transform
+///
+/// 注意：中间的 Transform3 使用等方缩放（f32），
+/// 各向异性缩放信息会丢失（三个轴的平均值）。
+pub fn convert_bevy_transform(
+    t: &Transform,
+    from: AxisConvention,
+    to: AxisConvention,
+) -> Transform {
+    let ext = i2e_transform(*t);
+    let t3 = redra_geo::convert::extransform_to_transform3(&ext);
+    let converted = redra_geo::axis::convert_axis(&t3, from, to);
+    let back_ext = redra_geo::convert::transform3_to_extransform(&converted);
+    e2i_transform(back_ext)
 }
 
 // ==================== Inpto 材质工具 ====================

@@ -9,7 +9,6 @@
 
 use bevy::app::prelude::*;
 use redra_net::NetworkPlugin;
-
 use crate::data::frame::{FrameManagerPlugin, FramePlaybackPlugin, FrameStoragePlugin};
 use crate::assets::fonts::FontPlugin;
 use crate::assets::materials::MaterialManager;
