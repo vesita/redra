@@ -188,21 +188,23 @@ pub fn default_input_map(
         ));
     }
 
-    // Precompute translation vectors to avoid repeated calculations
-    let translation_keys = [
-        (KeyCode::KeyW, Vec3::Z),
-        (KeyCode::KeyA, Vec3::X),
-        (KeyCode::KeyS, -Vec3::Z),
-        (KeyCode::KeyD, -Vec3::X),
-        (KeyCode::ShiftLeft, -Vec3::Y),
-        (KeyCode::Space, Vec3::Y),
-    ];
+    // 仅在光标锁定时处理键盘移动，避免与 UI 快捷键冲突
+    if cursor_locked {
+        let translation_keys = [
+            (KeyCode::KeyW, Vec3::Z),
+            (KeyCode::KeyA, Vec3::X),
+            (KeyCode::KeyS, -Vec3::Z),
+            (KeyCode::KeyD, -Vec3::X),
+            (KeyCode::ShiftLeft, -Vec3::Y),
+            (KeyCode::Space, Vec3::Y),
+        ];
 
-    let dt = 1.0; // Using 1.0 since the translation is already time-adjusted in the control system
-    for (key, dir) in &translation_keys {
-        if keyboard.pressed(*key) {
-            let translation = dt * translate_sensitivity * *dir;
-            messages.write(ControlMessage::TranslateEye(translation));
+        let dt = 1.0; // Using 1.0 since the translation is already time-adjusted in the control system
+        for (key, dir) in &translation_keys {
+            if keyboard.pressed(*key) {
+                let translation = dt * translate_sensitivity * *dir;
+                messages.write(ControlMessage::TranslateEye(translation));
+            }
         }
     }
 }

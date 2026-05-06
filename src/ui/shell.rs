@@ -5,7 +5,7 @@ use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 use crate::data::frame::{FrameManager, PlaybackState, FrameStorage};
 use crate::ui::file_manager::{FileSaveState, files_content};
-use crate::ui::playback_control::playback_content;
+use crate::ui::playback_control::{playback_content, ResetCameraView};
 use crate::ui::axis_adjust::axis_adjust_content;
 use crate::render::coord_system::Handedness;
 use crate::ui::notifications::NotificationCenter;
@@ -65,6 +65,7 @@ fn shell_system(
     storage: Res<FrameStorage>,
     mut notifications: ResMut<NotificationCenter>,
     mut handedness: ResMut<Handedness>,
+    mut reset_camera: ResMut<ResetCameraView>,
     mut light_mode: ResMut<LightMode>,
 ) {
     if cursor_options.grab_mode == bevy::window::CursorGrabMode::Locked {
@@ -185,7 +186,7 @@ fn shell_system(
                     .show(ui, |ui| {
                         match sidebar.active_view {
                             SidebarView::Playback => {
-                                playback_content(ui, &mut frame_manager, &mut playback_state);
+                                playback_content(ui, &mut frame_manager, &mut playback_state, &mut reset_camera);
                             }
                             SidebarView::Files => {
                                 files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);

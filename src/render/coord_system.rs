@@ -22,21 +22,21 @@ pub struct StaticSceneEntity;
 /// 将 Bevy 左手系 Y-up Transform 转换为右手系 Y-up
 ///
 /// Z 反射矩阵 R·q·R⁻¹ 对旋转的作用：
-/// - 绕 X 轴的旋转取反（qy 取反，qw 取反）
-/// - 绕 Y 轴的旋转取反（qx 取反，qw 取反）
+/// - 绕 X 轴的旋转取反（qx 取反，qw 取反）
+/// - 绕 Y 轴的旋转取反（qy 取反，qw 取反）
 /// - 绕 Z 轴的旋转不变
 ///
 /// 位移: (x, y, z) → (x, y, -z)
-/// 旋转: Quat(x, y, z, w) → Quat(x, -y, z, -w)
+/// 旋转: Quat(x, y, z, w) → Quat(-x, -y, z, w)
 /// 缩放: 不变（对称网格无需处理）
 pub fn lh_to_rh_transform(t: Transform) -> Transform {
     Transform {
         translation: Vec3::new(t.translation.x, t.translation.y, -t.translation.z),
         rotation: Quat::from_xyzw(
-            t.rotation.x,
+            -t.rotation.x,
             -t.rotation.y,
             t.rotation.z,
-            -t.rotation.w,
+            t.rotation.w,
         ),
         scale: t.scale,
     }
@@ -82,15 +82,27 @@ mod tests {
     }
 
     #[test]
-    fn test_rotation_y_negated() {
+    fn test_rotation_xy_negated() {
         let q = Quat::from_euler(EulerRot::XYZ, 0.5, 1.0, 0.3);
         let t = Transform::default().with_rotation(q);
         let result = apply_handedness(t, Handedness::RightHanded);
-        // Z 反射: x 不变, y 取反, z 不变, w 取反
-        assert!((result.rotation.x - q.x).abs() < 1e-6);
+        // Z 反射: x 取反, y 取反, z 不变, w 不变
+        assert!((result.rotation.x - (-q.x)).abs() < 1e-6);
         assert!((result.rotation.y - (-q.y)).abs() < 1e-6);
         assert!((result.rotation.z - q.z).abs() < 1e-6);
-        assert!((result.rotation.w - (-q.w)).abs() < 1e-6);
+        assert!((result.rotation.w - q.w).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_z_rotation_preserved() {
+        // Z 旋转在 Z 反射下不变
+        let q = Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, std::f32::consts::FRAC_PI_2);
+        let t = Transform::default().with_rotation(q);
+        let result = apply_handedness(t, Handedness::RightHanded);
+        assert!((result.rotation.x - q.x).abs() < 1e-6);
+        assert!((result.rotation.y - q.y).abs() < 1e-6);
+        assert!((result.rotation.z - q.z).abs() < 1e-6);
+        assert!((result.rotation.w - q.w).abs() < 1e-6);
     }
 
     #[test]
