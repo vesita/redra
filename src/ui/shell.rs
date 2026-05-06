@@ -129,6 +129,17 @@ fn shell_system(
 
                 ui.separator();
 
+                // 面向世界中心（底部）
+                if ui
+                    .add(icon_button("◎", false, btn_size))
+                    .on_hover_text("面向世界中心")
+                    .clicked()
+                {
+                    reset_camera.0 = true;
+                }
+
+                ui.add_space(4.0);
+
                 // 环境光切换（底部）
                 let (icon, hover) = match *light_mode {
                     LightMode::Light => ("☀", "明亮模式 (点击切换暗色)"),
@@ -186,7 +197,7 @@ fn shell_system(
                     .show(ui, |ui| {
                         match sidebar.active_view {
                             SidebarView::Playback => {
-                                playback_content(ui, &mut frame_manager, &mut playback_state, &mut reset_camera);
+                                playback_content(ui, &mut frame_manager, &mut playback_state);
                             }
                             SidebarView::Files => {
                                 files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);

@@ -419,6 +419,10 @@ fn file_op_system(
             for (_, entity) in entity_map.map.drain() {
                 commands.entity(entity).despawn();
             }
+            if let Some(pe) = entity_map.points_entity.take() {
+                commands.entity(pe).despawn();
+            }
+            entity_map.points_mesh = None;
             frame_manager.clear();
             for sf in serializable_frames {
                 frame_manager.add_keyframe(KeyFrame::from(sf));
@@ -456,6 +460,10 @@ fn clear_all_data_system(
     for (_, entity) in entity_map.map.drain() {
         commands.entity(entity).despawn();
     }
+    if let Some(pe) = entity_map.points_entity.take() {
+        commands.entity(pe).despawn();
+    }
+    entity_map.points_mesh = None;
     frame_manager.clear();
 
     notifications.notify(

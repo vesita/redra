@@ -19,6 +19,8 @@ pub struct EntityMap {
     pub map: HashMap<u64, Entity>,
     pub points_entity: Option<Entity>,
     pub points_mesh: Option<Handle<Mesh>>,
+    /// 缓存上一帧的点云位置，用于 dirty check
+    cached_positions: Vec<[f32; 3]>,
 }
 
 impl EntityMap {
@@ -26,6 +28,7 @@ impl EntityMap {
         self.map.clear();
         self.points_entity = None;
         self.points_mesh = None;
+        self.cached_positions.clear();
     }
 }
 
@@ -134,6 +137,7 @@ fn update_aggregated_points(
             commands.entity(entity).despawn();
         }
         entity_map.points_mesh = None;
+        entity_map.cached_positions.clear();
         return;
     }
 
@@ -141,8 +145,17 @@ fn update_aggregated_points(
         let converted = apply_handedness(Transform::from_translation(*p), handedness);
         [converted.translation.x, converted.translation.y, converted.translation.z]
     }).collect();
+
+    // dirty check：点数据未变时跳过 mesh 重建
+    if positions == entity_map.cached_positions {
+        return;
+    }
+    entity_map.cached_positions.clone_from(&positions);
+
+    let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; positions.len()];
     let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
 
     // 复用已有 mesh handle，避免每帧重新分配
     if let Some(handle) = &entity_map.points_mesh {
@@ -171,10 +184,16 @@ fn update_entity_transform(
     handedness: Handedness,
     hidden_query: &Query<(), With<Hidden>>,
 ) {
+    // 实体可能在同一帧被其他系统（如文件加载）despawn，需要先检查有效性
+    let Ok(mut ec) = commands.get_entity(entity) else { return };
     let render_transform = apply_handedness(*transform, handedness);
     let has_hidden = hidden_query.get(entity).is_ok();
-    commands.entity(entity).insert(render_transform);
-    if has_hidden { commands.entity(entity).insert(Hidden); }
+    ec.insert(render_transform);
+    if has_hidden {
+        if let Ok(mut ec) = commands.get_entity(entity) {
+            ec.insert(Hidden);
+        }
+    }
 }
 
 fn cleanup_removed_entities(
@@ -186,7 +205,9 @@ fn cleanup_removed_entities(
     for (&entity_id, &entity) in entity_map.iter() {
         if !current_entity_ids.contains_key(&entity_id) {
             removed_ids.push(entity_id);
-            commands.entity(entity).despawn();
+            if let Ok(mut ec) = commands.get_entity(entity) {
+                ec.despawn();
+            }
         }
     }
     for entity_id in removed_ids { entity_map.remove(&entity_id); }

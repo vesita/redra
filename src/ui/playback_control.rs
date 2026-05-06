@@ -60,7 +60,6 @@ pub fn playback_content(
     ui: &mut egui::Ui,
     frame_manager: &mut FrameManager,
     playback_state: &mut PlaybackState,
-    reset_camera: &mut ResetCameraView,
 ) {
     let total_frames = frame_manager.total_frames();
     let current_frame = frame_manager.current_frame_index();
@@ -155,36 +154,28 @@ pub fn playback_content(
 
     ui.separator();
 
-    // 跳转
+    // 跳转 — 进度条 + 输入框
+    ui.label("跳转:");
     ui.horizontal(|ui| {
-        ui.label("跳转:");
         let mut frame_idx = current_frame as i32;
+        let slider = egui::Slider::new(&mut frame_idx, 0..=(total_frames as i32 - 1))
+            .show_value(false);
+        if ui.add(slider).changed() {
+            frame_manager.seek_to_frame(frame_idx.max(0) as usize);
+        }
+        let mut edit_idx = current_frame as i32;
         if ui
             .add(
-                egui::DragValue::new(&mut frame_idx)
+                egui::DragValue::new(&mut edit_idx)
                     .range(0..=(total_frames as i32 - 1))
                     .speed(1)
                     .suffix(format!(" / {}", total_frames - 1)),
             )
             .changed()
         {
-            frame_manager.seek_to_frame(frame_idx.max(0) as usize);
+            frame_manager.seek_to_frame(edit_idx.max(0) as usize);
         }
     });
-
-    ui.separator();
-
-    // 视角控制
-    if ui
-        .add(
-            egui::Button::new("🎯 面向世界中心")
-                .min_size(egui::vec2(240.0, 32.0))
-                .fill(egui::Color32::from_rgb(60, 130, 60)),
-        )
-        .clicked()
-    {
-        reset_camera.0 = true;
-    }
 
     ui.separator();
     ui.collapsing("快捷键", |ui| {

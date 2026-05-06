@@ -155,6 +155,14 @@ impl RdraWriter {
     pub fn frame_count(&self) -> usize {
         self.keyframes.len()
     }
+
+    /// 清空所有帧和实体数据，释放内存
+    pub fn clear(&mut self) {
+        self.entities.clear();
+        self.keyframes.clear();
+        self.next_auto_id = 1;
+        self.timestamp = 0;
+    }
 }
 
 impl Default for RdraWriter {
