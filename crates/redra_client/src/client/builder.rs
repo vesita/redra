@@ -9,19 +9,35 @@ use nalgebra::{UnitQuaternion, Vector3};
 
 use super::link::get_link;
 
+// ─── 分组点云 ──────────────────────────────────────────────
+
+/// 一组共享材质的点
+pub struct PointGroup {
+    pub points: Vec<[f32; 3]>,
+    pub material: String,
+}
+
 // ─── ShapeBuilder ────────────────────────────────────────────
 
 /// 实体构建器，支持链式配置 ID、位置、缩放、材质、标签后一次性发送。
 ///
+/// 也支持分组点云（`point_cloud_grouped()`），按材质分组发送点云。
+///
 /// ```no_run
 /// use redra_client::ShapeBuilder;
 ///
-/// // 完整示例
+/// // 单个实体
 /// ShapeBuilder::sphere(1.0)
 ///     .id(42)
 ///     .at(1.0, 2.0, 3.0)
 ///     .material("red")
 ///     .tag("我的球体")
+///     .send().await.unwrap();
+///
+/// // 分组点云
+/// ShapeBuilder::point_cloud_grouped()
+///     .group(vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], "red")
+///     .group(vec![[0.0, 1.0, 0.0]], "blue")
 ///     .send().await.unwrap();
 /// ```
 pub struct ShapeBuilder {
@@ -32,10 +48,32 @@ pub struct ShapeBuilder {
     pub(crate) sx: f32, pub(crate) sy: f32, pub(crate) sz: f32,
     pub(crate) material: Option<String>,
     pub(crate) tag: Option<Tag>,
+    pub(crate) groups: Option<Vec<PointGroup>>,
 }
 
 impl ShapeBuilder {
     // ─── 形状构造 ─────────────────────────────────────────
+
+    /// 分组点云构建器 — 按材质分组发送点云，不同组渲染为不同颜色
+    pub fn point_cloud_grouped() -> Self {
+        ShapeBuilder {
+            id: None,
+            mesh: ExMesh { u_mesh: None },
+            tx: 0.0, ty: 0.0, tz: 0.0,
+            rx: 0.0, ry: 0.0, rz: 0.0,
+            sx: 1.0, sy: 1.0, sz: 1.0,
+            material: None, tag: None,
+            groups: Some(Vec::new()),
+        }
+    }
+
+    /// 添加一组点（材质名如 `"red"` 或 `"cluster_01"` 等）
+    pub fn group(mut self, points: Vec<[f32; 3]>, material: impl Into<String>) -> Self {
+        if let Some(ref mut groups) = self.groups {
+            groups.push(PointGroup { points, material: material.into() });
+        }
+        self
+    }
 
     /// 球体（半径）
     pub fn sphere(radius: f32) -> Self {
@@ -82,6 +120,7 @@ impl ShapeBuilder {
             sx: 1.0, sy: 1.0, sz: 1.0,
             material: None,
             tag: None,
+            groups: None,
         }
     }
 
@@ -122,6 +161,7 @@ impl ShapeBuilder {
             sx: 1.0, sy: 1.0, sz: 1.0,
             material: None,
             tag: None,
+            groups: None,
         }
     }
 
@@ -175,6 +215,32 @@ impl ShapeBuilder {
 
     /// 构建 Unit 并发送
     pub async fn send(self) -> Result<(), String> {
+        // 分组点云模式：每组一个 Unit，共享材质
+        if let Some(groups) = self.groups {
+            let link = get_link().await;
+            let mut id_counter: u64 = 1;
+            for group in &groups {
+                let mut unit = generate_unit();
+                for pos in &group.points {
+                    unit.objects.push(ExObject::from(id_counter));
+                    id_counter += 1;
+                    let p: Point = (pos[0], pos[1], pos[2]).into();
+                    unit.objects.push(ExObject::from(ExMesh::from(p)));
+                    unit.objects.push(ExObject::from(ExTransform {
+                        x: pos[0], y: pos[1], z: pos[2],
+                        rx: 0.0, ry: 0.0, rz: 0.0,
+                        sx: 1.0, sy: 1.0, sz: 1.0,
+                    }));
+                    use expto::rdmp::ex_object::UObject;
+                    unit.objects.push(ExObject { u_object: Some(UObject::MaterialId(group.material.clone())) });
+                }
+                let buf = encode(&unit).map_err(|e| format!("{}", e))?;
+                link.send(&buf).await?;
+            }
+            return Ok(());
+        }
+
+        // 单实体模式
         let mut unit = generate_unit();
 
         if let Some(id) = self.id {
@@ -212,6 +278,7 @@ impl ShapeBuilder {
             rx: 0.0, ry: 0.0, rz: 0.0,
             sx: 1.0, sy: 1.0, sz: 1.0,
             material: None, tag: None,
+            groups: None,
         }
     }
 }

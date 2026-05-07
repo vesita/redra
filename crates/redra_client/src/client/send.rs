@@ -308,6 +308,48 @@ pub async fn send_cube_with_tag(
     Ok(())
 }
 
+/// 批量发送带材质分组的点云
+///
+/// 每组点共享同一材质，不同组可使用不同颜色。
+/// 每组生成一个独立的 Unit 消息。
+///
+/// # 参数
+/// * `groups` - 切片，每个元素为 `(点云数组, 材质名)`
+///
+/// # 示例
+/// ```no_run
+/// use redra_client::send_point_cloud_grouped;
+///
+/// let ground = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]];
+/// let obstacle = vec![[0.5, 1.0, 0.0]];
+/// send_point_cloud_grouped(&[(&ground, "red"), (&obstacle, "blue")]).await.unwrap();
+/// ```
+pub async fn send_point_cloud_grouped(
+    groups: &[(&[[f32; 3]], &str)],
+) -> Result<(), String> {
+    let link = get_link().await;
+    let mut id_counter: u64 = 1;
+    for &(points, material) in groups {
+        let mut unit = generate_unit();
+        for pos in points {
+            unit.objects.push(ExObject::from(id_counter));
+            id_counter += 1;
+            let p: Point = (pos[0], pos[1], pos[2]).into();
+            unit.objects.push(ExObject::from(ExMesh::from(p)));
+            unit.objects.push(ExObject::from(ExTransform {
+                x: pos[0], y: pos[1], z: pos[2],
+                rx: 0.0, ry: 0.0, rz: 0.0,
+                sx: 1.0, sy: 1.0, sz: 1.0,
+            }));
+            use expto::rdmp::ex_object::UObject;
+            unit.objects.push(ExObject { u_object: Some(UObject::MaterialId(material.to_string())) });
+        }
+        let buf = encode(&unit).map_err(|e| format!("{}", e))?;
+        link.send(&buf).await?;
+    }
+    Ok(())
+}
+
 // ==================== 材质 & 控制 API ====================
 
 /// 更新已有实体的材质

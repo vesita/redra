@@ -14,22 +14,29 @@ use crate::ui::file_manager::FileOpSet;
 #[derive(Component, Default)]
 pub struct Hidden;
 
+/// 单个点云组的缓存
+struct PointGroupCache {
+    entity: Entity,
+    mesh_handle: Handle<Mesh>,
+    cached_positions: Vec<[f32; 3]>,
+}
+
 /// 实体映射资源
 #[derive(Resource, Default)]
 pub struct EntityMap {
     pub map: HashMap<u64, Entity>,
-    pub points_entity: Option<Entity>,
-    pub points_mesh: Option<Handle<Mesh>>,
-    /// 缓存上一帧的点云位置，用于 dirty check
-    cached_positions: Vec<[f32; 3]>,
+    point_groups: HashMap<String, PointGroupCache>,
 }
 
 impl EntityMap {
     pub fn clear(&mut self) {
         self.map.clear();
-        self.points_entity = None;
-        self.points_mesh = None;
-        self.cached_positions.clear();
+        self.point_groups.clear();
+    }
+
+    /// 取出所有点云组实体（用于外部 despawn）
+    pub fn drain_point_group_entities(&mut self) -> Vec<Entity> {
+        self.point_groups.drain().map(|(_, cache)| cache.entity).collect()
     }
 }
 
@@ -65,21 +72,28 @@ fn render_current_frame(
 
     log::debug!("渲染第 {} 帧，包含 {} 个实体", frame_manager.current_frame_index(), keyframe.entity_count());
 
-    let mut points: Vec<Vec3> = Vec::new();
+    let mut point_groups: HashMap<String, Vec<Vec3>> = HashMap::new();
     let mut non_point_ids: HashMap<u64, &Inpto> = HashMap::new();
 
     for (entity_id, inpto) in keyframe.iter_entities() {
         if let Some(UMesh::Point(p)) = &inpto.mesh.u_mesh {
-            points.push(Vec3::new(p.x, p.y, p.z));
+            let material = if inpto.material.is_empty() {
+                "materials/mesh_types/point.toml".to_string()
+            } else {
+                inpto.material_path()
+            };
+            let pos = apply_coord_system(Transform::from_xyz(p.x, p.y, p.z), *handedness).translation;
+            point_groups.entry(material).or_default().push(Vec3::new(pos.x, pos.y, pos.z));
         } else {
             non_point_ids.insert(entity_id, inpto);
         }
     }
 
-    if points.is_empty() && !non_point_ids.is_empty() {
+    let total_points: usize = point_groups.values().map(|v| v.len()).sum();
+    if total_points == 0 && !non_point_ids.is_empty() {
         log::warn!("帧 {} 包含 {} 个非 Point 实体，但无 Point 实体", frame_manager.current_frame_index(), non_point_ids.len());
-    } else if !points.is_empty() {
-        log::debug!("帧 {} 包含 {} 个 Point + {} 个非 Point 实体", frame_manager.current_frame_index(), points.len(), non_point_ids.len());
+    } else if total_points > 0 {
+        log::debug!("帧 {} 包含 {} 个 Point ({} 组) + {} 个非 Point 实体", frame_manager.current_frame_index(), total_points, point_groups.len(), non_point_ids.len());
     }
 
     cleanup_removed_entities(&mut commands, &non_point_ids, &mut entity_map.map);
@@ -94,8 +108,8 @@ fn render_current_frame(
         }
     }
 
-    // 聚合所有 Point 为单个 PointList mesh
-    update_aggregated_points(&mut commands, &mut meshes, &asset_server, &material_manager, &mut entity_map, &points, *handedness);
+    // 按材质分组聚合 Point 为独立 PointList mesh
+    update_point_groups(&mut commands, &mut meshes, &asset_server, &material_manager, &mut entity_map, &point_groups);
 
     log::debug!("当前可拾取实体数量: {}", pickable_check_query.iter().count());
     for (entity, name, pickable) in pickable_check_query.iter() {
@@ -142,62 +156,73 @@ fn spawn_entity_from_inpto(
     .id()
 }
 
-/// 聚合所有 Point 位置为单个 PointList mesh，1 次 draw call 渲染
-fn update_aggregated_points(
+/// 按材质分组聚合 Point 为独立 PointList mesh，每组 1 次 draw call
+fn update_point_groups(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
     entity_map: &mut EntityMap,
-    points: &[Vec3],
-    handedness: CoordSystem,
+    point_groups: &HashMap<String, Vec<Vec3>>,
 ) {
-    if points.is_empty() {
-        if let Some(entity) = entity_map.points_entity.take() {
-            commands.entity(entity).despawn();
+    // 收集当前帧存在的组，清理不再存在的组
+    let mut removed_keys = Vec::new();
+    for (key, _cache) in &entity_map.point_groups {
+        if !point_groups.contains_key(key) {
+            removed_keys.push(key.clone());
         }
-        entity_map.points_mesh = None;
-        entity_map.cached_positions.clear();
-        return;
     }
-
-    let positions: Vec<[f32; 3]> = points.iter().map(|p| {
-        let converted = apply_coord_system(Transform::from_translation(*p), handedness);
-        [converted.translation.x, converted.translation.y, converted.translation.z]
-    }).collect();
-
-    // dirty check：点数据未变时跳过 mesh 重建
-    if positions == entity_map.cached_positions {
-        return;
-    }
-    entity_map.cached_positions.clone_from(&positions);
-
-    let n_points = positions.len();
-    let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; n_points];
-    let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-
-    // 复用已有 mesh handle，避免每帧重新分配
-    if let Some(handle) = &entity_map.points_mesh {
-        if let Some(mesh_ref) = meshes.get_mut(handle) {
-            *mesh_ref = mesh;
-            log::debug!("更新聚合点云 mesh，{} 个点", n_points);
-            return;
+    for key in removed_keys {
+        if let Some(cache) = entity_map.point_groups.remove(&key) {
+            if let Ok(mut ec) = commands.get_entity(cache.entity) {
+                ec.despawn();
+            }
+            log::debug!("移除点云组: {}", key);
         }
     }
 
-    let handle = meshes.add(mesh);
-    let material = material_manager.load_generic_material("materials/mesh_types/point.toml", asset_server);
-    log::info!("创建聚合点云实体，包含 {} 个点", n_points);
-    let entity = commands.spawn((
-        Mesh3d(handle.clone()),
-        crate::render::GenericMaterial3d(material),
-        Transform::default(),
-        Name::new("AggregatedPoints"),
-    )).id();
-    entity_map.points_entity = Some(entity);
-    entity_map.points_mesh = Some(handle);
+    for (material, positions) in point_groups {
+        let n_points = positions.len();
+        let coords: Vec<[f32; 3]> = positions.iter().map(|p| [p.x, p.y, p.z]).collect();
+
+        // dirty check：点数据未变时跳过 mesh 重建
+        if let Some(cache) = entity_map.point_groups.get(material) {
+            if cache.cached_positions == coords {
+                continue;
+            }
+        }
+
+        let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; n_points];
+        let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, coords.clone());
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+
+        // 复用已有 mesh handle
+        if let Some(cache) = entity_map.point_groups.get_mut(material) {
+            if let Some(mesh_ref) = meshes.get_mut(&cache.mesh_handle) {
+                *mesh_ref = mesh;
+                cache.cached_positions = coords;
+                log::debug!("更新点云组 {}，{} 个点", material, n_points);
+                continue;
+            }
+        }
+
+        // 新建组实体
+        let handle = meshes.add(mesh);
+        let mat_handle = material_manager.load_generic_material(material, asset_server);
+        log::info!("创建点云组 {}，包含 {} 个点", material, n_points);
+        let entity = commands.spawn((
+            Mesh3d(handle.clone()),
+            crate::render::GenericMaterial3d(mat_handle),
+            Transform::default(),
+            Name::new(format!("PointGroup_{}", material)),
+        )).id();
+        entity_map.point_groups.insert(material.clone(), PointGroupCache {
+            entity,
+            mesh_handle: handle,
+            cached_positions: coords,
+        });
+    }
 }
 
 fn update_entity_transform(

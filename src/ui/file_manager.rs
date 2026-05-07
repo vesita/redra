@@ -453,7 +453,7 @@ fn clear_all_scene(
     for (_, entity) in entity_map.map.drain() {
         commands.entity(entity).despawn();
     }
-    if let Some(pe) = entity_map.points_entity.take() {
+    for pe in entity_map.drain_point_group_entities() {
         commands.entity(pe).despawn();
     }
     entity_map.clear();
@@ -480,7 +480,7 @@ fn clear_all_data_system(
     for (_, entity) in entity_map.map.drain() {
         commands.entity(entity).despawn();
     }
-    if let Some(pe) = entity_map.points_entity.take() {
+    for pe in entity_map.drain_point_group_entities() {
         commands.entity(pe).despawn();
     }
     entity_map.clear();
