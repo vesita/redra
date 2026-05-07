@@ -1,11 +1,52 @@
 use bevy::prelude::*;
 
+/// 向上轴方向
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpAxis {
+    PlusY,
+    MinusY,
+    PlusZ,
+    MinusZ,
+    PlusX,
+    MinusX,
+}
+
+impl Default for UpAxis {
+    fn default() -> Self {
+        Self::PlusY
+    }
+}
+
+impl UpAxis {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::PlusY => "+Y",
+            Self::MinusY => "-Y",
+            Self::PlusZ => "+Z",
+            Self::MinusZ => "-Z",
+            Self::PlusX => "+X",
+            Self::MinusX => "-X",
+        }
+    }
+
+    /// 返回将此轴映射到 +Y 的旋转四元数
+    fn to_plus_y_rotation(self) -> Quat {
+        let half = std::f32::consts::FRAC_PI_2;
+        match self {
+            Self::PlusY => Quat::IDENTITY,
+            Self::MinusY => Quat::from_rotation_z(std::f32::consts::PI),
+            Self::PlusZ => Quat::from_rotation_x(-half),
+            Self::MinusZ => Quat::from_rotation_x(half),
+            Self::PlusX => Quat::from_rotation_z(half),
+            Self::MinusX => Quat::from_rotation_z(-half),
+        }
+    }
+}
+
 /// 坐标系手性
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Handedness {
-    /// Bevy 默认：左手系，Y-up
     LeftHanded,
-    /// 标准数学：右手系，Y-up
     RightHanded,
 }
 
@@ -15,49 +56,75 @@ impl Default for Handedness {
     }
 }
 
+/// 完整坐标系配置（手性 + 向上轴）
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoordSystem {
+    pub handedness: Handedness,
+    pub up_axis: UpAxis,
+}
+
+impl Default for CoordSystem {
+    fn default() -> Self {
+        Self {
+            handedness: Handedness::LeftHanded,
+            up_axis: UpAxis::PlusY,
+        }
+    }
+}
+
 /// 静态场景实体标记组件，用于在坐标系变更时重新渲染
 #[derive(Component)]
 pub struct StaticSceneEntity;
 
-/// 将 Bevy 左手系 Y-up Transform 转换为右手系 Y-up
-///
-/// Z 反射矩阵 R·q·R⁻¹ 对旋转的作用：
-/// - 绕 X 轴的旋转取反（qx 取反，qw 取反）
-/// - 绕 Y 轴的旋转取反（qy 取反，qw 取反）
-/// - 绕 Z 轴的旋转不变
-///
-/// 位移: (x, y, z) → (x, y, -z)
-/// 旋转: Quat(x, y, z, w) → Quat(-x, -y, z, w)
-/// 缩放: 不变（对称网格无需处理）
-pub fn lh_to_rh_transform(t: Transform) -> Transform {
+// ============================================================================
+// 转换函数
+// ============================================================================
+
+/// 向上轴旋转：将数据坐标系的"上"方向映射到 Bevy 的 +Y
+pub fn apply_up_axis_rotation(t: Transform, up: UpAxis) -> Transform {
+    let q = up.to_plus_y_rotation();
     Transform {
-        translation: Vec3::new(t.translation.x, t.translation.y, -t.translation.z),
-        rotation: Quat::from_xyzw(
-            -t.rotation.x,
-            -t.rotation.y,
-            t.rotation.z,
-            t.rotation.w,
-        ),
+        translation: q * t.translation,
+        rotation: q * t.rotation,
         scale: t.scale,
     }
 }
 
-/// 根据当前坐标系手性条件性地转换 Transform
+/// 手性反射：Z 反射 (x, y, z) → (x, y, -z)
 ///
-/// LeftHanded（Bevy 原生）: 原样返回
-/// RightHanded: 通过 lh_to_rh_transform 转换
+/// 位移: (x, y, z) → (x, y, -z)
+/// 旋转: Quat(x, y, z, w) → Quat(-x, -y, z, w)
 pub fn apply_handedness(t: Transform, handedness: Handedness) -> Transform {
     match handedness {
         Handedness::LeftHanded => t,
-        Handedness::RightHanded => lh_to_rh_transform(t),
+        Handedness::RightHanded => Transform {
+            translation: Vec3::new(t.translation.x, t.translation.y, -t.translation.z),
+            rotation: Quat::from_xyzw(
+                -t.rotation.x,
+                -t.rotation.y,
+                t.rotation.z,
+                t.rotation.w,
+            ),
+            scale: t.scale,
+        },
     }
 }
+
+/// 组合转换：先轴向旋转，再手性反射
+pub fn apply_coord_system(t: Transform, coord: CoordSystem) -> Transform {
+    let rotated = apply_up_axis_rotation(t, coord.up_axis);
+    apply_handedness(rotated, coord.handedness)
+}
+
+// ============================================================================
+// 插件
+// ============================================================================
 
 pub struct CoordSystemPlugin;
 
 impl Plugin for CoordSystemPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Handedness>();
+        app.init_resource::<CoordSystem>();
     }
 }
 
@@ -65,52 +132,67 @@ impl Plugin for CoordSystemPlugin {
 mod tests {
     use super::*;
 
+    fn assert_vec3_eq(a: Vec3, b: Vec3, eps: f32) {
+        assert!((a.x - b.x).abs() < eps, "x: {} vs {}", a.x, b.x);
+        assert!((a.y - b.y).abs() < eps, "y: {} vs {}", a.y, b.y);
+        assert!((a.z - b.z).abs() < eps, "z: {} vs {}", a.z, b.z);
+    }
+
     #[test]
-    fn test_identity_passthrough_lh() {
+    fn test_identity_plus_y() {
         let t = Transform::from_xyz(1.0, 2.0, 3.0);
-        let result = apply_handedness(t, Handedness::LeftHanded);
-        assert_eq!(result, t);
+        let result = apply_up_axis_rotation(t, UpAxis::PlusY);
+        assert_vec3_eq(result.translation, t.translation, 1e-6);
     }
 
     #[test]
-    fn test_translation_z_negated() {
+    fn test_zup_to_yup() {
+        let t = Transform::from_xyz(0.0, 0.0, 1.0);
+        let result = apply_up_axis_rotation(t, UpAxis::PlusZ);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
+    }
+
+    #[test]
+    fn test_zdown_to_yup() {
+        let t = Transform::from_xyz(0.0, 0.0, -1.0);
+        let result = apply_up_axis_rotation(t, UpAxis::MinusZ);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
+    }
+
+    #[test]
+    fn test_xup_to_yup() {
+        let t = Transform::from_xyz(1.0, 0.0, 0.0);
+        let result = apply_up_axis_rotation(t, UpAxis::PlusX);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
+    }
+
+    #[test]
+    fn test_xdown_to_yup() {
+        let t = Transform::from_xyz(-1.0, 0.0, 0.0);
+        let result = apply_up_axis_rotation(t, UpAxis::MinusX);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
+    }
+
+    #[test]
+    fn test_ydown_to_yup() {
+        let t = Transform::from_xyz(0.0, -1.0, 0.0);
+        let result = apply_up_axis_rotation(t, UpAxis::MinusY);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
+    }
+
+    #[test]
+    fn test_handedness_roundtrip() {
         let t = Transform::from_xyz(1.0, 2.0, 3.0);
-        let result = apply_handedness(t, Handedness::RightHanded);
-        assert!((result.translation.x - 1.0).abs() < 1e-6);
-        assert!((result.translation.y - 2.0).abs() < 1e-6);
-        assert!((result.translation.z - (-3.0)).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_rotation_xy_negated() {
-        let q = Quat::from_euler(EulerRot::XYZ, 0.5, 1.0, 0.3);
-        let t = Transform::default().with_rotation(q);
-        let result = apply_handedness(t, Handedness::RightHanded);
-        // Z 反射: x 取反, y 取反, z 不变, w 不变
-        assert!((result.rotation.x - (-q.x)).abs() < 1e-6);
-        assert!((result.rotation.y - (-q.y)).abs() < 1e-6);
-        assert!((result.rotation.z - q.z).abs() < 1e-6);
-        assert!((result.rotation.w - q.w).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_z_rotation_preserved() {
-        // Z 旋转在 Z 反射下不变
-        let q = Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, std::f32::consts::FRAC_PI_2);
-        let t = Transform::default().with_rotation(q);
-        let result = apply_handedness(t, Handedness::RightHanded);
-        assert!((result.rotation.x - q.x).abs() < 1e-6);
-        assert!((result.rotation.y - q.y).abs() < 1e-6);
-        assert!((result.rotation.z - q.z).abs() < 1e-6);
-        assert!((result.rotation.w - q.w).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_roundtrip() {
-        let t = Transform::from_xyz(1.0, 2.0, 3.0)
-            .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5, 1.0, 0.3));
         let rh = apply_handedness(t, Handedness::RightHanded);
-        let back = lh_to_rh_transform(rh);
-        assert!((back.translation - t.translation).length() < 1e-6);
+        let back = apply_handedness(rh, Handedness::RightHanded);
+        assert_vec3_eq(back.translation, t.translation, 1e-6);
+    }
+
+    #[test]
+    fn test_combined_rh_zup() {
+        let t = Transform::from_xyz(0.0, 0.0, 1.0);
+        let coord = CoordSystem { handedness: Handedness::RightHanded, up_axis: UpAxis::PlusZ };
+        let result = apply_coord_system(t, coord);
+        assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
     }
 }

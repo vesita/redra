@@ -4,7 +4,7 @@ use crate::assets::materials::MaterialManager;
 use crate::data::protocol;
 use crate::render::helpers;
 use crate::render::interaction::picking::StaticEntity;
-use crate::render::coord_system::{Handedness, apply_handedness, StaticSceneEntity};
+use crate::render::coord_system::{CoordSystem, apply_coord_system, StaticSceneEntity};
 
 /// 静态场景初始化插件
 pub struct SceneInitializerPlugin;
@@ -21,7 +21,7 @@ fn initialize_static_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
-    handedness: Res<Handedness>,
+    handedness: Res<CoordSystem>,
 ) {
     let config_path = "assets/init/default_scene.toml";
     log::info!("开始加载静态场景配置...");
@@ -58,13 +58,13 @@ fn render_static_entities(
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
     keyframe: &crate::data::frame::KeyFrame,
-    handedness: Handedness,
+    handedness: CoordSystem,
 ) {
     for (entity_id, inpto) in keyframe.iter_entities() {
         let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
             .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体 (实体 {})", entity_id); Mesh3d(meshes.add(Sphere::new(0.1))) });
         let material_handle = protocol::inpto_to_generic_material(inpto, material_manager, asset_server);
-        let render_transform = apply_handedness(inpto.transform, handedness);
+        let render_transform = apply_coord_system(inpto.transform, handedness);
 
         commands.spawn((
             mesh_handle,
@@ -82,7 +82,7 @@ fn spawn_default_axes(
     meshes: &mut Assets<Mesh>,
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
-    handedness: Handedness,
+    handedness: CoordSystem,
 ) {
     use expto::rdmp::{ExMesh, ExTransform, mesh::ex_mesh::UMesh};
 
@@ -128,9 +128,9 @@ fn rerender_static_on_handedness_change(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
-    handedness: Res<Handedness>,
+    handedness: Res<CoordSystem>,
     static_entities: Query<Entity, With<StaticSceneEntity>>,
-    mut prev: Local<Handedness>,
+    mut prev: Local<CoordSystem>,
 ) {
     if *prev == *handedness {
         return;

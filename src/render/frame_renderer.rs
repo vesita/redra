@@ -7,7 +7,7 @@ use expto::rdmp::mesh::ex_mesh::UMesh;
 use crate::data::frame::{FrameManager, Inpto};
 use crate::assets::materials::MaterialManager;
 use crate::render::interaction::picking::PickableEntity;
-use crate::render::coord_system::{Handedness, apply_handedness};
+use crate::render::coord_system::{CoordSystem, apply_coord_system};
 use crate::ui::file_manager::FileOpSet;
 
 /// 隐藏标记组件
@@ -15,30 +15,13 @@ use crate::ui::file_manager::FileOpSet;
 pub struct Hidden;
 
 /// 实体映射资源
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct EntityMap {
     pub map: HashMap<u64, Entity>,
     pub points_entity: Option<Entity>,
     pub points_mesh: Option<Handle<Mesh>>,
     /// 缓存上一帧的点云位置，用于 dirty check
     cached_positions: Vec<[f32; 3]>,
-    /// 每次 clear 递增，用于跳过 despawn 命令生效帧
-    generation: u64,
-    /// render_current_frame 上次处理的 generation
-    last_rendered_generation: u64,
-}
-
-impl Default for EntityMap {
-    fn default() -> Self {
-        Self {
-            map: HashMap::new(),
-            points_entity: None,
-            points_mesh: None,
-            cached_positions: Vec::new(),
-            generation: 0,
-            last_rendered_generation: 0,
-        }
-    }
 }
 
 impl EntityMap {
@@ -47,7 +30,6 @@ impl EntityMap {
         self.points_entity = None;
         self.points_mesh = None;
         self.cached_positions.clear();
-        self.generation += 1;
     }
 }
 
@@ -71,18 +53,11 @@ fn render_current_frame(
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
     frame_manager: Res<FrameManager>,
-    handedness: Res<Handedness>,
+    handedness: Res<CoordSystem>,
     mut entity_map: ResMut<EntityMap>,
     pickable_check_query: Query<(Entity, &Name, &PickableEntity)>,
     hidden_query: Query<(), With<Hidden>>,
 ) {
-    // 文件加载/清空后跳过一帧，等 despawn 命令实际生效
-    if entity_map.generation != entity_map.last_rendered_generation {
-        entity_map.last_rendered_generation = entity_map.generation;
-        log::debug!("跳过渲染，等待 despawn 命令生效 (generation {})", entity_map.generation);
-        return;
-    }
-
     let Some(keyframe) = frame_manager.get_current_keyframe() else {
         log::debug!("当前无可用帧数据");
         return;
@@ -130,13 +105,13 @@ fn spawn_entity_from_inpto(
     material_manager: &MaterialManager,
     inpto: &Inpto,
     entity_id: u64,
-    handedness: Handedness,
+    handedness: CoordSystem,
 ) -> Entity {
     let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
         .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体 (实体 {})", entity_id); Mesh3d(meshes.add(Sphere::new(0.1))) });
 
     let material_handle = material_manager.load_generic_material(&inpto.material_path(), asset_server);
-    let render_transform = apply_handedness(inpto.transform, handedness);
+    let render_transform = apply_coord_system(inpto.transform, handedness);
 
     commands.spawn((
         mesh_handle,
@@ -159,7 +134,7 @@ fn update_aggregated_points(
     material_manager: &MaterialManager,
     entity_map: &mut EntityMap,
     points: &[Vec3],
-    handedness: Handedness,
+    handedness: CoordSystem,
 ) {
     if points.is_empty() {
         if let Some(entity) = entity_map.points_entity.take() {
@@ -171,7 +146,7 @@ fn update_aggregated_points(
     }
 
     let positions: Vec<[f32; 3]> = points.iter().map(|p| {
-        let converted = apply_handedness(Transform::from_translation(*p), handedness);
+        let converted = apply_coord_system(Transform::from_translation(*p), handedness);
         [converted.translation.x, converted.translation.y, converted.translation.z]
     }).collect();
 
@@ -210,12 +185,12 @@ fn update_entity_transform(
     commands: &mut Commands,
     entity: Entity,
     transform: &Transform,
-    handedness: Handedness,
+    handedness: CoordSystem,
     hidden_query: &Query<(), With<Hidden>>,
 ) {
     // 实体可能在同一帧被其他系统（如文件加载）despawn，需要先检查有效性
     let Ok(mut ec) = commands.get_entity(entity) else { return };
-    let render_transform = apply_handedness(*transform, handedness);
+    let render_transform = apply_coord_system(*transform, handedness);
     let has_hidden = hidden_query.get(entity).is_ok();
     ec.insert(render_transform);
     if has_hidden {
