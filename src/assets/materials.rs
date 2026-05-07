@@ -5,6 +5,9 @@ use std::collections::HashMap;
 pub use bevy_materialize::prelude::{GenericMaterial, GenericMaterial3d};
 
 /// 材质管理器 — 管理 material_id 到材质文件路径的映射
+///
+/// 支持分类访问：`manager.base("red")`、`manager.cluster(1)`、`manager.semantic("alert")`
+/// 支持自省：`manager.list_materials()` 返回所有已注册材质的分类列表
 #[derive(Resource)]
 pub struct MaterialManager {
     pub material_id_map: HashMap<String, String>,
@@ -14,79 +17,127 @@ impl Default for MaterialManager {
     fn default() -> Self { Self::new() }
 }
 
+// ─── 注册辅助宏 ──────────────────────────────────────────────
+
+/// 批量注册特殊映射（路径不遵循 `materials/{category}/{name}.toml` 规则）
+macro_rules! register_special {
+    ($self:ident, { $( ($name:expr, $path:expr) ),+ $(,)? }) => {
+        $( $self.material_id_map.insert($name.to_string(), $path.to_string()); )+
+    };
+}
+
 impl MaterialManager {
     pub fn new() -> Self {
         let mut manager = MaterialManager { material_id_map: HashMap::new() };
         manager.register_default_material_id_mappings();
-        info!("材质管理器初始化完成（使用 bevy_materialize）");
+        info!("材质管理器初始化完成（{} 个已注册材质）", manager.material_id_map.len());
         manager
     }
 
-    fn register_default_material_id_mappings(&mut self) {
-        // 基础颜色材质
-        self.material_id_map.insert("red".to_string(), "materials/base/red.toml".to_string());
-        self.material_id_map.insert("green".to_string(), "materials/base/green.toml".to_string());
-        self.material_id_map.insert("blue".to_string(), "materials/base/blue.toml".to_string());
-        self.material_id_map.insert("white".to_string(), "materials/base/white.toml".to_string());
-        self.material_id_map.insert("yellow".to_string(), "materials/base/yellow.toml".to_string());
-        self.material_id_map.insert("cyan".to_string(), "materials/base/cyan.toml".to_string());
-        self.material_id_map.insert("magenta".to_string(), "materials/base/magenta.toml".to_string());
-
-        // 网格类型专用材质
-        self.material_id_map.insert("point".to_string(), "materials/mesh_types/point.toml".to_string());
-        self.material_id_map.insert("line".to_string(), "materials/mesh_types/line.toml".to_string());
-        self.material_id_map.insert("sphere".to_string(), "materials/mesh_types/sphere.toml".to_string());
-        self.material_id_map.insert("cylinder".to_string(), "materials/mesh_types/cylinder.toml".to_string());
-        self.material_id_map.insert("cone".to_string(), "materials/mesh_types/cone.toml".to_string());
-        self.material_id_map.insert("cube".to_string(), "materials/default.toml".to_string());
-
-        // 特殊效果材质
-        self.material_id_map.insert("metal".to_string(), "materials/effects/metal.toml".to_string());
-        self.material_id_map.insert("glass".to_string(), "materials/effects/glass.toml".to_string());
-        self.material_id_map.insert("glow".to_string(), "materials/effects/glow.toml".to_string());
-        self.material_id_map.insert("matte".to_string(), "materials/effects/matte.toml".to_string());
-        self.material_id_map.insert("plastic".to_string(), "materials/effects/plastic.toml".to_string());
-        self.material_id_map.insert("wood".to_string(), "materials/effects/wood.toml".to_string());
-
-        // 坐标轴材质
-        self.material_id_map.insert("axis_x".to_string(), "materials/axes/x_axis.toml".to_string());
-        self.material_id_map.insert("axis_y".to_string(), "materials/axes/y_axis.toml".to_string());
-        self.material_id_map.insert("axis_z".to_string(), "materials/axes/z_axis.toml".to_string());
-
-        // UI 材质
-        self.material_id_map.insert("wireframe".to_string(), "materials/ui/wireframe.toml".to_string());
-        self.material_id_map.insert("highlight".to_string(), "materials/ui/highlight.toml".to_string());
-        self.material_id_map.insert("disabled".to_string(), "materials/ui/disabled.toml".to_string());
-
-        // 默认材质
-        self.material_id_map.insert("default".to_string(), "materials/default.toml".to_string());
-
-        // 聚类色板（12 种感知均匀色，30° 色相间隔）
-        self.material_id_map.insert("cluster_01".to_string(), "materials/data/cluster_01.toml".to_string());
-        self.material_id_map.insert("cluster_02".to_string(), "materials/data/cluster_02.toml".to_string());
-        self.material_id_map.insert("cluster_03".to_string(), "materials/data/cluster_03.toml".to_string());
-        self.material_id_map.insert("cluster_04".to_string(), "materials/data/cluster_04.toml".to_string());
-        self.material_id_map.insert("cluster_05".to_string(), "materials/data/cluster_05.toml".to_string());
-        self.material_id_map.insert("cluster_06".to_string(), "materials/data/cluster_06.toml".to_string());
-        self.material_id_map.insert("cluster_07".to_string(), "materials/data/cluster_07.toml".to_string());
-        self.material_id_map.insert("cluster_08".to_string(), "materials/data/cluster_08.toml".to_string());
-        self.material_id_map.insert("cluster_09".to_string(), "materials/data/cluster_09.toml".to_string());
-        self.material_id_map.insert("cluster_10".to_string(), "materials/data/cluster_10.toml".to_string());
-        self.material_id_map.insert("cluster_11".to_string(), "materials/data/cluster_11.toml".to_string());
-        self.material_id_map.insert("cluster_12".to_string(), "materials/data/cluster_12.toml".to_string());
-
-        // 语义色
-        self.material_id_map.insert("point_cloud".to_string(), "materials/semantic/point_cloud.toml".to_string());
-        self.material_id_map.insert("ground".to_string(), "materials/semantic/ground.toml".to_string());
-        self.material_id_map.insert("noise".to_string(), "materials/semantic/noise.toml".to_string());
-        self.material_id_map.insert("bounding_box".to_string(), "materials/semantic/bounding_box.toml".to_string());
-        self.material_id_map.insert("trajectory".to_string(), "materials/semantic/trajectory.toml".to_string());
-        self.material_id_map.insert("selected".to_string(), "materials/semantic/selected.toml".to_string());
-        self.material_id_map.insert("alert".to_string(), "materials/semantic/alert.toml".to_string());
-        self.material_id_map.insert("sky".to_string(), "materials/semantic/sky.toml".to_string());
+    /// 按分类批量注册（路径规则：`materials/{category}/{name}.toml`）
+    fn register_category(&mut self, category: &str, names: &[&str]) {
+        for &name in names {
+            self.material_id_map.insert(
+                name.to_string(),
+                format!("materials/{}/{}.toml", category, name),
+            );
+        }
     }
 
-    // ==================== 对外 API ====================
+    fn register_default_material_id_mappings(&mut self) {
+        // ── 按分类批量注册 ──────────────────────────────────────
+        self.register_category("base", &[
+            "red", "green", "blue", "white", "yellow", "cyan", "magenta",
+        ]);
+        self.register_category("data", &[
+            "cluster_01", "cluster_02", "cluster_03", "cluster_04",
+            "cluster_05", "cluster_06", "cluster_07", "cluster_08",
+            "cluster_09", "cluster_10", "cluster_11", "cluster_12",
+        ]);
+        self.register_category("semantic", &[
+            "point_cloud", "ground", "noise", "bounding_box",
+            "trajectory", "selected", "alert", "sky",
+        ]);
+        self.register_category("effects", &[
+            "metal", "glass", "glow", "matte", "plastic", "wood",
+        ]);
+        self.register_category("mesh_types", &[
+            "point", "line", "sphere", "cylinder", "cone",
+        ]);
+        self.register_category("ui", &[
+            "wireframe", "highlight", "disabled",
+        ]);
+
+        // ── 特殊映射（路径不遵循命名规则）─────────────────────────
+        register_special!(self, {
+            ("default",  "materials/default.toml"),
+            ("cube",     "materials/default.toml"),
+            ("axis_x",   "materials/axes/x_axis.toml"),
+            ("axis_y",   "materials/axes/y_axis.toml"),
+            ("axis_z",   "materials/axes/z_axis.toml"),
+            ("x_axis",   "materials/axes/x_axis.toml"),
+            ("y_axis",   "materials/axes/y_axis.toml"),
+            ("z_axis",   "materials/axes/z_axis.toml"),
+        });
+    }
+
+    // ==================== 分类访问 API ====================
+
+    /// 按分类和名称加载材质
+    pub fn get(&self, category: &str, name: &str, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        let alias = match category {
+            "base" | "data" | "semantic" | "effects" | "mesh_types" | "ui" => name.to_string(),
+            _ => {
+                warn!("未知材质分类 '{}'", category);
+                return asset_server.load::<GenericMaterial>("materials/default.toml");
+            }
+        };
+        self.load_generic_material(&alias, asset_server)
+    }
+
+    /// 基础色加载（`"red"`, `"green"`, `"blue"` 等）
+    pub fn base(&self, name: &str, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        self.load_generic_material(name, asset_server)
+    }
+
+    /// 聚类色板加载（1-based 索引，自动 clamp 到 1..=12）
+    pub fn cluster(&self, index: u8, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        let clamped = index.clamp(1, 12);
+        self.load_generic_material(&format!("cluster_{:02}", clamped), asset_server)
+    }
+
+    /// 语义色加载（`"point_cloud"`, `"ground"`, `"alert"` 等）
+    pub fn semantic(&self, name: &str, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        self.load_generic_material(name, asset_server)
+    }
+
+    /// 效果材质加载（`"metal"`, `"glass"`, `"glow"` 等）
+    pub fn effects(&self, name: &str, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        self.load_generic_material(name, asset_server)
+    }
+
+    /// 列出所有已注册材质（按路径前缀分组）
+    ///
+    /// 返回 `Vec<(分类名, 材质名列表)>`
+    pub fn list_materials(&self) -> Vec<(String, Vec<String>)> {
+        let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+        for (name, path) in &self.material_id_map {
+            let category = path
+                .strip_prefix("materials/")
+                .and_then(|s| s.split('/').next())
+                .unwrap_or("other")
+                .to_string();
+            groups.entry(category).or_default().push(name.clone());
+        }
+        let mut result: Vec<_> = groups.into_iter().collect();
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+        for (_, names) in &mut result {
+            names.sort();
+        }
+        result
+    }
+
+    // ==================== 原有 API（向后兼容）====================
 
     pub fn resolve_material_id(&self, material_id: &str) -> Option<&str> {
         self.material_id_map.get(material_id).map(|s| s.as_str())
