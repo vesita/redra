@@ -1,3 +1,24 @@
+//! 便捷发送函数 — 单行调用构造并发送各类实体
+//!
+//! 本模块提供过程式 API，适合快速原型或简单场景。
+//! 对于需要链式配置 ID、材质、标签的场景，请使用 `ShapeBuilder`（见 `builder` 模块）。
+//!
+//! # 函数一览
+//!
+//! | 函数 | 说明 |
+//! |------|------|
+//! | `send_point` | 单个点 |
+//! | `send_point_cloud` | 批量点云（单 Unit） |
+//! | `send_point_cloud_grouped` | 分组点云（按材质分组） |
+//! | `send_line` | 线段 |
+//! | `send_sphere` | 球体 |
+//! | `send_cylinder` | 圆柱体 |
+//! | `send_cone` | 圆锥体 |
+//! | `send_cube` / `send_cube_with_tag` | 有向包围盒（OBB） |
+//! | `send_tag` / `send_tag_with_style` | 标签 |
+//! | `send_set_material` | 更新实体材质 |
+//! | `send_destroy` | 销毁实体 |
+
 use expto::prelude::*;
 use expto::rdmp::auto::unit::generate_unit;
 use expto::rdmp::{Cube, ExObject, ExMesh, Point, Cylinder, Cone, Tag, TagStyle};
@@ -25,6 +46,10 @@ impl AutoSend4Unit for Unit {
 }
 
 
+/// 发送单个点
+///
+/// # 参数
+/// * `x`, `y`, `z` — 世界坐标
 pub async fn send_point(
     x: f32,
     y: f32,
@@ -79,6 +104,9 @@ pub async fn send_point_cloud(points: &[[f32; 3]]) -> Result<(), String> {
     Ok(())
 }
 
+/// 发送线段（起点 → 终点）
+///
+/// 自动计算中点位置与朝向。起终点距离 < 1e-6 时静默跳过。
 pub async fn send_line(
     x1: f32,
     y1: f32,
@@ -120,6 +148,11 @@ pub async fn send_line(
     Ok(())
 }
 
+/// 发送球体
+///
+/// # 参数
+/// * `x`, `y`, `z` — 球心世界坐标
+/// * `radius` — 半径（必须 > 0）
 pub async fn send_sphere(
     x: f32,
     y: f32,
@@ -136,6 +169,11 @@ pub async fn send_sphere(
     Ok(())
 }
 
+/// 发送圆柱体（原点处，沿 Y 轴）
+///
+/// # 参数
+/// * `radius` — 半径（必须 > 0）
+/// * `height` — 高度（必须 > 0）
 pub async fn send_cylinder(
     radius: f32,
     height: f32,
@@ -149,6 +187,11 @@ pub async fn send_cylinder(
     Ok(())
 }
 
+/// 发送圆锥体（原点处，沿 Y 轴）
+///
+/// # 参数
+/// * `radius` — 底面半径（必须 > 0）
+/// * `height` — 高度（必须 > 0）
 pub async fn send_cone(
     radius: f32,
     height: f32,
@@ -219,11 +262,11 @@ pub async fn send_tag_with_style(
     Ok(())
 }
 
-/// 发送一个包围盒（8 个角点）
+/// 发送一个有向包围盒（8 个角点）
 ///
 /// 用于可视化聚类（cluster）的边界框。
-/// 自动计算 AABB 中心并将实体定位到正确位置。
-/// 顶点顺序约定：底面 4 点逆时针 (0,1,2,3)，顶面 4 点对应 (4,5,6,7)。
+/// 8 个角点可表示任意朝向的 OBB，渲染端保留原始朝向。
+/// 自动计算质心并将实体定位到正确位置。
 ///
 /// **约束**：每个维度（宽/高/深）必须 > 0.001，否则渲染端会拒绝该 mesh。
 /// 对于退化包围盒（点共面/共线/单点），建议改用 `send_sphere` 或 `send_point`。
@@ -232,33 +275,34 @@ pub async fn send_cube(
 ) -> Result<(), String> {
     let mut unit = generate_unit();
 
-    let mut min = [f32::MAX, f32::MAX, f32::MAX];
-    let mut max = [f32::MIN, f32::MIN, f32::MIN];
-    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| {
-        min[0] = min[0].min(x); min[1] = min[1].min(y); min[2] = min[2].min(z);
-        max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
-        Point { x, y, z }
-    }).collect();
+    let n = vertices.len() as f32;
+    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
 
-    let w = max[0] - min[0];
-    let h = max[1] - min[1];
-    let d = max[2] - min[2];
+    let mut min = [f32::MAX; 3];
+    let mut max = [f32::MIN; 3];
+    for p in &points {
+        for i in 0..3 {
+            min[i] = min[i].min([p.x, p.y, p.z][i]);
+            max[i] = max[i].max([p.x, p.y, p.z][i]);
+        }
+    }
+    let dims = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
     let min_dim = crate::defaults::mesh_constraints::MIN_CUBE_DIMENSION;
-    if w < min_dim || h < min_dim || d < min_dim {
+    if dims[0] < min_dim || dims[1] < min_dim || dims[2] < min_dim {
         log::warn!(
             "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，渲染端将拒绝此 mesh。\
              建议对退化包围盒改用 send_sphere 或 send_point。",
-            w, h, d
+            dims[0], dims[1], dims[2]
         );
     }
 
     let cube = Cube { vertices: points };
     unit.objects.push(ExObject::from(ExMesh::from(cube)));
 
-    // 将实体定位到 AABB 中心，使 Cuboid 渲染在正确位置
-    let cx = (min[0] + max[0]) / 2.0;
-    let cy = (min[1] + max[1]) / 2.0;
-    let cz = (min[2] + max[2]) / 2.0;
+    // 质心（与渲染端一致）
+    let cx = vertices.iter().map(|v| v.0).sum::<f32>() / n;
+    let cy = vertices.iter().map(|v| v.1).sum::<f32>() / n;
+    let cz = vertices.iter().map(|v| v.2).sum::<f32>() / n;
     unit.objects.push(ExObject::from(ExTransform {
         x: cx, y: cy, z: cz,
         rx: 0.0, ry: 0.0, rz: 0.0,
@@ -269,31 +313,35 @@ pub async fn send_cube(
     Ok(())
 }
 
-/// 发送带标签的包围盒（聚类用）
+/// 发送带标签的有向包围盒（聚类用）
 ///
-/// 同时发送包围盒几何体和文本标签，便于识别聚类。
-/// 自动计算 AABB 中心并将实体定位到正确位置。
+/// 同时发送 OBB 几何体和文本标签，便于识别聚类。
+/// 自动计算质心并将实体定位到正确位置。
 pub async fn send_cube_with_tag(
     vertices: Vec<(f32, f32, f32)>,
     text: impl Into<String>,
 ) -> Result<(), String> {
     let mut unit = generate_unit();
 
-    let mut min = [f32::MAX, f32::MAX, f32::MAX];
-    let mut max = [f32::MIN, f32::MIN, f32::MIN];
-    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| {
-        min[0] = min[0].min(x); min[1] = min[1].min(y); min[2] = min[2].min(z);
-        max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
-        Point { x, y, z }
-    }).collect();
+    let n = vertices.len() as f32;
+    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
+
+    let mut min = [f32::MAX; 3];
+    let mut max = [f32::MIN; 3];
+    for p in &points {
+        for i in 0..3 {
+            min[i] = min[i].min([p.x, p.y, p.z][i]);
+            max[i] = max[i].max([p.x, p.y, p.z][i]);
+        }
+    }
 
     let cube = Cube { vertices: points };
     unit.objects.push(ExObject::from(ExMesh::from(cube)));
 
-    // 将实体定位到 AABB 中心
-    let cx = (min[0] + max[0]) / 2.0;
-    let cy = (min[1] + max[1]) / 2.0;
-    let cz = (min[2] + max[2]) / 2.0;
+    // 质心（与渲染端一致）
+    let cx = vertices.iter().map(|v| v.0).sum::<f32>() / n;
+    let cy = vertices.iter().map(|v| v.1).sum::<f32>() / n;
+    let cz = vertices.iter().map(|v| v.2).sum::<f32>() / n;
     unit.objects.push(ExObject::from(ExTransform {
         x: cx, y: cy, z: cz,
         rx: 0.0, ry: 0.0, rz: 0.0,

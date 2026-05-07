@@ -197,7 +197,7 @@ fn shell_system(
                     .show(ui, |ui| {
                         match sidebar.active_view {
                             SidebarView::Playback => {
-                                playback_content(ui, &mut frame_manager, &mut playback_state);
+                                playback_content(ui, &mut frame_manager, &mut playback_state, &save_state);
                             }
                             SidebarView::Files => {
                                 files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);

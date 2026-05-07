@@ -1,3 +1,18 @@
+//! Redra 客户端 SDK — 构建并发送 3D 可视化数据到 redra 服务端
+//!
+//! # 两种 API 风格
+//!
+//! - **链式构建器** [`ShapeBuilder`] — 推荐，支持 ID、材质、标签、分组点云
+//! - **便捷函数** [`send_sphere`] / [`send_cube`] 等 — 单行调用，适合快速原型
+//!
+//! # 材质体系
+//!
+//! 通过 [`defaults`] 模块访问预设材质：
+//! - `defaults::base::*` — 7 种基础色（`"red"`, `"green"`, ...）
+//! - `defaults::cluster::*` — 12 种聚类色板（`"cluster_01"` ~ `"cluster_12"`）
+//! - `defaults::semantic::*` — 语义色（`"ground"`, `"alert"`, ...）
+//! - `defaults::effects::*` — 效果材质（`"glass"`, `"metal"`, ...）
+
 pub mod client;
 pub mod defaults;
 

@@ -1,4 +1,46 @@
-//! 实体构建器 — 简化带标签、材质、变换的实体发送
+//! 实体构建器 — 链式 API 构建并发送带标签、材质、变换的实体
+//!
+//! [`ShapeBuilder`] 是 redra 客户端的核心入口，支持所有 mesh 类型的构造与发送。
+//!
+//! # 快速开始
+//!
+//! ```no_run
+//! use redra_client::ShapeBuilder;
+//!
+//! // 单个实体
+//! ShapeBuilder::sphere(1.0)
+//!     .id(42)
+//!     .at(1.0, 2.0, 3.0)
+//!     .material("red")
+//!     .tag("我的球体")
+//!     .send().await.unwrap();
+//!
+//! // 有向包围盒（OBB）
+//! ShapeBuilder::cube(vec![
+//!     (0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
+//!     (1.0, 0.0, 1.0), (0.0, 0.0, 1.0),
+//!     (0.0, 1.0, 0.0), (1.0, 1.0, 0.0),
+//!     (1.0, 1.0, 1.0), (0.0, 1.0, 1.0),
+//! ]).material("bounding_box").send().await.unwrap();
+//!
+//! // 分组点云
+//! ShapeBuilder::point_cloud_grouped()
+//!     .group(vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], "red")
+//!     .group(vec![[0.0, 1.0, 0.0]], "blue")
+//!     .send().await.unwrap();
+//! ```
+//!
+//! # 支持的 mesh 类型
+//!
+//! | 类型 | 构造方法 | 参数 |
+//! |------|---------|------|
+//! | 球体 | `sphere(radius)` | 半径 |
+//! | 圆柱 | `cylinder(radius, height)` | 半径, 高度 |
+//! | 圆锥 | `cone(radius, height)` | 半径, 高度 |
+//! | 点 | `point(x, y, z)` | 坐标 |
+//! | 线段 | `line(x1,y1,z1, x2,y2,z2)` | 起终点 |
+//! | OBB | `cube(vertices)` | 8 个角点 |
+//! | 分组点云 | `point_cloud_grouped()` | `.group()` 链式添加 |
 
 use expto::prelude::*;
 use expto::rdmp::auto::unit::generate_unit;
@@ -26,13 +68,21 @@ pub struct PointGroup {
 /// ```no_run
 /// use redra_client::ShapeBuilder;
 ///
-/// // 单个实体
+/// // 球体
 /// ShapeBuilder::sphere(1.0)
 ///     .id(42)
 ///     .at(1.0, 2.0, 3.0)
 ///     .material("red")
 ///     .tag("我的球体")
 ///     .send().await.unwrap();
+///
+/// // 有向包围盒（OBB）
+/// ShapeBuilder::cube(vec![
+///     (0.0, 0.0, 0.0), (2.0, 0.0, 0.0),
+///     (2.0, 0.0, 1.0), (0.0, 0.0, 1.0),
+///     (0.0, 1.0, 0.0), (2.0, 1.0, 0.0),
+///     (2.0, 1.0, 1.0), (0.0, 1.0, 1.0),
+/// ]).material("bounding_box").send().await.unwrap();
 ///
 /// // 分组点云
 /// ShapeBuilder::point_cloud_grouped()
@@ -54,7 +104,10 @@ pub struct ShapeBuilder {
 impl ShapeBuilder {
     // ─── 形状构造 ─────────────────────────────────────────
 
-    /// 分组点云构建器 — 按材质分组发送点云，不同组渲染为不同颜色
+    /// 分组点云 — 按材质分组，不同组渲染为不同颜色
+    ///
+    /// 每组通过 `.group(points, material)` 添加，最终 `.send()` 一次性发送。
+    /// 适用于聚类可视化、地面/障碍物分离等场景。
     pub fn point_cloud_grouped() -> Self {
         ShapeBuilder {
             id: None,
@@ -67,7 +120,7 @@ impl ShapeBuilder {
         }
     }
 
-    /// 添加一组点（材质名如 `"red"` 或 `"cluster_01"` 等）
+    /// 添加一组共享材质的点（短名称如 `"red"` 或 `"cluster_01"`）
     pub fn group(mut self, points: Vec<[f32; 3]>, material: impl Into<String>) -> Self {
         if let Some(ref mut groups) = self.groups {
             groups.push(PointGroup { points, material: material.into() });
@@ -75,27 +128,27 @@ impl ShapeBuilder {
         self
     }
 
-    /// 球体（半径）
+    /// 球体（`radius` — 半径，必须 > 0）
     pub fn sphere(radius: f32) -> Self {
         Self::new(ExMesh::from(Sphere { location: Some(Point { x: 0.0, y: 0.0, z: 0.0 }), radius }))
     }
 
-    /// 圆柱体（半径, 高度）
+    /// 圆柱体（`radius` — 半径, `height` — 高度，均须 > 0）
     pub fn cylinder(radius: f32, height: f32) -> Self {
         Self::new(ExMesh::from(Cylinder::from((radius, height))))
     }
 
-    /// 圆锥体（半径, 高度）
+    /// 圆锥体（`radius` — 半径, `height` — 高度，均须 > 0）
     pub fn cone(radius: f32, height: f32) -> Self {
         Self::new(ExMesh::from(Cone::from((radius, height))))
     }
 
-    /// 点
+    /// 点（`x`, `y`, `z` — 世界坐标）
     pub fn point(x: f32, y: f32, z: f32) -> Self {
         Self::new(ExMesh::from(Point::from((x, y, z))))
     }
 
-    /// 线段（起点, 终点）— 自动计算中点变换
+    /// 线段（起点 `(x1,y1,z1)` → 终点 `(x2,y2,z2)`）— 自动计算中点与朝向
     pub fn line(x1: f32, y1: f32, z1: f32, x2: f32, y2: f32, z2: f32) -> Self {
         let line_mesh = Line::from((Point { x: x1, y: y1, z: z1 }, Point { x: x2, y: y2, z: z2 }));
         let dx = x2 - x1;
@@ -124,34 +177,39 @@ impl ShapeBuilder {
         }
     }
 
-    /// 包围盒（8 个角点）— 自动计算 AABB 中心位置
+    /// 有向包围盒（8 个角点）— 自动计算质心作为实体位置
+    ///
+    /// 8 个角点可表示任意朝向的 OBB（有向包围盒），渲染端保留原始朝向。
+    /// 传入轴对齐的 8 个点时等价于 AABB。
     ///
     /// **约束**：每个维度（宽/高/深）必须 > 0.001，否则渲染端会拒绝该 mesh。
     /// 对于退化包围盒（点共面/共线/单点），建议改用 `sphere()` 或 `point()`。
     pub fn cube(vertices: Vec<(f32, f32, f32)>) -> Self {
+        let n = vertices.len() as f32;
+        let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
+
         let mut min = [f32::MAX; 3];
         let mut max = [f32::MIN; 3];
-        let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| {
-            min[0] = min[0].min(x); min[1] = min[1].min(y); min[2] = min[2].min(z);
-            max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
-            Point { x, y, z }
-        }).collect();
-
-        let w = max[0] - min[0];
-        let h = max[1] - min[1];
-        let d = max[2] - min[2];
+        for p in &points {
+            for i in 0..3 {
+                min[i] = min[i].min([p.x, p.y, p.z][i]);
+                max[i] = max[i].max([p.x, p.y, p.z][i]);
+            }
+        }
+        let dims = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
         let min_dim = crate::defaults::mesh_constraints::MIN_CUBE_DIMENSION;
-        if w < min_dim || h < min_dim || d < min_dim {
+        if dims[0] < min_dim || dims[1] < min_dim || dims[2] < min_dim {
             log::warn!(
                 "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，渲染端将拒绝此 mesh。\
                  建议对退化包围盒改用 sphere() 或 point()。",
-                w, h, d
+                dims[0], dims[1], dims[2]
             );
         }
 
-        let cx = (min[0] + max[0]) / 2.0;
-        let cy = (min[1] + max[1]) / 2.0;
-        let cz = (min[2] + max[2]) / 2.0;
+        // 质心（与渲染端一致）
+        let cx = points.iter().map(|p| p.x).sum::<f32>() / n;
+        let cy = points.iter().map(|p| p.y).sum::<f32>() / n;
+        let cz = points.iter().map(|p| p.z).sum::<f32>() / n;
 
         ShapeBuilder {
             id: None,

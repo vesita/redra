@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::egui;
 use crate::data::frame::{FrameManager, PlaybackState};
+use crate::ui::file_manager::FileSaveState;
 use crate::ui::shell::{SidebarState, SidebarView};
 use smooth_bevy_cameras::LookTransform;
 
@@ -60,6 +61,7 @@ pub fn playback_content(
     ui: &mut egui::Ui,
     frame_manager: &mut FrameManager,
     playback_state: &mut PlaybackState,
+    file_state: &FileSaveState,
 ) {
     let total_frames = frame_manager.total_frames();
     let current_frame = frame_manager.current_frame_index();
@@ -76,6 +78,15 @@ pub fn playback_content(
             ui.label("Alt - 显示/隐藏 UI");
         });
         return;
+    }
+
+    // 文件名
+    if let Some(name) = &file_state.current_file_name {
+        ui.horizontal(|ui| {
+            ui.label("文件:");
+            ui.colored_label(egui::Color32::from_rgb(220, 220, 170), name);
+        });
+        ui.separator();
     }
 
     // 帧信息

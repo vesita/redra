@@ -152,6 +152,8 @@ pub struct FileSaveState {
     active_op: Option<FileOp>,
     pub pending_load_path: Option<PathBuf>,
     pub clear_requested: bool,
+    /// 当前已加载文件的文件名（不含路径）
+    pub current_file_name: Option<String>,
     /// 由 files_content 设置，confirm_dialog_file_system 消费。
     /// 存 Option 而非两个 bool，保证跨帧持久。
     confirm_action: Option<PendingAction>,
@@ -407,6 +409,7 @@ fn file_op_system(
                     let point_count = pcd_frame.points.len();
                     frame_manager.add_keyframe(kf);
                     frame_manager.seek_to_frame(0);
+                    state.current_file_name = Some(path.file_name().unwrap_or_default().to_string_lossy().to_string());
                     notifications.notify(
                         format!("已加载 PCD ({} 个点)", point_count),
                         false,
@@ -426,6 +429,7 @@ fn file_op_system(
                         frame_manager.add_keyframe(KeyFrame::from(sf));
                     }
                     frame_manager.seek_to_frame(0);
+                    state.current_file_name = Some(path.file_name().unwrap_or_default().to_string_lossy().to_string());
                     notifications.notify(
                         format!("已加载 {} 帧 ({})", frame_count, path.file_name().unwrap_or_default().to_string_lossy()),
                         false,
@@ -472,6 +476,7 @@ fn clear_all_data_system(
         return;
     }
     state.clear_requested = false;
+    state.current_file_name = None;
 
     let entity_count = entity_map.map.len();
     for box_entity in selection_boxes.iter() {
