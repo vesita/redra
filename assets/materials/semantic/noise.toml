@@ -1,0 +1,7 @@
+# 语义色 — 噪声点（低饱和灰紫，区别于有效数据）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.55, 0.50, 0.60, 1.0]
+perceptual_roughness = 0.7
+metallic = 0.0

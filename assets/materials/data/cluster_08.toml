@@ -1,0 +1,7 @@
+# 聚类色板 08 — 天蓝色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.30, 0.56, 0.94, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.1

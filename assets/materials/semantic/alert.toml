@@ -1,0 +1,8 @@
+# 语义色 — 警告/异常（高亮琥珀色 + 发光）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.72, 0.15, 1.0]
+emissive.Lrgba = [1.0, 0.72, 0.15, 0.3]
+perceptual_roughness = 0.3
+metallic = 0.1

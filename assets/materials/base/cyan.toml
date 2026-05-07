@@ -1,5 +1,5 @@
-# 青色材质
+# 青色材质（感知均匀校正）
 type = "StandardMaterial"
 
 [material]
-base_color.Srgba = [0.2, 1.0, 1.0, 1.0]
+base_color.Srgba = [0.26, 0.80, 0.94, 1.0]

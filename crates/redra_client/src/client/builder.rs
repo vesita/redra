@@ -86,6 +86,9 @@ impl ShapeBuilder {
     }
 
     /// 包围盒（8 个角点）— 自动计算 AABB 中心位置
+    ///
+    /// **约束**：每个维度（宽/高/深）必须 > 0.001，否则渲染端会拒绝该 mesh。
+    /// 对于退化包围盒（点共面/共线/单点），建议改用 `sphere()` 或 `point()`。
     pub fn cube(vertices: Vec<(f32, f32, f32)>) -> Self {
         let mut min = [f32::MAX; 3];
         let mut max = [f32::MIN; 3];
@@ -94,6 +97,18 @@ impl ShapeBuilder {
             max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
             Point { x, y, z }
         }).collect();
+
+        let w = max[0] - min[0];
+        let h = max[1] - min[1];
+        let d = max[2] - min[2];
+        let min_dim = crate::defaults::mesh_constraints::MIN_CUBE_DIMENSION;
+        if w < min_dim || h < min_dim || d < min_dim {
+            log::warn!(
+                "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，渲染端将拒绝此 mesh。\
+                 建议对退化包围盒改用 sphere() 或 point()。",
+                w, h, d
+            );
+        }
 
         let cx = (min[0] + max[0]) / 2.0;
         let cy = (min[1] + max[1]) / 2.0;

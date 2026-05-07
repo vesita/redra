@@ -224,6 +224,9 @@ pub async fn send_tag_with_style(
 /// 用于可视化聚类（cluster）的边界框。
 /// 自动计算 AABB 中心并将实体定位到正确位置。
 /// 顶点顺序约定：底面 4 点逆时针 (0,1,2,3)，顶面 4 点对应 (4,5,6,7)。
+///
+/// **约束**：每个维度（宽/高/深）必须 > 0.001，否则渲染端会拒绝该 mesh。
+/// 对于退化包围盒（点共面/共线/单点），建议改用 `send_sphere` 或 `send_point`。
 pub async fn send_cube(
     vertices: Vec<(f32, f32, f32)>,
 ) -> Result<(), String> {
@@ -236,6 +239,18 @@ pub async fn send_cube(
         max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
         Point { x, y, z }
     }).collect();
+
+    let w = max[0] - min[0];
+    let h = max[1] - min[1];
+    let d = max[2] - min[2];
+    let min_dim = crate::defaults::mesh_constraints::MIN_CUBE_DIMENSION;
+    if w < min_dim || h < min_dim || d < min_dim {
+        log::warn!(
+            "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，渲染端将拒绝此 mesh。\
+             建议对退化包围盒改用 send_sphere 或 send_point。",
+            w, h, d
+        );
+    }
 
     let cube = Cube { vertices: points };
     unit.objects.push(ExObject::from(ExMesh::from(cube)));

@@ -263,11 +263,21 @@ impl From<&KeyFrame> for SerializableKeyFrame {
 
 impl From<SerializableKeyFrame> for KeyFrame {
     fn from(s: SerializableKeyFrame) -> Self {
+        use expto::rdmp::mesh::ex_mesh::UMesh;
         let mut keyframe = KeyFrame::new(s.timestamp);
+        let mut point_count = 0usize;
+        let mut other_count = 0usize;
         for (id, serializable_inpto) in s.entities {
             let inpto = Inpto::from(serializable_inpto);
+            match &inpto.mesh.u_mesh {
+                Some(UMesh::Point(_)) => point_count += 1,
+                _ => other_count += 1,
+            }
             keyframe.ids.insert(id, keyframe.packs.len());
             keyframe.packs.push(inpto);
+        }
+        if point_count > 0 || other_count > 0 {
+            log::info!("反序列化帧: {} 个 Point + {} 个其他实体", point_count, other_count);
         }
         keyframe
     }

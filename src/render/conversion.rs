@@ -16,13 +16,19 @@ pub fn proto_mesh_to_bevy(meshes: &mut Assets<Mesh>, proto_mesh: &ExMesh) -> Opt
             let start = line.start.as_ref()?;
             let end = line.end.as_ref()?;
             let length = Vec3::new(end.x - start.x, end.y - start.y, end.z - start.z).length();
-            if length < 0.001 { return None; }
+            if length < 0.001 {
+                log::warn!("Line 长度退化 ({:.6})，跳过渲染。建议检查起终点是否重合。", length);
+                return None;
+            }
             Mesh3d(meshes.add(Cylinder::new(0.02, length)))
         }
         Some(UMesh::Cylinder(cylinder)) => Mesh3d(meshes.add(Cylinder::new(cylinder.radius, cylinder.height))),
         Some(UMesh::Cone(cone)) => Mesh3d(meshes.add(Cone::new(cone.radius, cone.height))),
         Some(UMesh::Cube(cube)) => {
-            if cube.vertices.len() < 8 { return None; }
+            if cube.vertices.len() < 8 {
+                log::warn!("Cube 顶点数不足 ({}/8)，跳过渲染。", cube.vertices.len());
+                return None;
+            }
             let mut min = [f32::MAX, f32::MAX, f32::MAX];
             let mut max = [f32::MIN, f32::MIN, f32::MIN];
             for v in &cube.vertices {
@@ -32,7 +38,14 @@ pub fn proto_mesh_to_bevy(meshes: &mut Assets<Mesh>, proto_mesh: &ExMesh) -> Opt
             let w = max[0] - min[0];
             let h = max[1] - min[1];
             let d = max[2] - min[2];
-            if w < 0.001 || h < 0.001 || d < 0.001 { return None; }
+            if w < 0.001 || h < 0.001 || d < 0.001 {
+                log::warn!(
+                    "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，跳过渲染。\
+                     常见原因：点云共面/共线/单点聚类。建议改用 Sphere 或 Point。",
+                    w, h, d
+                );
+                return None;
+            }
             Mesh3d(meshes.add(Cuboid::new(w, h, d)))
         }
         None => return None,

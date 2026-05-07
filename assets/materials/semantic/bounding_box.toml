@@ -1,0 +1,7 @@
+# 语义色 — 包围盒线框（亮绿色，半透明感）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.30, 0.90, 0.40, 1.0]
+perceptual_roughness = 0.4
+metallic = 0.1

@@ -1,0 +1,7 @@
+# 聚类色板 03 — 琥珀色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.92, 0.74, 0.26, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.1

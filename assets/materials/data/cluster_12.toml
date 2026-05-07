@@ -1,0 +1,7 @@
+# 聚类色板 12 — 玫瑰红
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.94, 0.32, 0.42, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.1

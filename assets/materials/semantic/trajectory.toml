@@ -1,0 +1,7 @@
+# 语义色 — 轨迹线（亮青色，高可见性）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.20, 0.90, 0.85, 1.0]
+perceptual_roughness = 0.3
+metallic = 0.2

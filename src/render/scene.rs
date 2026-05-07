@@ -62,7 +62,10 @@ fn render_static_entities(
 ) {
     for (entity_id, inpto) in keyframe.iter_entities() {
         let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
-            .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体 (实体 {})", entity_id); Mesh3d(meshes.add(Sphere::new(0.1))) });
+            .unwrap_or_else(|| {
+                log::warn!("静态实体网格转换失败，使用备用球体 (实体 {})", entity_id);
+                Mesh3d(meshes.add(Sphere::new(0.1)))
+            });
         let material_handle = protocol::inpto_to_generic_material(inpto, material_manager, asset_server);
         let render_transform = apply_coord_system(inpto.transform, handedness);
 

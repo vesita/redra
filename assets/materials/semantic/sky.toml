@@ -1,0 +1,7 @@
+# 语义色 — 天空/背景参照（深灰蓝，不干扰数据）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.35, 0.40, 0.50, 1.0]
+perceptual_roughness = 0.9
+metallic = 0.0

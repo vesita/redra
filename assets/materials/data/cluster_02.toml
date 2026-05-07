@@ -1,0 +1,7 @@
+# 聚类色板 02 — 橙色
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.94, 0.56, 0.26, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.1

@@ -60,6 +60,30 @@ impl MaterialManager {
 
         // 默认材质
         self.material_id_map.insert("default".to_string(), "materials/default.toml".to_string());
+
+        // 聚类色板（12 种感知均匀色，30° 色相间隔）
+        self.material_id_map.insert("cluster_01".to_string(), "materials/data/cluster_01.toml".to_string());
+        self.material_id_map.insert("cluster_02".to_string(), "materials/data/cluster_02.toml".to_string());
+        self.material_id_map.insert("cluster_03".to_string(), "materials/data/cluster_03.toml".to_string());
+        self.material_id_map.insert("cluster_04".to_string(), "materials/data/cluster_04.toml".to_string());
+        self.material_id_map.insert("cluster_05".to_string(), "materials/data/cluster_05.toml".to_string());
+        self.material_id_map.insert("cluster_06".to_string(), "materials/data/cluster_06.toml".to_string());
+        self.material_id_map.insert("cluster_07".to_string(), "materials/data/cluster_07.toml".to_string());
+        self.material_id_map.insert("cluster_08".to_string(), "materials/data/cluster_08.toml".to_string());
+        self.material_id_map.insert("cluster_09".to_string(), "materials/data/cluster_09.toml".to_string());
+        self.material_id_map.insert("cluster_10".to_string(), "materials/data/cluster_10.toml".to_string());
+        self.material_id_map.insert("cluster_11".to_string(), "materials/data/cluster_11.toml".to_string());
+        self.material_id_map.insert("cluster_12".to_string(), "materials/data/cluster_12.toml".to_string());
+
+        // 语义色
+        self.material_id_map.insert("point_cloud".to_string(), "materials/semantic/point_cloud.toml".to_string());
+        self.material_id_map.insert("ground".to_string(), "materials/semantic/ground.toml".to_string());
+        self.material_id_map.insert("noise".to_string(), "materials/semantic/noise.toml".to_string());
+        self.material_id_map.insert("bounding_box".to_string(), "materials/semantic/bounding_box.toml".to_string());
+        self.material_id_map.insert("trajectory".to_string(), "materials/semantic/trajectory.toml".to_string());
+        self.material_id_map.insert("selected".to_string(), "materials/semantic/selected.toml".to_string());
+        self.material_id_map.insert("alert".to_string(), "materials/semantic/alert.toml".to_string());
+        self.material_id_map.insert("sky".to_string(), "materials/semantic/sky.toml".to_string());
     }
 
     // ==================== 对外 API ====================

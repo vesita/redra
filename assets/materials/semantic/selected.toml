@@ -1,0 +1,8 @@
+# 语义色 — 选中实体（明亮白金色 + 发光轮廓）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.95, 0.75, 1.0]
+emissive.Lrgba = [1.0, 0.95, 0.75, 0.5]
+perceptual_roughness = 0.2
+metallic = 0.3

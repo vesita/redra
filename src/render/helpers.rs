@@ -18,7 +18,10 @@ pub fn spawn_entity(
     handedness: CoordSystem,
 ) -> Entity {
     let mesh_handle = conversion::proto_mesh_to_bevy(meshes, mesh)
-        .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体"); Mesh3d(meshes.add(Sphere::new(0.1))) });
+        .unwrap_or_else(|| {
+            log::warn!("辅助实体网格转换失败，使用备用球体");
+            Mesh3d(meshes.add(Sphere::new(0.1)))
+        });
     let material = material_manager.load_generic_material(material_name, asset_server);
     let transform_comp = apply_coord_system(conversion::proto_transform_to_bevy(transform), handedness);
 

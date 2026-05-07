@@ -1,0 +1,7 @@
+# 语义色 — 默认点云（暖白色，暗背景下清晰可见）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.92, 0.90, 0.82, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.0

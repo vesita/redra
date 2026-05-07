@@ -65,16 +65,21 @@ fn render_current_frame(
 
     log::debug!("渲染第 {} 帧，包含 {} 个实体", frame_manager.current_frame_index(), keyframe.entity_count());
 
-    // 分离 Point 和非 Point 实体
     let mut points: Vec<Vec3> = Vec::new();
     let mut non_point_ids: HashMap<u64, &Inpto> = HashMap::new();
 
     for (entity_id, inpto) in keyframe.iter_entities() {
-        if matches!(inpto.mesh.u_mesh, Some(UMesh::Point(_))) {
-            points.push(inpto.transform.translation);
+        if let Some(UMesh::Point(p)) = &inpto.mesh.u_mesh {
+            points.push(Vec3::new(p.x, p.y, p.z));
         } else {
             non_point_ids.insert(entity_id, inpto);
         }
+    }
+
+    if points.is_empty() && !non_point_ids.is_empty() {
+        log::warn!("帧 {} 包含 {} 个非 Point 实体，但无 Point 实体", frame_manager.current_frame_index(), non_point_ids.len());
+    } else if !points.is_empty() {
+        log::debug!("帧 {} 包含 {} 个 Point + {} 个非 Point 实体", frame_manager.current_frame_index(), points.len(), non_point_ids.len());
     }
 
     cleanup_removed_entities(&mut commands, &non_point_ids, &mut entity_map.map);
@@ -108,7 +113,18 @@ fn spawn_entity_from_inpto(
     handedness: CoordSystem,
 ) -> Entity {
     let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
-        .unwrap_or_else(|| { log::warn!("网格转换失败，使用备用球体 (实体 {})", entity_id); Mesh3d(meshes.add(Sphere::new(0.1))) });
+        .unwrap_or_else(|| {
+            let mesh_type = match &inpto.mesh.u_mesh {
+                Some(umesh) => format!("{:?}", umesh),
+                None => "None".to_string(),
+            };
+            log::warn!(
+                "网格转换失败，使用备用球体 (实体 {}, 类型: {})。\
+                 支持的类型: Point, Sphere, Cylinder, Cone, Line(长度>0.001), Cube(维度>0.001)",
+                entity_id, mesh_type
+            );
+            Mesh3d(meshes.add(Sphere::new(0.1)))
+        });
 
     let material_handle = material_manager.load_generic_material(&inpto.material_path(), asset_server);
     let render_transform = apply_coord_system(inpto.transform, handedness);
@@ -156,7 +172,8 @@ fn update_aggregated_points(
     }
     entity_map.cached_positions.clone_from(&positions);
 
-    let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; positions.len()];
+    let n_points = positions.len();
+    let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; n_points];
     let mut mesh = Mesh::new(PrimitiveTopology::PointList, default());
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
@@ -165,12 +182,14 @@ fn update_aggregated_points(
     if let Some(handle) = &entity_map.points_mesh {
         if let Some(mesh_ref) = meshes.get_mut(handle) {
             *mesh_ref = mesh;
+            log::debug!("更新聚合点云 mesh，{} 个点", n_points);
             return;
         }
     }
 
     let handle = meshes.add(mesh);
     let material = material_manager.load_generic_material("materials/mesh_types/point.toml", asset_server);
+    log::info!("创建聚合点云实体，包含 {} 个点", n_points);
     let entity = commands.spawn((
         Mesh3d(handle.clone()),
         crate::render::GenericMaterial3d(material),
