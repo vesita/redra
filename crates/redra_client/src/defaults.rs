@@ -18,7 +18,7 @@
 /// | Cylinder | `ShapeBuilder::cylinder(radius, height)` | radius > 0, height > 0 |
 /// | Cone | `ShapeBuilder::cone(radius, height)` | radius > 0, height > 0 |
 /// | Line | `ShapeBuilder::line(...)` | 起终点距离 > 0.001 |
-/// | Cube/OBB | `ShapeBuilder::cube(vertices)` | 8 个角点，每个维度 > 0.001 |
+/// | Cube | `ShapeBuilder::cube(vertices)` | 8 个顶点，每个维度 > 0.001 |
 pub mod mesh_constraints {
     pub const MIN_CUBE_DIMENSION: f32 = 0.001;
     pub const MIN_LINE_LENGTH: f32 = 0.001;

@@ -14,7 +14,7 @@
 //! | `send_sphere` | 球体 |
 //! | `send_cylinder` | 圆柱体 |
 //! | `send_cone` | 圆锥体 |
-//! | `send_cube` / `send_cube_with_tag` | 有向包围盒（OBB） |
+//! | `send_cube` / `send_cube_with_tag` | 包围盒 |
 //! | `send_tag` / `send_tag_with_style` | 标签 |
 //! | `send_set_material` | 更新实体材质 |
 //! | `send_destroy` | 销毁实体 |
@@ -262,11 +262,10 @@ pub async fn send_tag_with_style(
     Ok(())
 }
 
-/// 发送一个有向包围盒（8 个角点）
+/// 发送一个包围盒（8 个角点）
 ///
 /// 用于可视化聚类（cluster）的边界框。
-/// 8 个角点可表示任意朝向的 OBB，渲染端保留原始朝向。
-/// 自动计算质心并将实体定位到正确位置。
+/// 自动计算 AABB 中心并将实体定位到正确位置。
 ///
 /// **约束**：每个维度（宽/高/深）必须 > 0.001，否则渲染端会拒绝该 mesh。
 /// 对于退化包围盒（点共面/共线/单点），建议改用 `send_sphere` 或 `send_point`。
@@ -275,34 +274,32 @@ pub async fn send_cube(
 ) -> Result<(), String> {
     let mut unit = generate_unit();
 
-    let n = vertices.len() as f32;
-    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
+    let mut min = [f32::MAX, f32::MAX, f32::MAX];
+    let mut max = [f32::MIN, f32::MIN, f32::MIN];
+    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| {
+        min[0] = min[0].min(x); min[1] = min[1].min(y); min[2] = min[2].min(z);
+        max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
+        Point { x, y, z }
+    }).collect();
 
-    let mut min = [f32::MAX; 3];
-    let mut max = [f32::MIN; 3];
-    for p in &points {
-        for i in 0..3 {
-            min[i] = min[i].min([p.x, p.y, p.z][i]);
-            max[i] = max[i].max([p.x, p.y, p.z][i]);
-        }
-    }
-    let dims = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+    let w = max[0] - min[0];
+    let h = max[1] - min[1];
+    let d = max[2] - min[2];
     let min_dim = crate::defaults::mesh_constraints::MIN_CUBE_DIMENSION;
-    if dims[0] < min_dim || dims[1] < min_dim || dims[2] < min_dim {
+    if w < min_dim || h < min_dim || d < min_dim {
         log::warn!(
             "Cube 维度退化 (w={:.4}, h={:.4}, d={:.4})，渲染端将拒绝此 mesh。\
              建议对退化包围盒改用 send_sphere 或 send_point。",
-            dims[0], dims[1], dims[2]
+            w, h, d
         );
     }
 
     let cube = Cube { vertices: points };
     unit.objects.push(ExObject::from(ExMesh::from(cube)));
 
-    // 质心（与渲染端一致）
-    let cx = vertices.iter().map(|v| v.0).sum::<f32>() / n;
-    let cy = vertices.iter().map(|v| v.1).sum::<f32>() / n;
-    let cz = vertices.iter().map(|v| v.2).sum::<f32>() / n;
+    let cx = (min[0] + max[0]) / 2.0;
+    let cy = (min[1] + max[1]) / 2.0;
+    let cz = (min[2] + max[2]) / 2.0;
     unit.objects.push(ExObject::from(ExTransform {
         x: cx, y: cy, z: cz,
         rx: 0.0, ry: 0.0, rz: 0.0,
@@ -313,35 +310,30 @@ pub async fn send_cube(
     Ok(())
 }
 
-/// 发送带标签的有向包围盒（聚类用）
+/// 发送带标签的包围盒（聚类用）
 ///
-/// 同时发送 OBB 几何体和文本标签，便于识别聚类。
-/// 自动计算质心并将实体定位到正确位置。
+/// 同时发送包围盒几何体和文本标签，便于识别聚类。
+/// 自动计算 AABB 中心并将实体定位到正确位置。
 pub async fn send_cube_with_tag(
     vertices: Vec<(f32, f32, f32)>,
     text: impl Into<String>,
 ) -> Result<(), String> {
     let mut unit = generate_unit();
 
-    let n = vertices.len() as f32;
-    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| Point { x, y, z }).collect();
-
-    let mut min = [f32::MAX; 3];
-    let mut max = [f32::MIN; 3];
-    for p in &points {
-        for i in 0..3 {
-            min[i] = min[i].min([p.x, p.y, p.z][i]);
-            max[i] = max[i].max([p.x, p.y, p.z][i]);
-        }
-    }
+    let mut min = [f32::MAX, f32::MAX, f32::MAX];
+    let mut max = [f32::MIN, f32::MIN, f32::MIN];
+    let points: Vec<Point> = vertices.iter().map(|&(x, y, z)| {
+        min[0] = min[0].min(x); min[1] = min[1].min(y); min[2] = min[2].min(z);
+        max[0] = max[0].max(x); max[1] = max[1].max(y); max[2] = max[2].max(z);
+        Point { x, y, z }
+    }).collect();
 
     let cube = Cube { vertices: points };
     unit.objects.push(ExObject::from(ExMesh::from(cube)));
 
-    // 质心（与渲染端一致）
-    let cx = vertices.iter().map(|v| v.0).sum::<f32>() / n;
-    let cy = vertices.iter().map(|v| v.1).sum::<f32>() / n;
-    let cz = vertices.iter().map(|v| v.2).sum::<f32>() / n;
+    let cx = (min[0] + max[0]) / 2.0;
+    let cy = (min[1] + max[1]) / 2.0;
+    let cz = (min[2] + max[2]) / 2.0;
     unit.objects.push(ExObject::from(ExTransform {
         x: cx, y: cy, z: cz,
         rx: 0.0, ry: 0.0, rz: 0.0,
