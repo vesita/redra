@@ -53,6 +53,7 @@ pub fn handle_dynamic_entity_pick(
     };
     let entity_id = pickable.entity_id;
     im.selected = Some(entity_id);
+    im.just_selected = true;
 
     let is_multi_select = keyboard.pressed(KeyCode::ShiftLeft)
         || keyboard.pressed(KeyCode::ShiftRight)
@@ -177,6 +178,8 @@ fn create_highlight_box(
 }
 
 /// 检测点击空白区域或静态实体，清空选中状态并清理高亮框
+///
+/// 运行在 PostUpdate（egui 处理完毕后），确保 EguiWantsInput 反映当前帧状态。
 pub fn detect_empty_click(
     mouse: Res<ButtonInput<MouseButton>>,
     pointer_query: Query<&PointerInteraction>,
@@ -185,8 +188,18 @@ pub fn detect_empty_click(
     selection_boxes: Query<Entity, With<SelectionBox>>,
     previously_selected: Query<Entity, With<Selected>>,
     mut im: ResMut<InteractionMessage>,
+    egui_wants: Res<bevy_egui::input::EguiWantsInput>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
+        return;
+    }
+    // egui 正在请求指针输入（侧边栏、编辑框等），不触发取消选择
+    if egui_wants.wants_any_pointer_input() {
+        return;
+    }
+    // observer 本帧刚设置了选中，跳过清除
+    if im.just_selected {
+        im.just_selected = false;
         return;
     }
     let Ok(pointer) = pointer_query.single() else {

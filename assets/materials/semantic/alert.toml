@@ -3,6 +3,6 @@ type = "StandardMaterial"
 
 [material]
 base_color.Srgba = [1.0, 0.72, 0.15, 1.0]
-emissive.Lrgba = [1.0, 0.72, 0.15, 0.3]
+emissive = [1.0, 0.72, 0.15, 0.3]
 perceptual_roughness = 0.3
 metallic = 0.1

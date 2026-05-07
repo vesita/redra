@@ -242,7 +242,7 @@ pub fn control_system(
                 }
             }
             CursorToggleMode::Flip => {
-                if key_input.just_pressed(KeyCode::AltLeft) || key_input.just_pressed(KeyCode::AltRight) {
+                if key_input.just_released(KeyCode::AltLeft) || key_input.just_released(KeyCode::AltRight) {
                     if cursor_options.grab_mode == CursorGrabMode::Locked {
                         // Release cursor
                         cursor_options.grab_mode = CursorGrabMode::None;

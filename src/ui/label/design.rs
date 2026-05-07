@@ -28,13 +28,29 @@ impl HoverLabel {
     }
 }
 
-/// VS Code 风格悬浮标签
+/// Tag 编辑状态
+#[derive(Resource, Default)]
+pub struct TagEditState {
+    pub editing_entity: Option<u64>,
+    pub draft: String,
+}
+
+/// 编辑结果（由 UI 产生，由 system 消费）
+#[derive(Resource, Default)]
+pub struct TagEditResult {
+    pub pending: Option<(u64, String)>,
+}
+
+/// VS Code 风格悬浮标签（支持 Tag 编辑）
 pub fn show_hover_label(
     mut contexts: EguiContexts,
     hover_label: Res<HoverLabel>,
+    mut edit_state: ResMut<TagEditState>,
+    mut edit_result: ResMut<TagEditResult>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Camera>>,
 ) {
     let Some(label_info) = &hover_label.current else {
+        edit_state.editing_entity = None;
         return;
     };
     let Ok(egui_ctx) = contexts.ctx_mut() else {
@@ -49,6 +65,8 @@ pub fn show_hover_label(
         Err(_) => return,
     };
 
+    let entity_id = label_info.entity_id;
+    let is_editing = edit_state.editing_entity == Some(entity_id);
     let label_width = 220.0;
 
     egui::Area::new("hover_label".into())
@@ -58,7 +76,6 @@ pub fn show_hover_label(
         ))
         .order(egui::Order::Foreground)
         .show(egui_ctx, |ui| {
-            // VS Code 风格工具框
             egui::Frame::popup(ui.style())
                 .fill(egui::Color32::from_rgb(30, 30, 30))
                 .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(85, 85, 85)))
@@ -79,7 +96,7 @@ pub fn show_hover_label(
                     ui.set_min_width(120.0);
                     ui.set_max_width(label_width);
 
-                    // 顶部：实体 ID + 分隔
+                    // 顶部：实体 ID + 编辑按钮
                     ui.horizontal(|ui| {
                         ui.label(
                             egui::RichText::new("ID:")
@@ -87,20 +104,61 @@ pub fn show_hover_label(
                                 .size(11.0),
                         );
                         ui.label(
-                            egui::RichText::new(format!("{}", label_info.entity_id))
+                            egui::RichText::new(format!("{}", entity_id))
                                 .color(egui::Color32::from_rgb(86, 156, 214))
                                 .size(11.0),
                         );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if !is_editing {
+                                if ui.small_button("\u{270F}").on_hover_text("编辑 Tag").clicked() {
+                                    edit_state.editing_entity = Some(entity_id);
+                                    edit_state.draft = label_info.text.clone();
+                                }
+                            }
+                        });
                     });
 
                     ui.separator();
 
-                    // 内容文本
-                    ui.label(
-                        egui::RichText::new(&label_info.text)
-                            .color(egui::Color32::from_rgb(212, 212, 212))
-                            .size(13.0),
-                    );
+                    if is_editing {
+                        // 编辑模式：输入框 + 确认/取消
+                        let response = ui.text_edit_singleline(&mut edit_state.draft);
+                        let submitted = response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                        let cancelled = response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Escape));
+
+                        ui.horizontal(|ui| {
+                            if ui.small_button("确认").clicked() || submitted {
+                                edit_result.pending = Some((entity_id, edit_state.draft.clone()));
+                                edit_state.editing_entity = None;
+                            }
+                            if ui.small_button("取消").clicked() || cancelled {
+                                edit_state.editing_entity = None;
+                            }
+                        });
+
+                        // 让输入框保持焦点
+                        if edit_state.editing_entity.is_some() {
+                            response.request_focus();
+                        }
+                    } else {
+                        // 正常模式：显示文本
+                        let display_text = if label_info.text.is_empty() {
+                            "(无 Tag)"
+                        } else {
+                            &label_info.text
+                        };
+                        ui.label(
+                            egui::RichText::new(display_text)
+                                .color(if label_info.text.is_empty() {
+                                    egui::Color32::from_rgb(100, 100, 100)
+                                } else {
+                                    egui::Color32::from_rgb(212, 212, 212)
+                                })
+                                .size(13.0),
+                        );
+                    }
                 });
         });
 }

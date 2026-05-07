@@ -56,11 +56,12 @@ impl Default for Handedness {
     }
 }
 
-/// 完整坐标系配置（手性 + 向上轴）
+/// 完整坐标系配置（手性 + 向上轴 + 显示选项）
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CoordSystem {
     pub handedness: Handedness,
     pub up_axis: UpAxis,
+    pub show_axes: bool,
 }
 
 impl Default for CoordSystem {
@@ -68,6 +69,7 @@ impl Default for CoordSystem {
         Self {
             handedness: Handedness::LeftHanded,
             up_axis: UpAxis::PlusY,
+            show_axes: true,
         }
     }
 }
@@ -191,7 +193,7 @@ mod tests {
     #[test]
     fn test_combined_rh_zup() {
         let t = Transform::from_xyz(0.0, 0.0, 1.0);
-        let coord = CoordSystem { handedness: Handedness::RightHanded, up_axis: UpAxis::PlusZ };
+        let coord = CoordSystem { handedness: Handedness::RightHanded, up_axis: UpAxis::PlusZ, show_axes: true };
         let result = apply_coord_system(t, coord);
         assert_vec3_eq(result.translation, Vec3::new(0.0, 1.0, 0.0), 1e-5);
     }

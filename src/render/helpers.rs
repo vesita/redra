@@ -17,6 +17,21 @@ pub fn spawn_entity(
     name: &str,
     handedness: CoordSystem,
 ) -> Entity {
+    spawn_entity_with_vis(commands, meshes, asset_server, material_manager, mesh, transform, material_name, name, handedness, Visibility::Inherited)
+}
+
+pub fn spawn_entity_with_vis(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    asset_server: &AssetServer,
+    material_manager: &MaterialManager,
+    mesh: &ExMesh,
+    transform: &ExTransform,
+    material_name: &str,
+    name: &str,
+    handedness: CoordSystem,
+    visibility: Visibility,
+) -> Entity {
     let mesh_handle = conversion::proto_mesh_to_bevy(meshes, mesh)
         .unwrap_or_else(|| {
             log::warn!("辅助实体网格转换失败，使用备用球体");
@@ -36,6 +51,7 @@ pub fn spawn_entity(
         Pickable::default(),
         crate::render::interaction::picking::PickableEntity { entity_id },
         StaticSceneEntity,
+        visibility,
     )).id()
 }
 

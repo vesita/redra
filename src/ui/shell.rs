@@ -44,7 +44,7 @@ fn toggle_sidebar_shortcut(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut sidebar: ResMut<SidebarState>,
 ) {
-    if keyboard.just_pressed(KeyCode::AltLeft) || keyboard.just_pressed(KeyCode::AltRight) {
+    if keyboard.just_released(KeyCode::AltLeft) || keyboard.just_released(KeyCode::AltRight) {
         sidebar.visible = !sidebar.visible;
     }
 }
@@ -114,11 +114,11 @@ fn shell_system(
 
                 ui.add_space(4.0);
 
-                // 轴调整
+                // 坐标系
                 let aa = sidebar.active_view == SidebarView::AxisAdjust;
                 if ui
                     .add(icon_button("↕", aa, btn_size))
-                    .on_hover_text("轴调整")
+                    .on_hover_text("坐标系")
                     .clicked()
                 {
                     sidebar.active_view = SidebarView::AxisAdjust;
@@ -175,7 +175,7 @@ fn shell_system(
                 let header = match sidebar.active_view {
                     SidebarView::Playback => "回放控制",
                     SidebarView::Files => "文件管理",
-                    SidebarView::AxisAdjust => "轴调整",
+                    SidebarView::AxisAdjust => "坐标系",
                 };
                 ui.horizontal(|ui| {
                     ui.heading(header);

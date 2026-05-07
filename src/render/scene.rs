@@ -58,8 +58,9 @@ fn render_static_entities(
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
     keyframe: &crate::data::frame::KeyFrame,
-    handedness: CoordSystem,
+    coord: CoordSystem,
 ) {
+    let vis = if coord.show_axes { Visibility::Inherited } else { Visibility::Hidden };
     for (entity_id, inpto) in keyframe.iter_entities() {
         let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
             .unwrap_or_else(|| {
@@ -67,7 +68,7 @@ fn render_static_entities(
                 Mesh3d(meshes.add(Sphere::new(0.1)))
             });
         let material_handle = protocol::inpto_to_generic_material(inpto, material_manager, asset_server);
-        let render_transform = apply_coord_system(inpto.transform, handedness);
+        let render_transform = apply_coord_system(inpto.transform, coord);
 
         commands.spawn((
             mesh_handle,
@@ -76,6 +77,7 @@ fn render_static_entities(
             Name::new(format!("StaticEntity_{}", entity_id)),
             StaticEntity,
             StaticSceneEntity,
+            vis,
         ));
     }
 }
@@ -85,7 +87,7 @@ fn spawn_default_axes(
     meshes: &mut Assets<Mesh>,
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
-    handedness: CoordSystem,
+    coord: CoordSystem,
 ) {
     use expto::rdmp::{ExMesh, ExTransform, mesh::ex_mesh::UMesh};
 
@@ -93,36 +95,37 @@ fn spawn_default_axes(
     let axis_radius = 0.075;
     let cone_radius = 0.15;
     let cone_height = 0.3;
+    let vis = if coord.show_axes { Visibility::Inherited } else { Visibility::Hidden };
 
     // X轴
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cylinder(expto::rdmp::Cylinder { radius: axis_radius, height: axis_length })) },
         &ExTransform { x: axis_length / 2.0, y: 0.0, z: 0.0, rx: 0.0, ry: 0.0, rz: -std::f32::consts::FRAC_PI_2, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/red.toml", "X_Axis_Cylinder", handedness);
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+        "materials/base/red.toml", "X_Axis_Cylinder", coord, vis);
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cone(expto::rdmp::Cone { radius: cone_radius, height: cone_height })) },
         &ExTransform { x: axis_length, y: 0.0, z: 0.0, rx: 0.0, ry: 0.0, rz: -std::f32::consts::FRAC_PI_2, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/red.toml", "X_Axis_Cone", handedness);
+        "materials/base/red.toml", "X_Axis_Cone", coord, vis);
 
     // Y轴
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cylinder(expto::rdmp::Cylinder { radius: axis_radius, height: axis_length })) },
         &ExTransform { x: 0.0, y: axis_length / 2.0, z: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/green.toml", "Y_Axis_Cylinder", handedness);
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+        "materials/base/green.toml", "Y_Axis_Cylinder", coord, vis);
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cone(expto::rdmp::Cone { radius: cone_radius, height: cone_height })) },
         &ExTransform { x: 0.0, y: axis_length, z: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/green.toml", "Y_Axis_Cone", handedness);
+        "materials/base/green.toml", "Y_Axis_Cone", coord, vis);
 
     // Z轴
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cylinder(expto::rdmp::Cylinder { radius: axis_radius, height: axis_length })) },
         &ExTransform { x: 0.0, y: 0.0, z: axis_length / 2.0, rx: std::f32::consts::FRAC_PI_2, ry: 0.0, rz: 0.0, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/blue.toml", "Z_Axis_Cylinder", handedness);
-    helpers::spawn_entity(commands, meshes, asset_server, material_manager,
+        "materials/base/blue.toml", "Z_Axis_Cylinder", coord, vis);
+    helpers::spawn_entity_with_vis(commands, meshes, asset_server, material_manager,
         &ExMesh { u_mesh: Some(UMesh::Cone(expto::rdmp::Cone { radius: cone_radius, height: cone_height })) },
         &ExTransform { x: 0.0, y: 0.0, z: axis_length, rx: std::f32::consts::FRAC_PI_2, ry: 0.0, rz: 0.0, sx: 1.0, sy: 1.0, sz: 1.0 },
-        "materials/base/blue.toml", "Z_Axis_Cone", handedness);
+        "materials/base/blue.toml", "Z_Axis_Cone", coord, vis);
 }
 
 /// 坐标系变更时重新渲染所有静态实体
@@ -131,16 +134,26 @@ fn rerender_static_on_handedness_change(
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
-    handedness: Res<CoordSystem>,
+    coord: Res<CoordSystem>,
     static_entities: Query<Entity, With<StaticSceneEntity>>,
     mut prev: Local<CoordSystem>,
 ) {
-    if *prev == *handedness {
+    // 仅 show_axes 变化时，切换可见性即可
+    if prev.handedness == coord.handedness && prev.up_axis == coord.up_axis && prev.show_axes != coord.show_axes {
+        let vis = if coord.show_axes { Visibility::Inherited } else { Visibility::Hidden };
+        for entity in static_entities.iter() {
+            commands.entity(entity).insert(vis);
+        }
+        *prev = *coord;
         return;
     }
-    *prev = *handedness;
 
-    log::info!("坐标系手性变更，重新渲染静态实体");
+    if *prev == *coord {
+        return;
+    }
+    *prev = *coord;
+
+    log::info!("坐标系变更，重新渲染静态实体");
 
     for entity in static_entities.iter() {
         commands.entity(entity).despawn();
@@ -156,14 +169,14 @@ fn rerender_static_on_handedness_change(
                     let unit = expto::config::config_to_unit(entity_config, entity_id);
                     keyframe.update(&unit);
                 }
-                render_static_entities(&mut commands, &mut meshes, &asset_server, &material_manager, &keyframe, *handedness);
+                render_static_entities(&mut commands, &mut meshes, &asset_server, &material_manager, &keyframe, *coord);
             } else {
-                spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager, *handedness);
+                spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager, *coord);
             }
         }
         Err(e) => {
             log::warn!("配置文件加载失败，使用默认坐标轴: {}", e);
-            spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager, *handedness);
+            spawn_default_axes(&mut commands, &mut meshes, &asset_server, &material_manager, *coord);
         }
     }
 }

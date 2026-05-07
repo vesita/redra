@@ -203,6 +203,17 @@ impl KeyFrame {
     pub fn get_entity(&self, entity_id: u64) -> Option<&Inpto> {
         self.ids.get(&entity_id).map(|&idx| &self.packs[idx])
     }
+
+    /// 更新指定实体的 Tag 文本（无 Tag 时自动创建）
+    pub fn update_entity_tag(&mut self, entity_id: u64, text: String) {
+        if let Some(&idx) = self.ids.get(&entity_id) {
+            if let Some(tag) = &mut self.packs[idx].tag {
+                tag.text = text;
+            } else {
+                self.packs[idx].tag = Some(Tag::new(text));
+            }
+        }
+    }
 }
 
 // ============================================================================

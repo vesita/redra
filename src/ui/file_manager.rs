@@ -149,7 +149,6 @@ enum PendingAction {
 
 #[derive(Resource, Default)]
 pub struct FileSaveState {
-    pub last_save_path: Option<PathBuf>,
     active_op: Option<FileOp>,
     pub pending_load_path: Option<PathBuf>,
     pub clear_requested: bool,
@@ -311,31 +310,6 @@ pub fn files_content(
                     .map(SerializableKeyFrame::from).collect();
                 match storage.save_to_file(&path, &frames) {
                     Ok(()) => {
-                        state.last_save_path = Some(path);
-                        notifications.notify("已保存 ✓", false);
-                    }
-                    Err(e) => {
-                        notifications.notify(format!("保存失败: {}", e), true);
-                    }
-                }
-            }
-        });
-
-    let can_quick = has_data && !is_busy && !confirm_showing && state.last_save_path.is_some();
-    let quick_label = state.last_save_path
-        .as_ref()
-        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
-        .map(|name| format!("⚡ 快速保存 ({})", name))
-        .unwrap_or("⚡ 快速保存".into());
-    ui.add_enabled(can_quick, egui::Button::new(quick_label))
-        .clicked()
-        .then(|| {
-            if let Some(path) = state.last_save_path.clone() {
-                let frames: Vec<SerializableKeyFrame> = frame_manager
-                    .get_all_keyframes().iter()
-                    .map(SerializableKeyFrame::from).collect();
-                match storage.save_to_file(&path, &frames) {
-                    Ok(()) => {
                         notifications.notify("已保存 ✓", false);
                     }
                     Err(e) => {
@@ -393,9 +367,8 @@ pub fn files_content(
     // ── 说明 ──────────────────────────────────────
     ui.collapsing("说明", |ui| {
         ui.label("• 帧数据以二进制格式保存 (.rdra)");
-        ui.label("• 另存为: 首次保存或换位置");
-        ui.label("• 快速保存: 直接覆盖上次位置");
-        ui.label("• 加载: 从 .rdra 文件恢复帧数据");
+        ui.label("• 另存为: 选择保存位置");
+        ui.label("• 加载: 从 .rdra/.pcd 文件恢复帧数据");
         ui.label("• 清空: 清除所有帧数据，准备接收新数据");
     });
 }

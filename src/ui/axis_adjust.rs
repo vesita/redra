@@ -14,9 +14,19 @@ pub fn axis_adjust_content(
     ui: &mut egui::Ui,
     coord: &mut CoordSystem,
 ) {
-    ui.heading("坐标系设置");
+    ui.heading("坐标系");
     ui.separator();
     ui.add_space(8.0);
+
+    // ── 坐标轴显示 ──
+    let axis_label = if coord.show_axes { "隐藏坐标轴" } else { "显示坐标轴" };
+    if ui.button(axis_label).clicked() {
+        coord.show_axes = !coord.show_axes;
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
 
     // ── 手性 ──
     ui.label("手性:");
