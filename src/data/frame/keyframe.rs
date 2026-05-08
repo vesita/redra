@@ -74,7 +74,7 @@ impl KeyFrame {
             let mut mesh: Option<ExMesh> = None;
             let mut transform: Option<ExTransform> = None;
             let mut material: Option<String> = None;
-            let mut tag: Option<Tag> = None;
+            let mut tag_list: Vec<Tag> = Vec::new();
 
             for &idx in indices {
                 if let Some(u_object) = &unit.objects[idx].u_object {
@@ -83,7 +83,8 @@ impl KeyFrame {
                         UObject::Mesh(m) => mesh = Some(m.clone()),
                         UObject::Transform(t) => transform = Some(*t),
                         UObject::MaterialId(m) => material = Some(m.clone()),
-                        UObject::Tag(t) => tag = Some(t.clone()),
+                        UObject::Tag(t) => tag_list.push(t.clone()),
+                        _ => {}
                     }
                 }
             }
@@ -93,10 +94,7 @@ impl KeyFrame {
                 let bevy_t = transform.map(|t| e2i_transform(t)).unwrap_or_default();
                 let mat = material.unwrap_or_default();
                 self.ids.insert(id, self.packs.len());
-                let mut inpto = Inpto::new(m, mat, bevy_t);
-                if let Some(tag_data) = tag {
-                    inpto.tag = Some(tag_data);
-                }
+                let inpto = Inpto { mesh: m, material: mat, transform: bevy_t, tags: tag_list };
                 self.packs.push(inpto);
             }
         }
@@ -120,14 +118,21 @@ impl KeyFrame {
         if let Some(mesh_data) = mesh {
             let entity_id = generate_entity_id(self.packs.len());
             let material_id = extract_material_id(unit).unwrap_or_default();
-            let tag = extract_tag(unit);
+            let mut tag_list = unit.objects.iter()
+                .filter_map(|obj| {
+                    if let Some(UObject::Tag(t)) = &obj.u_object { Some(t.clone()) } else { None }
+                })
+                .collect::<Vec<_>>();
+            if tag_list.is_empty() {
+                // 兼容旧版 extract_tag
+                if let Some(t) = extract_tag(unit) {
+                    tag_list.push(t);
+                }
+            }
             let bevy_transform = transform.map(|t| e2i_transform(t)).unwrap_or(Transform::default());
 
             self.ids.insert(entity_id, self.packs.len());
-            let mut inpto = Inpto::new(mesh_data, material_id, bevy_transform);
-            if let Some(tag_data) = tag {
-                inpto.tag = Some(tag_data);
-            }
+            let inpto = Inpto { mesh: mesh_data, material: material_id, transform: bevy_transform, tags: tag_list };
             self.packs.push(inpto);
         }
     }
@@ -136,7 +141,7 @@ impl KeyFrame {
         let mut id: Option<u64> = None;
         let mut transform: Option<ExTransform> = None;
         let mut material_id: Option<String> = None;
-        let mut tag: Option<Tag> = None;
+        let mut tag_list: Vec<Tag> = Vec::new();
 
         for obj in &unit.objects {
             if let Some(u_object) = &obj.u_object {
@@ -144,7 +149,7 @@ impl KeyFrame {
                     UObject::Id(obj_id) => id = Some(*obj_id),
                     UObject::Transform(transform_data) => transform = Some(*transform_data),
                     UObject::MaterialId(mat_id) => material_id = Some(mat_id.clone()),
-                    UObject::Tag(tag_data) => tag = Some(tag_data.clone()),
+                    UObject::Tag(tag_data) => tag_list.push(tag_data.clone()),
                     _ => {}
                 }
             }
@@ -158,8 +163,8 @@ impl KeyFrame {
                 if let Some(mat_id) = material_id {
                     self.packs[*idx].material = mat_id;
                 }
-                if let Some(tag_data) = tag {
-                    self.packs[*idx].tag = Some(tag_data);
+                if !tag_list.is_empty() {
+                    self.packs[*idx].tags = tag_list;
                 }
             }
         }
@@ -204,15 +209,31 @@ impl KeyFrame {
         self.ids.get(&entity_id).map(|&idx| &self.packs[idx])
     }
 
-    /// 更新指定实体的 Tag 文本（无 Tag 时自动创建）
+    /// 更新指定实体的 Tag 文本（替换第一个匹配的 tag，或追加新 tag）
     pub fn update_entity_tag(&mut self, entity_id: u64, text: String) {
         if let Some(&idx) = self.ids.get(&entity_id) {
-            if let Some(tag) = &mut self.packs[idx].tag {
+            if let Some(tag) = self.packs[idx].tags.first_mut() {
                 tag.text = text;
             } else {
-                self.packs[idx].tag = Some(Tag::new(text));
+                self.packs[idx].tags.push(Tag::new(text));
             }
         }
+    }
+
+    /// 为实体添加一个 tag
+    pub fn add_entity_tag(&mut self, entity_id: u64, tag: Tag) {
+        if let Some(&idx) = self.ids.get(&entity_id) {
+            self.packs[idx].tags.push(tag);
+        }
+    }
+
+    /// 移除实体指定索引的 tag
+    pub fn remove_entity_tag(&mut self, entity_id: u64, index: usize) -> Option<Tag> {
+        if let Some(&idx) = self.ids.get(&entity_id) {
+            if index < self.packs[idx].tags.len() {
+                Some(self.packs[idx].tags.remove(index))
+            } else { None }
+        } else { None }
     }
 }
 
@@ -244,18 +265,19 @@ pub struct SerializableInpto {
     mesh: ExMesh,
     material: String,
     transform: SerializableTransform,
-    tag: Option<Tag>,
+    #[serde(default)]
+    tags: Vec<Tag>,
 }
 
 impl From<&Inpto> for SerializableInpto {
     fn from(inpto: &Inpto) -> Self {
-        Self { mesh: inpto.mesh.clone(), material: inpto.material.clone(), transform: inpto.transform.into(), tag: inpto.tag.clone() }
+        Self { mesh: inpto.mesh.clone(), material: inpto.material.clone(), transform: inpto.transform.into(), tags: inpto.tags.clone() }
     }
 }
 
 impl From<SerializableInpto> for Inpto {
     fn from(s: SerializableInpto) -> Self {
-        Self { mesh: s.mesh, material: s.material, transform: s.transform.into(), tag: s.tag }
+        Self { mesh: s.mesh, material: s.material, transform: s.transform.into(), tags: s.tags }
     }
 }
 
@@ -333,8 +355,8 @@ mod tests {
         let (id, inpto) = keyframe.iter_entities().next().unwrap();
         assert_eq!(id, 1);
         assert_eq!(inpto.material, "red");
-        assert!(inpto.tag.is_some());
-        assert_eq!(inpto.tag.as_ref().unwrap().text, "测试标签");
+        assert!(!inpto.tags.is_empty());
+        assert_eq!(inpto.tags.first().unwrap().text, "测试标签");
     }
 
     #[test]
@@ -354,7 +376,7 @@ mod tests {
         keyframe.react_update(&update_unit);
         let (_, inpto) = keyframe.iter_entities().next().unwrap();
         assert!((inpto.transform.translation.x - 10.0).abs() < f32::EPSILON);
-        assert_eq!(inpto.tag.as_ref().unwrap().text, "新标签");
+        assert_eq!(inpto.tags.first().unwrap().text, "新标签");
     }
 
     #[test]
@@ -371,6 +393,6 @@ mod tests {
         assert_eq!(keyframe.entity_count(), 1);
         let (_, inpto) = keyframe.iter_entities().next().unwrap();
         assert_eq!(inpto.material, "");
-        assert!(inpto.tag.is_none());
+        assert!(inpto.tags.is_empty());
     }
 }

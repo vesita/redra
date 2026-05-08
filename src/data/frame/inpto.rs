@@ -6,16 +6,21 @@ pub struct Inpto {
     pub mesh: ExMesh,
     pub material: String,
     pub transform: Transform,
-    pub tag: Option<Tag>,
+    pub tags: Vec<Tag>,
 }
 
 impl Inpto {
     pub fn new(mesh: ExMesh, material: String, transform: Transform) -> Self {
-        Self { mesh, material, transform, tag: None }
+        Self { mesh, material, transform, tags: Vec::new() }
     }
 
     pub fn with_tag(mut self, tag: Tag) -> Self {
-        self.tag = Some(tag);
+        self.tags.push(tag);
+        self
+    }
+
+    pub fn with_tags(mut self, tags: Vec<Tag>) -> Self {
+        self.tags = tags;
         self
     }
 

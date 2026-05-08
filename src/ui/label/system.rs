@@ -22,7 +22,8 @@ pub fn label_ui_observe(
     let Some(entity) = entity_map.map.get(&id) else { return; };
     let Ok(transform) = transform_query.get(*entity) else { return; };
 
-    hover_label.show(id, format_tag_display(&get_tag_from_frame_manager(&frame_manager, id)), transform.translation);
+    let tags_text = format_tags_from_frame_manager(&frame_manager, id);
+    hover_label.show(id, tags_text, transform.translation);
 }
 
 /// 处理 Tag 编辑结果，写入 FrameManager 并刷新 hover label
@@ -48,13 +49,14 @@ pub fn apply_tag_edit(
     }
 }
 
-fn format_tag_display(tag: &expto::rdmp::Tag) -> String { tag.text.clone() }
-
-fn get_tag_from_frame_manager(frame_manager: &FrameManager, entity_id: u64) -> expto::rdmp::Tag {
+fn format_tags_from_frame_manager(frame_manager: &FrameManager, entity_id: u64) -> String {
     if let Some(keyframe) = frame_manager.get_current_keyframe() {
         if let Some(inpto) = keyframe.get_entity(entity_id) {
-            if let Some(ref tag) = inpto.tag { return tag.clone(); }
+            let texts: Vec<&str> = inpto.tags.iter().map(|t| t.text.as_str()).collect();
+            if !texts.is_empty() {
+                return texts.join(" | ");
+            }
         }
     }
-    expto::rdmp::Tag { text: String::new(), offset: None, style: None }
+    String::new()
 }

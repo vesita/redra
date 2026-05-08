@@ -1,7 +1,7 @@
 //! 帧数据持久化模块 — 使用 bincode 进行二进制序列化
 
 use serde::{Serialize, Deserialize};
-use expto::rdmp::ExMesh;
+use expto::rdmp::{ExMesh, Tag};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
 use bevy::math::Quat;
@@ -52,11 +52,13 @@ pub struct EntityData {
     pub mesh: MeshData,
     pub material: String,
     pub transform: TransformData,
+    #[serde(default)]
+    pub tags: Vec<Tag>,
 }
 
 impl From<(u64, ExMesh, String, Transform)> for EntityData {
     fn from((entity_id, mesh, material, transform): (u64, ExMesh, String, Transform)) -> Self {
-        Self { entity_id, mesh: MeshData::from(mesh), material, transform: TransformData::from(transform) }
+        Self { entity_id, mesh: MeshData::from(mesh), material, transform: TransformData::from(transform), tags: Vec::new() }
     }
 }
 

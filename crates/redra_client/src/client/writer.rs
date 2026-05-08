@@ -34,7 +34,8 @@ pub(crate) struct SerializableEntity {
     mesh: ExMesh,
     material: String,
     transform: SerializableTransform,
-    tag: Option<Tag>,
+    #[serde(default)]
+    tags: Vec<Tag>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,7 +95,7 @@ impl RdraWriter {
                 rotation: [qx, qy, qz, qw],
                 scale: [builder.sx, builder.sy, builder.sz],
             },
-            tag: builder.tag,
+            tags: builder.tag_list,
         };
 
         self.entities.insert(id, entity);
@@ -124,7 +125,7 @@ impl RdraWriter {
                     rotation: e.transform.rotation,
                     scale: e.transform.scale,
                 },
-                tag: e.tag.clone(),
+                tags: e.tags.clone(),
             }))
             .collect();
 

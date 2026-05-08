@@ -13,7 +13,32 @@ message ExObject {
         transform.ExTransform transform = 3;
         string material_id = 4;
         Tag tag = 5;
+        TagCollectionDef tag_collection_def = 6;
     }
+}
+
+// Tag 集合定义 — 定义一组可复用的分类标签
+// 既可通过 TOML 静态配置加载，也可通过网络动态传输
+message TagCollectionDef {
+    // 集合唯一标识（如 "semantic", "instance"）
+    string name = 1;
+    // 显示名称（如 "语义分类", "实例标签"）
+    string display_name = 2;
+    // 可选值列表
+    repeated TagOption options = 3;
+}
+
+// Tag 集合中的单个选项
+message TagOption {
+    // 值标识（如 "road", "building"）
+    string key = 1;
+    // 显示标签（如 "道路", "建筑"）
+    string label = 2;
+    // 关联颜色 (RGBA)
+    float color_r = 3;
+    float color_g = 4;
+    float color_b = 5;
+    float color_a = 6;
 }
 
 // 标签消息 - 用于在 3D 对象附近显示文本标签

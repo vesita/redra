@@ -11,6 +11,7 @@ impl From<&KeyFrame> for SerializableKeyFrame {
                 mesh: inpto.mesh.clone().into(),
                 material: inpto.material.clone(),
                 transform: inpto.transform.into(),
+                tags: inpto.tags.clone(),
             })
             .collect();
         Self { timestamp: keyframe.timestamp, entities }

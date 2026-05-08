@@ -5,6 +5,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 use expto::rdmp::mesh::ex_mesh::UMesh;
 
 use crate::data::frame::{FrameManager, Inpto};
+use crate::data::tag::{TagFilter, TagRegistry, entity_passes_filter};
 use crate::assets::materials::MaterialManager;
 use crate::render::interaction::picking::PickableEntity;
 use crate::render::coord_system::{CoordSystem, apply_coord_system};
@@ -60,6 +61,8 @@ fn render_current_frame(
     asset_server: Res<AssetServer>,
     material_manager: Res<MaterialManager>,
     frame_manager: Res<FrameManager>,
+    tag_filter: Res<TagFilter>,
+    tag_registry: Res<TagRegistry>,
     handedness: Res<CoordSystem>,
     mut entity_map: ResMut<EntityMap>,
     pickable_check_query: Query<(Entity, &Name, &PickableEntity)>,
@@ -76,6 +79,11 @@ fn render_current_frame(
     let mut non_point_ids: HashMap<u64, &Inpto> = HashMap::new();
 
     for (entity_id, inpto) in keyframe.iter_entities() {
+        // Tag 筛选：不通过则跳过（不渲染不创建）
+        if !entity_passes_filter(&inpto.tags, &tag_filter, &tag_registry) {
+            continue;
+        }
+
         if let Some(UMesh::Point(p)) = &inpto.mesh.u_mesh {
             let material = if inpto.material.is_empty() {
                 "materials/mesh_types/point.toml".to_string()

@@ -84,6 +84,17 @@ pub fn extract_transform(unit: &Unit) -> Option<ExTransform> { extract_object::<
 pub fn extract_material_id(unit: &Unit) -> Option<String> { extract_object::<String>(unit) }
 pub fn extract_tag(unit: &Unit) -> Option<Tag> { extract_object::<Tag>(unit) }
 
+/// 从 Unit 提取所有 Tag
+pub fn extract_tags(unit: &Unit) -> Vec<Tag> {
+    unit.objects.iter()
+        .filter_map(|obj| {
+            if let Some(expto::rdmp::ex_object::UObject::Tag(tag)) = &obj.u_object {
+                Some(tag.clone())
+            } else { None }
+        })
+        .collect()
+}
+
 pub fn parse_command(unit: &Unit) -> Option<CommandType> {
     match unit.command {
         Some(cmd) => CommandType::try_from(cmd.u_command).ok(),

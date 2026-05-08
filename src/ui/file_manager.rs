@@ -282,6 +282,16 @@ pub fn files_content(
                             .map(|kf| kf.ids.len()).unwrap_or(0)),
                     );
                 });
+                // 显示当前文件名
+                if let Some(ref fname) = state.current_file_name {
+                    ui.horizontal(|ui| {
+                        ui.label("📄");
+                        ui.colored_label(
+                            egui::Color32::from_rgb(180, 220, 180),
+                            fname,
+                        );
+                    });
+                }
             });
     } else {
         ui.add_space(4.0);

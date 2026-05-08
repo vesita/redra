@@ -81,7 +81,7 @@ pub struct ShapeBuilder {
     pub(crate) rx: f32, pub(crate) ry: f32, pub(crate) rz: f32,
     pub(crate) sx: f32, pub(crate) sy: f32, pub(crate) sz: f32,
     pub(crate) material: Option<String>,
-    pub(crate) tag: Option<Tag>,
+    pub(crate) tag_list: Vec<Tag>,
     pub(crate) groups: Option<Vec<PointGroup>>,
 }
 
@@ -99,7 +99,7 @@ impl ShapeBuilder {
             tx: 0.0, ty: 0.0, tz: 0.0,
             rx: 0.0, ry: 0.0, rz: 0.0,
             sx: 1.0, sy: 1.0, sz: 1.0,
-            material: None, tag: None,
+            material: None, tag_list: Vec::new(),
             groups: Some(Vec::new()),
         }
     }
@@ -156,7 +156,7 @@ impl ShapeBuilder {
             rx, ry, rz,
             sx: 1.0, sy: 1.0, sz: 1.0,
             material: None,
-            tag: None,
+            tag_list: Vec::new(),
             groups: None,
         }
     }
@@ -197,7 +197,7 @@ impl ShapeBuilder {
             rx: 0.0, ry: 0.0, rz: 0.0,
             sx: 1.0, sy: 1.0, sz: 1.0,
             material: None,
-            tag: None,
+            tag_list: Vec::new(),
             groups: None,
         }
     }
@@ -243,9 +243,37 @@ impl ShapeBuilder {
         self.material = Some(id.into()); self
     }
 
-    /// 设置标签（接受 `&str` / `String` / `Tag`）
+    /// 设置单个标签（接受 `&str` / `String` / `Tag`）
+    /// 可链式调用多次以添加多个标签
     pub fn tag(mut self, tag: impl IntoTag) -> Self {
-        self.tag = Some(tag.into_tag()); self
+        self.tag_list.push(tag.into_tag()); self
+    }
+
+    /// 批量设置多个标签
+    ///
+    /// # 示例
+    /// ```no_run
+    /// ShapeBuilder::sphere(1.0)
+    ///     .tags(vec!["类别:道路", "置信度:0.95"])
+    ///     .send().await.unwrap();
+    /// ```
+    pub fn tags(mut self, tags: Vec<impl IntoTag>) -> Self {
+        for t in tags { self.tag_list.push(t.into_tag()); }
+        self
+    }
+
+    /// 按 collection:value 格式添加语义标签
+    ///
+    /// # 示例
+    /// ```no_run
+    /// ShapeBuilder::sphere(1.0)
+    ///     .tagged("semantic", "road")
+    ///     .tagged("instance", "car_01")
+    ///     .send().await.unwrap();
+    /// ```
+    pub fn tagged(mut self, collection: &str, value: &str) -> Self {
+        self.tag_list.push(Tag::new(format!("{}:{}", collection, value)));
+        self
     }
 
     // ─── 发送 ─────────────────────────────────────────────
@@ -296,7 +324,7 @@ impl ShapeBuilder {
             unit.objects.push(ExObject { u_object: Some(UObject::MaterialId(mat)) });
         }
 
-        if let Some(tag) = self.tag {
+        for tag in self.tag_list {
             unit.objects.push(ExObject::from(tag));
         }
 
@@ -314,7 +342,7 @@ impl ShapeBuilder {
             tx: 0.0, ty: 0.0, tz: 0.0,
             rx: 0.0, ry: 0.0, rz: 0.0,
             sx: 1.0, sy: 1.0, sz: 1.0,
-            material: None, tag: None,
+            material: None, tag_list: Vec::new(),
             groups: None,
         }
     }
