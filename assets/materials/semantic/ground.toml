@@ -1,7 +1,7 @@
-# 语义色 — 地面点（暗橄榄绿，低饱和度不抢视线）
+# 语义色 — 地面点云（亮绿）
 type = "StandardMaterial"
 
 [material]
-base_color.Srgba = [0.42, 0.50, 0.35, 1.0]
+base_color.Srgba = [0.40, 0.95, 0.45, 1.0]
 perceptual_roughness = 0.8
 metallic = 0.0

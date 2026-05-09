@@ -48,6 +48,7 @@ impl MaterialManager {
         // ── 按分类批量注册 ──────────────────────────────────────
         self.register_category("base", &[
             "red", "green", "blue", "white", "yellow", "cyan", "magenta",
+            "bright_blue", "bright_yellow", "bright_cyan",
         ]);
         self.register_category("data", &[
             "cluster_01", "cluster_02", "cluster_03", "cluster_04",
@@ -55,7 +56,8 @@ impl MaterialManager {
             "cluster_09", "cluster_10", "cluster_11", "cluster_12",
         ]);
         self.register_category("semantic", &[
-            "point_cloud", "ground", "noise", "bounding_box",
+            "point_cloud", "ground", "wall", "obstacle", "cluster_bg",
+            "noise", "bounding_box",
             "trajectory", "selected", "alert", "sky",
         ]);
         self.register_category("effects", &[

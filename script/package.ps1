@@ -1,22 +1,39 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Fix UTF-8 encoding for console output
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 Set-Location "$PSScriptRoot\.."
 
 Write-Host "=== Build release ===" -ForegroundColor Cyan
 cargo build --release
 
 Write-Host "=== Package to .\redra ===" -ForegroundColor Cyan
+
+# Clean old
 if (Test-Path redra) { Remove-Item redra -Recurse -Force }
-New-Item -ItemType Directory -Path redra | Out-Null
+$null = New-Item -ItemType Directory -Path redra
 
-# Executable
-Copy-Item -Path "target\release\redra.exe" -Destination "redra\redra.exe"
+# Check binary exists
+if (-not (Test-Path "target\release\redra.exe")) {
+    Write-Host "ERROR: target\release\redra.exe not found" -ForegroundColor Red
+    exit 1
+}
 
-# Assets
-Copy-Item -Recurse -Path "assets\fonts"     -Destination "redra\assets\fonts"
-Copy-Item -Recurse -Path "assets\init"      -Destination "redra\assets\init"
-Copy-Item -Recurse -Path "assets\materials" -Destination "redra\assets\materials"
+# Copy binary
+Copy-Item "target\release\redra.exe" "redra\redra.exe"
+
+# Copy assets directories (robocopy handles recursive dir copy reliably)
+$dirs = @("fonts", "init", "materials")
+foreach ($dir in $dirs) {
+    robocopy "assets\$dir" "redra\assets\$dir" /E /NJH /NJS /NDL /NFL
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "ERROR: failed to copy assets\$dir" -ForegroundColor Red
+        exit 1
+    }
+}
 
 # Verify
 if (-not (Test-Path "redra\redra.exe")) {

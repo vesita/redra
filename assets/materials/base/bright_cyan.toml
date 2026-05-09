@@ -1,0 +1,7 @@
+# 高亮青 — 非地面点
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.20, 1.0, 1.0, 1.0]
+perceptual_roughness = 0.4
+metallic = 0.0

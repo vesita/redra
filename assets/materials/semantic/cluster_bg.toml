@@ -1,0 +1,7 @@
+# 语义色 — 聚类背景（中性灰，不干扰聚类色）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.70, 0.70, 0.70, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0

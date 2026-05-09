@@ -1,0 +1,7 @@
+# 语义色 — 墙面点云（亮红）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.35, 0.28, 1.0]
+perceptual_roughness = 0.6
+metallic = 0.0

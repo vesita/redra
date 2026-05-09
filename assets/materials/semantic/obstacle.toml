@@ -1,0 +1,7 @@
+# 语义色 — 障碍物 box（亮黄）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.85, 0.20, 1.0]
+perceptual_roughness = 0.5
+metallic = 0.0
