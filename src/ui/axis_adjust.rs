@@ -16,9 +16,9 @@ pub fn axis_adjust_content(
 ) {
     ui.heading("坐标系");
     ui.separator();
-    ui.add_space(8.0);
+    ui.add_space(6.0);
 
-    // ── 坐标轴显示 ──
+    // ── 坐标轴显隐 ──
     let axis_label = if coord.show_axes { "隐藏坐标轴" } else { "显示坐标轴" };
     if ui.button(axis_label).clicked() {
         coord.show_axes = !coord.show_axes;
@@ -28,19 +28,47 @@ pub fn axis_adjust_content(
     ui.separator();
     ui.add_space(4.0);
 
-    // ── 手性 ──
-    ui.label("手性:");
-    ui.add_space(4.0);
+    // ── 向上方向 ──
+    ui.label("向上方向:");
+    ui.add_space(2.0);
 
-    let is_lh = coord.handedness == Handedness::LeftHanded;
-    let is_rh = coord.handedness == Handedness::RightHanded;
-
+    // 第一行：选轴（始终切到正方向）
     ui.horizontal(|ui| {
-        if ui.selectable_label(is_lh, "左手系").clicked() {
-            coord.handedness = Handedness::LeftHanded;
+        ui.label("选轴");
+        for (axis, name) in [(UpAxis::PlusX, "X"), (UpAxis::PlusY, "Y"), (UpAxis::PlusZ, "Z")] {
+            if ui.selectable_label(coord.up_axis == axis, name).clicked() {
+                coord.up_axis = axis;
+            }
         }
-        if ui.selectable_label(is_rh, "右手系").clicked() {
-            coord.handedness = Handedness::RightHanded;
+    });
+
+    // 第二行：翻转（同轴翻转方向，异轴切到负方向）
+    ui.add_space(2.0);
+    ui.horizontal(|ui| {
+        ui.label("翻转");
+        for (i, name) in ["X", "Y", "Z"].iter().enumerate() {
+            let is_on_axis = (i == 0 && matches!(coord.up_axis, UpAxis::PlusX | UpAxis::MinusX))
+                || (i == 1 && matches!(coord.up_axis, UpAxis::PlusY | UpAxis::MinusY))
+                || (i == 2 && matches!(coord.up_axis, UpAxis::PlusZ | UpAxis::MinusZ));
+            if ui.button(format!("↕ {name}")).clicked() {
+                coord.up_axis = match (i, is_on_axis, coord.up_axis) {
+                    (0, true, UpAxis::PlusX) => UpAxis::MinusX,
+                    (0, true, UpAxis::MinusX) => UpAxis::PlusX,
+                    (0, false, _) => UpAxis::MinusX,
+                    (1, true, UpAxis::PlusY) => UpAxis::MinusY,
+                    (1, true, UpAxis::MinusY) => UpAxis::PlusY,
+                    (1, false, _) => UpAxis::MinusY,
+                    (2, true, UpAxis::PlusZ) => UpAxis::MinusZ,
+                    (2, true, UpAxis::MinusZ) => UpAxis::PlusZ,
+                    (2, false, _) => UpAxis::MinusZ,
+                    _ => unreachable!(),
+                };
+                // 轴方向翻转 → 手性联动
+                coord.handedness = match coord.handedness {
+                    Handedness::LeftHanded => Handedness::RightHanded,
+                    Handedness::RightHanded => Handedness::LeftHanded,
+                };
+            }
         }
     });
 
@@ -48,25 +76,22 @@ pub fn axis_adjust_content(
     ui.separator();
     ui.add_space(4.0);
 
-    // ── 向上轴 ──
-    ui.label("向上轴:");
-    ui.add_space(4.0);
-
-    let axes = [
-        UpAxis::PlusX, UpAxis::MinusX,
-        UpAxis::PlusY, UpAxis::MinusY,
-        UpAxis::PlusZ, UpAxis::MinusZ,
-    ];
-
+    // ── 手性：单按钮，点击在左手系/右手系间翻转 ──
     ui.horizontal(|ui| {
-        for axis in &axes {
-            if ui.selectable_label(coord.up_axis == *axis, axis.label()).clicked() {
-                coord.up_axis = *axis;
-            }
+        ui.label("手性:");
+        let hand_label = match coord.handedness {
+            Handedness::LeftHanded => "左手系",
+            Handedness::RightHanded => "右手系",
+        };
+        if ui.button(hand_label).clicked() {
+            coord.handedness = match coord.handedness {
+                Handedness::LeftHanded => Handedness::RightHanded,
+                Handedness::RightHanded => Handedness::LeftHanded,
+            };
         }
     });
 
-    ui.add_space(8.0);
+    ui.add_space(6.0);
     ui.separator();
     ui.add_space(4.0);
 
