@@ -62,7 +62,7 @@ fn shell_system(
     mut frame_manager: ResMut<FrameManager>,
     mut playback_state: ResMut<PlaybackState>,
     mut save_state: ResMut<FileSaveState>,
-    storage: Res<FrameStorage>,
+    storage: Option<Res<FrameStorage>>,
     mut notifications: ResMut<NotificationCenter>,
     mut coord: ResMut<CoordSystem>,
     mut reset_camera: ResMut<ResetCameraView>,
@@ -200,7 +200,7 @@ fn shell_system(
                                 playback_content(ui, &mut frame_manager, &mut playback_state, &save_state);
                             }
                             SidebarView::Files => {
-                                files_content(ui, &frame_manager, &storage, &mut save_state, &mut notifications);
+                                files_content(ui, &frame_manager, storage.as_deref(), &mut save_state, &mut notifications);
                             }
                             SidebarView::AxisAdjust => {
                                 axis_adjust_content(ui, &mut coord);

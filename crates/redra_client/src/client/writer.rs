@@ -39,7 +39,7 @@ pub(crate) struct SerializableEntity {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializableKeyFrame {
+pub(crate) struct SerializableKeyFrame {
     timestamp: u64,
     entities: Vec<(u64, SerializableEntity)>,
 }
@@ -160,6 +160,53 @@ impl RdraWriter {
     /// 已积累的帧数
     pub fn frame_count(&self) -> usize {
         self.keyframes.len()
+    }
+
+    /// 将当前积累的帧保存到文件，并清空内部缓冲区。
+    ///
+    /// 用于分帧写出，避免所有帧同时占用内存。
+    pub fn save_fragment(&mut self, path: impl AsRef<Path>) -> Result<(), String> {
+        if let Some(parent) = path.as_ref().parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("创建目录失败: {}", e))?;
+        }
+        let data = bincode::serialize(&self.keyframes)
+            .map_err(|e| format!("序列化失败: {}", e))?;
+        std::fs::write(&path, data)
+            .map_err(|e| format!("写入文件失败: {}", e))?;
+        self.keyframes.clear();
+        self.entities.clear();
+        self.next_auto_id = 1;
+        Ok(())
+    }
+
+    /// 从多个片段文件合并出最终的 .rdra 文件。
+    ///
+    /// `sources` 是由 `save_fragment` 生成的片段文件路径列表。
+    /// 输出文件包含所有片段中的所有帧，与逐帧调用 `end_frame` 后 `save` 的结果一致。
+    pub fn merge_fragments(sources: &[impl AsRef<Path>], output: impl AsRef<Path>) -> Result<(), String> {
+        let mut all_frames: Vec<SerializableKeyFrame> = Vec::new();
+        for src in sources {
+            let data = std::fs::read(src)
+                .map_err(|e| format!("读取片段失败: {}", e))?;
+            let frames: Vec<SerializableKeyFrame> = bincode::deserialize(&data)
+                .map_err(|e| format!("反序列化片段失败: {}", e))?;
+            all_frames.extend(frames);
+        }
+        let data = bincode::serialize(&all_frames)
+            .map_err(|e| format!("序列化失败: {}", e))?;
+        std::fs::write(output, data)
+            .map_err(|e| format!("写入文件失败: {}", e))?;
+        Ok(())
+    }
+
+    /// 提取已积累的所有帧并清空内部缓冲区。
+    ///
+    /// 用于将帧数据分批写出到文件，避免所有帧常驻内存。
+    pub fn take_keyframes(&mut self) -> Vec<SerializableKeyFrame> {
+        let frames = std::mem::take(&mut self.keyframes);
+        self.entities.clear();
+        frames
     }
 
     /// 清空所有帧和实体数据，释放内存

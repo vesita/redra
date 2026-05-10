@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use bevy_egui::{EguiPrimaryContextPass, egui};
 
-use crate::data::frame::{FrameManager, KeyFrame, SerializableKeyFrame, FrameStorage};
+use crate::data::frame::{FrameManager, KeyFrame, FrameStorage};
 use crate::render::frame_renderer::EntityMap;
 use crate::render::interaction::picking::SelectionBox;
 use crate::ui::notifications::NotificationCenter;
@@ -154,6 +154,8 @@ pub struct FileSaveState {
     pub clear_requested: bool,
     /// 当前已加载文件的文件名（不含路径）
     pub current_file_name: Option<String>,
+    /// 待导入的 .rdra 文件路径
+    pub pending_import_path: Option<PathBuf>,
     /// 由 files_content 设置，confirm_dialog_file_system 消费。
     /// 存 Option 而非两个 bool，保证跨帧持久。
     confirm_action: Option<PendingAction>,
@@ -259,7 +261,7 @@ fn confirm_dialog_file_system(
 pub fn files_content(
     ui: &mut egui::Ui,
     frame_manager: &FrameManager,
-    storage: &FrameStorage,
+    storage: Option<&FrameStorage>,
     state: &mut FileSaveState,
     notifications: &mut NotificationCenter,
 ) {
@@ -268,6 +270,7 @@ pub fn files_content(
     let is_busy = state.active_op.is_some();
     // 如果 ConfirmRequest::active 为 true，说明弹窗正在显示
     let confirm_showing = state.confirm_action.is_some();
+    let storage_ok = storage.is_some();
 
     // ── 状态横幅 ──────────────────────────────────
     if has_data {
@@ -308,25 +311,21 @@ pub fn files_content(
     ui.add_space(2.0);
     ui.label(egui::RichText::new("保存").color(egui::Color32::from_rgb(150, 150, 150)).size(11.0));
 
-    ui.add_enabled(has_data && !is_busy && !confirm_showing, egui::Button::new("💾 另存为..."))
+    let can_save = has_data && !is_busy && !confirm_showing && storage_ok;
+    ui.add_enabled(can_save, egui::Button::new("💾 另存为..."))
+        .on_disabled_hover_text(if !storage_ok { "数据库未初始化，无法保存" } else { "" })
         .clicked()
         .then(|| {
             if let Some(path) = rfd::FileDialog::new()
                 .set_title("保存帧数据")
-                .set_file_name("frames.rdra")
-                .add_filter("Redra Data", &["rdra"])
+                .set_file_name("frames.db")
+                .add_filter("Redra Database", &["db"])
                 .save_file()
             {
-                let frames: Vec<SerializableKeyFrame> = frame_manager
-                    .get_all_keyframes().iter()
-                    .map(SerializableKeyFrame::from).collect();
-                match storage.save_to_file(&path, &frames) {
-                    Ok(()) => {
-                        notifications.notify("已保存 ✓", false);
-                    }
-                    Err(e) => {
-                        notifications.notify(format!("保存失败: {}", e), true);
-                    }
+                match storage.map(|s| s.export_db(&path)) {
+                    Some(Ok(())) => notifications.notify("已保存 ✓", false),
+                    Some(Err(e)) => notifications.notify(format!("保存失败: {}", e), true),
+                    None => notifications.notify("数据库不可用", true),
                 }
             }
         });
@@ -351,6 +350,7 @@ pub fn files_content(
         } else {
             if let Some(path) = rfd::FileDialog::new()
                 .set_title("加载帧数据")
+                .add_filter("Redra Database", &["db"])
                 .add_filter("Redra Data", &["rdra"])
                 .add_filter("PCD 点云", &["pcd"])
                 .add_filter("所有文件", &["*"])
@@ -360,6 +360,24 @@ pub fn files_content(
             }
         }
     }
+
+    ui.add_space(2.0);
+    ui.separator();
+
+    // ── 导入 ──────────────────────────────────────
+    ui.add_space(2.0);
+    ui.label(egui::RichText::new("旧格式").color(egui::Color32::from_rgb(150, 150, 150)).size(11.0));
+
+    if ui.add_enabled(!is_busy && !confirm_showing, egui::Button::new("📥 导入 .rdra...")).clicked() {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("导入 .rdra 文件")
+            .add_filter("Redra Data", &["rdra"])
+            .pick_file()
+        {
+            state.pending_import_path = Some(path);
+        }
+    }
+    ui.label(egui::RichText::new("将旧格式 .rdra 数据导入到当前数据库").color(egui::Color32::from_rgb(120, 120, 120)).size(11.0));
 
     ui.add_space(2.0);
     ui.separator();
@@ -378,9 +396,10 @@ pub fn files_content(
 
     // ── 说明 ──────────────────────────────────────
     ui.collapsing("说明", |ui| {
-        ui.label("• 帧数据以二进制格式保存 (.rdra)");
-        ui.label("• 另存为: 选择保存位置");
-        ui.label("• 加载: 从 .rdra/.pcd 文件恢复帧数据");
+        ui.label("• 帧数据以 SQLite 数据库格式保存 (.db)");
+        ui.label("• 另存为: 导出当前数据库到指定位置");
+        ui.label("• 加载: 从 .db/.rdra/.pcd 文件恢复帧数据");
+        ui.label("• 导入 .rdra: 将旧格式文件导入到当前数据库");
         ui.label("• 清空: 清除所有帧数据，准备接收新数据");
     });
 }
@@ -393,11 +412,30 @@ fn file_op_system(
     mut commands: Commands,
     mut state: ResMut<FileSaveState>,
     mut frame_manager: ResMut<FrameManager>,
-    storage: Res<FrameStorage>,
+    storage: Option<Res<FrameStorage>>,
     mut entity_map: ResMut<EntityMap>,
     mut notifications: ResMut<NotificationCenter>,
     selection_boxes: Query<Entity, With<SelectionBox>>,
 ) {
+    // 处理 .rdra 导入（需要数据库可用）
+    if let Some(import_path) = state.pending_import_path.take() {
+        let Some(storage) = storage.as_ref() else {
+            notifications.notify("数据库不可用，无法导入".to_string(), true);
+            return;
+        };
+        match storage.import_rdra(&import_path) {
+            Ok(count) => {
+                notifications.notify(
+                    format!("已导入 {} 帧到数据库", count),
+                    false,
+                );
+            }
+            Err(e) => {
+                notifications.notify(format!("导入失败: {}", e), true);
+            }
+        }
+    }
+
     let path = match state.pending_load_path.take() {
         Some(p) => p,
         None => return,
@@ -430,7 +468,44 @@ fn file_op_system(
                 }
             }
         }
+        "db" => {
+            // 打开选中的 .db 文件读取帧数据，而非读取当前 storage
+            match FrameStorage::new(&path) {
+                Ok(temp_storage) => {
+                    match temp_storage.load_all_frames() {
+                        Ok(frames) => {
+                            if frames.is_empty() {
+                                notifications.notify("数据库中没有帧数据".to_string(), true);
+                            } else {
+                                let frame_count = frames.len();
+                                clear_all_scene(&mut commands, &selection_boxes, &mut entity_map, &mut frame_manager);
+                                for kf in frames {
+                                    frame_manager.add_keyframe(kf);
+                                }
+                                frame_manager.seek_to_frame(0);
+                                state.current_file_name = Some(path.file_name().unwrap_or_default().to_string_lossy().to_string());
+                                notifications.notify(
+                                    format!("已从数据库加载 {} 帧", frame_count),
+                                    false,
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            notifications.notify(format!("数据库加载失败: {}", e), true);
+                        }
+                    }
+                }
+                Err(e) => {
+                    notifications.notify(format!("打开数据库失败: {}", e), true);
+                }
+            }
+        }
         _ => {
+            let Some(storage) = storage.as_ref() else {
+                notifications.notify("数据库不可用，无法加载旧格式文件".to_string(), true);
+                state.active_op = None;
+                return;
+            };
             match storage.load_from_file(&path) {
                 Ok(serializable_frames) => {
                     let frame_count = serializable_frames.len();

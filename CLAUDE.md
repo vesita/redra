@@ -76,6 +76,11 @@ ui/         — egui UI: VS Code-style sidebar, playback controls, file manager,
 - `KeyFrame` — Contains `packs: Vec<Inpto>` + `ids: HashMap<u64, usize>` entity lookup
 - `Inpto` — Intermediate representation: `Transform`, `ExMesh`, material path, optional `Tag`
 - `PlaybackState` (Resource) — Play/pause, FPS, frame navigation state
+- `FrameStorage` (Resource) — SQLite storage via sea-orm: `append_frame`, `load_all_frames`, `query_by_material`, etc.
+
+### Storage Module
+
+`src/data/frame/storage/` — replaces the old bincode `.rdra` format with SQLite. All entities stored as SQL rows. Streaming writes via per-frame transactions (`append_frame`). Sync/async bridge via `tokio::runtime::Runtime::block_on`. Schema: `frames`, `entities` (per-field transform), `entity_tags`. Native format `.db`, backward compat with `.rdra`. See `docs/storage.md`.
 
 ### Rendering Pipeline
 
