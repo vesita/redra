@@ -1,7 +1,4 @@
 //! SQLite 存储实现（基于 sea-orm）
-//!
-//! 用 sea-orm 实体定义替代 bincode 二进制文件，每个实体存储为 SQL 行。
-//! 支持流式逐帧写入，无需将所有帧加载到内存。
 
 use sea_orm::entity::prelude::*;
 use sea_orm::{Database, DatabaseConnection, Set, QuerySelect, QueryOrder, Schema};
@@ -9,12 +6,10 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use chrono::Utc;
 
-use bevy::prelude::Resource;
-use bevy::transform::components::Transform;
-use bevy::math::Quat;
+#[cfg(feature = "graph")]
+use bevy::prelude::*;
 
 use crate::data::frame::{KeyFrame, Inpto};
-use crate::data::frame::keyframe::SerializableKeyFrame;
 
 // ============================================================================
 // 实体定义
@@ -26,7 +21,7 @@ mod frames_entity {
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
     #[sea_orm(table_name = "frames")]
     pub struct Model {
-        #[sea_orm(primary_key)]
+        #[sea_orm(primary_key, auto_increment = true)]
         pub frame_id: i32,
         pub timestamp: i64,
         pub created_at: i64,
@@ -38,7 +33,6 @@ mod frames_entity {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-/// entity 表名与 sea_orm 关键字冲突，用 entities_table
 mod entities_table {
     use sea_orm::entity::prelude::*;
 
@@ -98,7 +92,7 @@ mod entity_tags_table {
 ///
 /// 每个实体存储为 SQL 行，支持按帧、材质、标签查询。
 /// 内部使用 sea-orm 进行 ORM 操作，通过 Tokio Runtime 桥接同步/异步。
-#[derive(Resource)]
+#[cfg_attr(feature = "graph", derive(Resource))]
 pub struct FrameStorage {
     conn: DatabaseConnection,
     pub(crate) db_path: PathBuf,
@@ -108,7 +102,6 @@ pub struct FrameStorage {
 impl FrameStorage {
     /// 打开或创建 SQLite 数据库文件。
     pub fn new(db_path: &Path) -> Result<Self, String> {
-        // 确保父目录存在
         if let Some(parent) = db_path.parent() {
             if !parent.as_os_str().is_empty() {
                 std::fs::create_dir_all(parent)
@@ -116,7 +109,6 @@ impl FrameStorage {
             }
         }
 
-        // 如果文件不存在则创建（不截断已有数据库）
         if !db_path.exists() {
             match std::fs::File::create(db_path) {
                 Ok(f) => { drop(f); }
@@ -135,13 +127,12 @@ impl FrameStorage {
             .build()
             .map_err(|e| format!("创建运行时失败: {}", e))?;
 
-        // 尝试多种 SQLite URI 格式
         let path_str = db_path.to_string_lossy().replace('\\', "/");
         let formats = [
-            format!("sqlite:{}?mode=rwc", path_str),  // sqlite:path with explicit rwc
-            format!("sqlite:///{}?mode=rwc", path_str),// sqlite:///path with explicit rwc
-            format!("sqlite:{}", path_str),            // sqlite:path (default)
-            format!("sqlite:///{}", path_str),         // sqlite:///path (default)
+            format!("sqlite:{}?mode=rwc", path_str),
+            format!("sqlite:///{}?mode=rwc", path_str),
+            format!("sqlite:{}", path_str),
+            format!("sqlite:///{}", path_str),
         ];
 
         let mut last_err = String::new();
@@ -166,7 +157,6 @@ impl FrameStorage {
         Ok(storage)
     }
 
-    /// 在可执行文件同目录下创建默认 storage.db。
     pub fn new_default() -> Result<Self, String> {
         let exe_path = std::env::current_exe()
             .map_err(|e| format!("获取可执行文件路径失败: {}", e))?
@@ -184,7 +174,6 @@ impl FrameStorage {
             let backend = self.conn.get_database_backend();
             let schema = Schema::new(backend);
 
-            // 创建各表（逐个调用以避免 trait object 问题）
             let stmt = backend.build(
                 schema.create_table_from_entity(frames_entity::Entity).if_not_exists(),
             );
@@ -200,7 +189,6 @@ impl FrameStorage {
             );
             self.conn.execute(stmt).await.map_err(|e| format!("创建表 entity_tags 失败: {}", e))?;
 
-            // 创建索引（IF NOT EXISTS）
             let indexes = [
                 "CREATE INDEX IF NOT EXISTS idx_entities_frame ON entities(frame_id)",
                 "CREATE INDEX IF NOT EXISTS idx_entities_entity ON entities(entity_id)",
@@ -221,33 +209,23 @@ impl FrameStorage {
 
     // ── 流式写入 ──
 
-    /// 追加一帧到数据库，返回分配的 frame_id。
-    /// 每帧使用独立事务，写入后内存中的 keyframe 可以丢弃。
+    /// 追加一帧到数据库，返回分配的 frame_id（由 AUTOINCREMENT 自动生成）。
     pub fn append_frame(&self, keyframe: &KeyFrame) -> Result<i32, String> {
         self.rt.block_on(async {
-            // 1. 获取下一个 frame_id
-            let next_id: i32 = frames_entity::Entity::find()
-                .select_only()
-                .column(frames_entity::Column::FrameId)
-                .order_by_desc(frames_entity::Column::FrameId)
-                .into_model::<frames_entity::Model>()
-                .one(&self.conn)
-                .await
-                .map_err(|e| format!("查询最大 frame_id 失败: {}", e))?
-                .map(|m| m.frame_id + 1)
-                .unwrap_or(0);
+            let now = Utc::now().timestamp() as i64;
 
-            // 2. 插入帧记录
-            frames_entity::ActiveModel {
-                frame_id: Set(next_id),
+            // 插入帧记录，由 AUTOINCREMENT 自动分配 frame_id
+            let insert_result = frames_entity::ActiveModel {
+                frame_id: Default::default(),
                 timestamp: Set(keyframe.timestamp as i64),
-                created_at: Set(Utc::now().timestamp() as i64),
+                created_at: Set(now),
             }
             .insert(&self.conn)
             .await
             .map_err(|e| format!("插入帧记录失败: {}", e))?;
 
-            // 3. 插入所有实体
+            let next_id = insert_result.frame_id;
+
             for (entity_id, inpto) in keyframe.iter_entities() {
                 let mesh_data = bincode::serialize(&inpto.mesh)
                     .map_err(|e| format!("序列化 mesh 失败: {}", e))?;
@@ -259,22 +237,21 @@ impl FrameStorage {
                     frame_id: Set(next_id),
                     material: Set(inpto.material.clone()),
                     mesh_data: Set(mesh_data),
-                    tx: Set(t.translation.x),
-                    ty: Set(t.translation.y),
-                    tz: Set(t.translation.z),
-                    rx: Set(t.rotation.x),
-                    ry: Set(t.rotation.y),
-                    rz: Set(t.rotation.z),
-                    rw: Set(t.rotation.w),
-                    sx: Set(t.scale.x),
-                    sy: Set(t.scale.y),
-                    sz: Set(t.scale.z),
+                    tx: Set(t.tx),
+                    ty: Set(t.ty),
+                    tz: Set(t.tz),
+                    rx: Set(t.rx),
+                    ry: Set(t.ry),
+                    rz: Set(t.rz),
+                    rw: Set(t.rw),
+                    sx: Set(t.sx),
+                    sy: Set(t.sy),
+                    sz: Set(t.sz),
                 }
                 .insert(&self.conn)
                 .await
                 .map_err(|e| format!("插入实体失败: {}", e))?;
 
-                // 4. 插入标签
                 for (ti, tag) in inpto.tags.iter().enumerate() {
                     let tag_data = bincode::serialize(tag)
                         .map_err(|e| format!("序列化 tag 失败: {}", e))?;
@@ -314,28 +291,24 @@ impl FrameStorage {
     /// 加载指定帧。
     pub fn load_frame(&self, frame_id: i32) -> Result<KeyFrame, String> {
         self.rt.block_on(async {
-            // 1. 查帧记录
             let frame = frames_entity::Entity::find_by_id(frame_id)
                 .one(&self.conn)
                 .await
                 .map_err(|e| format!("查询帧失败: {}", e))?
                 .ok_or_else(|| format!("帧 {} 不存在", frame_id))?;
 
-            // 2. 查该帧的所有实体
             let entity_rows = entities_table::Entity::find()
                 .filter(entities_table::Column::FrameId.eq(frame_id))
                 .all(&self.conn)
                 .await
                 .map_err(|e| format!("查询实体失败: {}", e))?;
 
-            // 3. 查该帧的所有标签
             let tag_rows = entity_tags_table::Entity::find()
                 .filter(entity_tags_table::Column::FrameId.eq(frame_id))
                 .all(&self.conn)
                 .await
                 .map_err(|e| format!("查询标签失败: {}", e))?;
 
-            // 按 (entity_id, frame_id) 分组标签
             let mut tag_map: HashMap<(i64, i32), Vec<(usize, expto::rdmp::Tag)>> =
                 HashMap::new();
             for tr in &tag_rows {
@@ -347,17 +320,16 @@ impl FrameStorage {
                     .push((tr.tag_index as usize, tag));
             }
 
-            // 4. 构建 KeyFrame
             let mut keyframe = KeyFrame::new(frame.timestamp as u64);
 
             for er in &entity_rows {
                 let mesh: expto::rdmp::ExMesh = bincode::deserialize(&er.mesh_data)
                     .map_err(|e| format!("反序列化 mesh 失败: {}", e))?;
 
-                let transform = Transform {
-                    translation: [er.tx, er.ty, er.tz].into(),
-                    rotation: Quat::from_array([er.rx, er.ry, er.rz, er.rw]),
-                    scale: [er.sx, er.sy, er.sz].into(),
+                let transform = crate::data::frame::inpto::InptoTransform {
+                    tx: er.tx, ty: er.ty, tz: er.tz,
+                    rx: er.rx, ry: er.ry, rz: er.rz, rw: er.rw,
+                    sx: er.sx, sy: er.sy, sz: er.sz,
                 };
 
                 let mut tags = Vec::new();
@@ -395,7 +367,6 @@ impl FrameStorage {
 
     // ── 查询 ──
 
-    /// 按材质名查询 (frame_id, entity_id) 列表。
     pub fn query_by_material(&self, material: &str) -> Result<Vec<(i32, u64)>, String> {
         self.rt.block_on(async {
             let rows = entities_table::Entity::find()
@@ -411,7 +382,6 @@ impl FrameStorage {
         })
     }
 
-    /// 按标签文本查询 (frame_id, entity_id) 列表。
     pub fn query_by_tag(&self, tag_text: &str) -> Result<Vec<(i32, u64)>, String> {
         self.rt.block_on(async {
             let rows = entity_tags_table::Entity::find()
@@ -427,7 +397,6 @@ impl FrameStorage {
         })
     }
 
-    /// 帧总数。
     pub fn frame_count(&self) -> Result<u64, String> {
         self.rt.block_on(async {
             frames_entity::Entity::find()
@@ -437,7 +406,6 @@ impl FrameStorage {
         })
     }
 
-    /// 实体总数。
     pub fn entity_count(&self) -> Result<u64, String> {
         self.rt.block_on(async {
             entities_table::Entity::find()
@@ -447,7 +415,6 @@ impl FrameStorage {
         })
     }
 
-    /// 获取所有 frame_id（按时间升序）。
     pub fn get_all_frame_ids(&self) -> Result<Vec<i32>, String> {
         self.rt.block_on(async {
             use frames_entity::Column;
@@ -467,7 +434,6 @@ impl FrameStorage {
 
     /// 将当前数据库导出到指定路径（文件复制 + VACUUM）。
     pub fn export_db(&self, dest: &Path) -> Result<(), String> {
-        // 先 VACUUM 确保数据一致
         self.vacuum()?;
         std::fs::copy(&self.db_path, dest)
             .map_err(|e| format!("导出数据库失败: {}", e))?;
@@ -475,29 +441,11 @@ impl FrameStorage {
         Ok(())
     }
 
-    /// 加载 .rdra 文件（旧格式）并导入为 SQL 帧。
-    pub fn import_rdra(&self, path: &Path) -> Result<i32, String> {
-        let data =
-                    std::fs::read(path).map_err(|e| format!("读取文件失败: {}", e))?;
-        let frames: Vec<SerializableKeyFrame> = bincode::deserialize(&data)
-            .map_err(|e| format!("反序列化 .rdra 失败: {}", e))?;
-
-        let mut count = 0;
-        for sf in frames {
-            let kf = KeyFrame::from(sf);
-            self.append_frame(&kf)?;
-            count += 1;
-        }
-        log::info!("已从 {} 导入 {} 帧", path.display(), count);
-        Ok(count)
-    }
-
     // ── 维护 ──
 
     /// 清空所有数据。
     pub fn clear_all(&self) -> Result<(), String> {
         self.rt.block_on(async {
-            // 按依赖顺序删除
             entity_tags_table::Entity::delete_many()
                 .exec(&self.conn)
                 .await
@@ -525,36 +473,5 @@ impl FrameStorage {
                 .map_err(|e| format!("VACUUM 失败: {}", e))?;
             Ok(())
         })
-    }
-
-    /// 向后兼容：导出为 .rdra 文件（bincode 格式）。
-    pub fn save_to_file(
-        &self,
-        path: &Path,
-        keyframes: &[SerializableKeyFrame],
-    ) -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目录失败: {}", e))?;
-        }
-        let data = bincode::serialize(keyframes)
-            .map_err(|e| format!("序列化失败: {}", e))?;
-        std::fs::write(path, data)
-            .map_err(|e| format!("写入文件失败: {}", e))?;
-        log::info!("已保存 {} 帧到: {}", keyframes.len(), path.display());
-        Ok(())
-    }
-
-    /// 向后兼容：从 .rdra 文件加载（bincode 格式）。
-    pub fn load_from_file(
-        &self,
-        path: &Path,
-    ) -> Result<Vec<SerializableKeyFrame>, String> {
-        let data =
-                    std::fs::read(path).map_err(|e| format!("读取文件失败: {}", e))?;
-        let keyframes: Vec<SerializableKeyFrame> = bincode::deserialize(&data)
-            .map_err(|e| format!("反序列化失败: {}", e))?;
-        log::info!("已从 {} 加载 {} 帧", path.display(), keyframes.len());
-        Ok(keyframes)
     }
 }

@@ -238,6 +238,18 @@ impl ShapeBuilder {
         self
     }
 
+    /// 设置半透明材质（自动追加 `_transparent` 后缀）。
+    ///
+    /// # 示例
+    /// ```no_run
+    /// ShapeBuilder::sphere(1.0)
+    ///     .material_transparent("red")
+    ///     .send().await.unwrap();
+    /// ```
+    pub fn material_transparent(self, name: &str) -> Self {
+        self.material(format!("{}_transparent", name))
+    }
+
     /// 设置材质（短名称如 "red"、"metal"，或完整 TOML 路径）
     pub fn material(mut self, id: impl Into<String>) -> Self {
         self.material = Some(id.into()); self
@@ -398,6 +410,33 @@ pub fn spawn_point(pos: [f32; 3], material: impl Into<String>) -> ShapeBuilder {
 /// 线段（起点, 终点, 材质）
 pub fn spawn_line(from: [f32; 3], to: [f32; 3], material: impl Into<String>) -> ShapeBuilder {
     ShapeBuilder::line(from[0], from[1], from[2], to[0], to[1], to[2]).material(material)
+}
+
+// ==================== 半透明材质支持 ====================
+
+/// 将材质名转为对应的半透明变体名（追加 `_transparent` 后缀）。
+pub fn material_transparent(name: &str) -> String {
+    format!("{}_transparent", name)
+}
+
+/// 点（位置, 半透明材质）— 快速调用 `spawn_point` + `material_transparent`。
+pub fn spawn_point_transparent(pos: [f32; 3], name: &str) -> ShapeBuilder {
+    spawn_point(pos, material_transparent(name))
+}
+
+/// 包围盒（角点, 半透明材质）— 快速调用 `spawn_cube` + `material_transparent`。
+pub fn spawn_cube_transparent(vertices: Vec<(f32, f32, f32)>, name: &str) -> ShapeBuilder {
+    spawn_cube(vertices, material_transparent(name))
+}
+
+/// 球体（位置, 半径, 半透明材质）— 快速调用 `spawn_sphere` + `material_transparent`。
+pub fn spawn_sphere_transparent(pos: [f32; 3], radius: f32, name: &str) -> ShapeBuilder {
+    spawn_sphere(pos, radius, material_transparent(name))
+}
+
+/// 线段（起点, 终点, 半透明材质）— 快速调用 `spawn_line` + `material_transparent`。
+pub fn spawn_line_transparent(from: [f32; 3], to: [f32; 3], name: &str) -> ShapeBuilder {
+    spawn_line(from, to, material_transparent(name))
 }
 
 /// 发送帧结束标记

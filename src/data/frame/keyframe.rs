@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bevy::prelude::*;
 use expto::rdmp::{CommandType, ExMesh, ExTransform, Tag, Unit, ex_object::UObject};
-use serde::{Serialize, Deserialize};
 
 use crate::data::protocol::{e2i_transform, parse_command, extract_id, extract_material_id, extract_tag};
 use crate::data::frame::Inpto;
@@ -46,17 +44,14 @@ impl KeyFrame {
 
     /// 将 Unit 对象列表按 Id 边界分组，每组生成一个实体
     fn react_spawn(&mut self, unit: &Unit) {
-        // 检测是否有显式 Id 对象：有则按 Id 分组（batch 模式），无则按 legacy 单实体处理
         let has_ids = unit.objects.iter().any(|obj| {
             obj.u_object.as_ref().is_some_and(|u| matches!(u, UObject::Id(_)))
         });
 
         if !has_ids {
-            // Legacy 模式：所有对象属于同一个实体，自动生成 ID
             return self.spawn_legacy(unit);
         }
 
-        // Batch 模式：按 Id 对象切分，每组独立生成一个实体
         let mut groups: Vec<Vec<usize>> = Vec::new();
         for (i, obj) in unit.objects.iter().enumerate() {
             let is_id = obj.u_object.as_ref().is_some_and(|u| matches!(u, UObject::Id(_)));
@@ -100,7 +95,6 @@ impl KeyFrame {
         }
     }
 
-    /// Legacy 模式：Unit 中无 Id 对象时，自动生成 ID，收集所有对象属性创建单个实体
     fn spawn_legacy(&mut self, unit: &Unit) {
         let mut mesh: Option<ExMesh> = None;
         let mut transform: Option<ExTransform> = None;
@@ -124,12 +118,11 @@ impl KeyFrame {
                 })
                 .collect::<Vec<_>>();
             if tag_list.is_empty() {
-                // 兼容旧版 extract_tag
                 if let Some(t) = extract_tag(unit) {
                     tag_list.push(t);
                 }
             }
-            let bevy_transform = transform.map(|t| e2i_transform(t)).unwrap_or(Transform::default());
+            let bevy_transform = transform.map(|t| e2i_transform(t)).unwrap_or_default();
 
             self.ids.insert(entity_id, self.packs.len());
             let inpto = Inpto { mesh: mesh_data, material: material_id, transform: bevy_transform, tags: tag_list };
@@ -190,11 +183,11 @@ impl KeyFrame {
 
     // ==================== 外部构造接口 ====================
 
-    /// 从外部直接插入实体（供文件导入使用）
+    /// 从外部直接插入实体
     pub fn insert_entity(&mut self, id: u64, mesh: ExMesh, transform: ExTransform) {
-        let bevy_t = e2i_transform(transform);
+        let i_t = e2i_transform(transform);
         self.ids.insert(id, self.packs.len());
-        self.packs.push(Inpto::new(mesh, String::new(), bevy_t));
+        self.packs.push(Inpto::new(mesh, String::new(), i_t));
     }
 
     // ==================== 数据访问接口 ====================
@@ -234,85 +227,6 @@ impl KeyFrame {
                 Some(self.packs[idx].tags.remove(index))
             } else { None }
         } else { None }
-    }
-}
-
-// ============================================================================
-// 序列化（轻量级文件 I/O 格式）
-// ============================================================================
-
-#[derive(Serialize, Deserialize)]
-struct SerializableTransform {
-    translation: [f32; 3],
-    rotation: [f32; 4],
-    scale: [f32; 3],
-}
-
-impl From<Transform> for SerializableTransform {
-    fn from(t: Transform) -> Self {
-        Self { translation: t.translation.into(), rotation: t.rotation.into(), scale: t.scale.into() }
-    }
-}
-
-impl From<SerializableTransform> for Transform {
-    fn from(s: SerializableTransform) -> Self {
-        Self { translation: s.translation.into(), rotation: Quat::from_array(s.rotation), scale: s.scale.into() }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SerializableInpto {
-    mesh: ExMesh,
-    material: String,
-    transform: SerializableTransform,
-    #[serde(default)]
-    tags: Vec<Tag>,
-}
-
-impl From<&Inpto> for SerializableInpto {
-    fn from(inpto: &Inpto) -> Self {
-        Self { mesh: inpto.mesh.clone(), material: inpto.material.clone(), transform: inpto.transform.into(), tags: inpto.tags.clone() }
-    }
-}
-
-impl From<SerializableInpto> for Inpto {
-    fn from(s: SerializableInpto) -> Self {
-        Self { mesh: s.mesh, material: s.material, transform: s.transform.into(), tags: s.tags }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct SerializableKeyFrame {
-    pub timestamp: u64,
-    pub entities: Vec<(u64, SerializableInpto)>,
-}
-
-impl From<&KeyFrame> for SerializableKeyFrame {
-    fn from(kf: &KeyFrame) -> Self {
-        let entities = kf.iter_entities().map(|(id, inpto)| (id, SerializableInpto::from(inpto))).collect();
-        Self { timestamp: kf.timestamp, entities }
-    }
-}
-
-impl From<SerializableKeyFrame> for KeyFrame {
-    fn from(s: SerializableKeyFrame) -> Self {
-        use expto::rdmp::mesh::ex_mesh::UMesh;
-        let mut keyframe = KeyFrame::new(s.timestamp);
-        let mut point_count = 0usize;
-        let mut other_count = 0usize;
-        for (id, serializable_inpto) in s.entities {
-            let inpto = Inpto::from(serializable_inpto);
-            match &inpto.mesh.u_mesh {
-                Some(UMesh::Point(_)) => point_count += 1,
-                _ => other_count += 1,
-            }
-            keyframe.ids.insert(id, keyframe.packs.len());
-            keyframe.packs.push(inpto);
-        }
-        if point_count > 0 || other_count > 0 {
-            log::info!("反序列化帧: {} 个 Point + {} 个其他实体", point_count, other_count);
-        }
-        keyframe
     }
 }
 
@@ -375,7 +289,7 @@ mod tests {
         });
         keyframe.react_update(&update_unit);
         let (_, inpto) = keyframe.iter_entities().next().unwrap();
-        assert!((inpto.transform.translation.x - 10.0).abs() < f32::EPSILON);
+        assert!((inpto.transform.tx - 10.0).abs() < f32::EPSILON);
         assert_eq!(inpto.tags.first().unwrap().text, "新标签");
     }
 

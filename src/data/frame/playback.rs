@@ -59,12 +59,20 @@ fn auto_advance_frame(
     playback_state.accumulated_time += time.delta_secs();
     let frame_interval = 1.0 / playback_state.playback_speed;
     if playback_state.accumulated_time >= frame_interval {
-        if frame_manager.next_frame() {
-            log::debug!("自动切换到第 {} 帧", frame_manager.current_frame_index());
-        } else {
-            playback_state.pause();
-            log::info!("播放完毕");
+        // 推进多帧以追赶实际时间，避免卡顿后累计太多延迟
+        let steps = (playback_state.accumulated_time / frame_interval) as u32;
+        for _ in 0..steps {
+            if !frame_manager.next_frame() {
+                playback_state.pause();
+                log::info!("播放完毕");
+                break;
+            }
         }
-        playback_state.accumulated_time = 0.0;
+        playback_state.accumulated_time -= steps as f32 * frame_interval;
+        log::debug!(
+            "自动切换到第 {} 帧 (一次推进 {} 帧)",
+            frame_manager.current_frame_index(),
+            steps,
+        );
     }
 }

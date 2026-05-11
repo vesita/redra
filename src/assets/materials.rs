@@ -26,10 +26,20 @@ macro_rules! register_special {
     };
 }
 
+/// 基础色名称列表（用于批量注册及半透明派生）。
+const BASE_COLORS: &[&str] = &[
+    "red", "green", "blue", "white", "yellow", "cyan", "magenta",
+    "orange", "purple", "pink", "lime", "teal", "brown", "gray", "black",
+    "bright_red", "bright_green", "bright_blue", "bright_yellow", "bright_cyan",
+    "bright_orange", "bright_pink", "bright_purple",
+    "dark_red", "dark_green", "dark_blue", "dark_gray", "dark_brown", "dark_purple",
+];
+
 impl MaterialManager {
     pub fn new() -> Self {
         let mut manager = MaterialManager { material_id_map: HashMap::new() };
         manager.register_default_material_id_mappings();
+        manager.register_transparent_variants();
         info!("材质管理器初始化完成（{} 个已注册材质）", manager.material_id_map.len());
         manager
     }
@@ -46,10 +56,7 @@ impl MaterialManager {
 
     fn register_default_material_id_mappings(&mut self) {
         // ── 按分类批量注册 ──────────────────────────────────────
-        self.register_category("base", &[
-            "red", "green", "blue", "white", "yellow", "cyan", "magenta",
-            "bright_blue", "bright_yellow", "bright_cyan",
-        ]);
+        self.register_category("base", BASE_COLORS);
         self.register_category("data", &[
             "cluster_01", "cluster_02", "cluster_03", "cluster_04",
             "cluster_05", "cluster_06", "cluster_07", "cluster_08",
@@ -205,5 +212,28 @@ impl MaterialManager {
 
     pub fn load_generic_materials(&self, material_names: &[&str], asset_server: &AssetServer) -> Vec<Handle<GenericMaterial>> {
         material_names.iter().map(|&name| self.load_generic_material(name, asset_server)).collect()
+    }
+
+    // ==================== 半透明材质支持 ====================
+
+    /// 返回给定基础色的半透明材质名称（`{name}_transparent`）。
+    pub fn transparent_name(&self, name: &str) -> String {
+        format!("{}_transparent", name)
+    }
+
+    /// 加载基础色的半透明版本。
+    pub fn base_transparent(&self, name: &str, asset_server: &AssetServer) -> Handle<GenericMaterial> {
+        self.load_generic_material(&self.transparent_name(name), asset_server)
+    }
+
+    /// 为所有基础色自动注册半透明变体（文件命名 `{name}_transparent.toml`）。
+    fn register_transparent_variants(&mut self) {
+        for name in BASE_COLORS {
+            let transparent_name = format!("{}_transparent", name);
+            self.material_id_map.insert(
+                transparent_name,
+                format!("materials/base/{}_transparent.toml", name),
+            );
+        }
     }
 }

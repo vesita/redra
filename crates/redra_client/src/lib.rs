@@ -25,9 +25,5 @@ pub use client::send::*;
 // 导出 builder 模块（ShapeBuilder + 便捷函数）
 pub use client::builder::*;
 
-// 导出 writer 模块（RdraWriter）
-pub use client::writer::*;
-
 // 导出 sql_writer 模块（SqlWriter）
 pub use client::sql_writer::SqlWriter;
-

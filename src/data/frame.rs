@@ -1,24 +1,32 @@
+#[cfg(feature = "graph")]
 use bevy::prelude::*;
+#[cfg(feature = "graph")]
 use redra_net::RDChannel;
 
 pub mod manager;
 pub mod keyframe;
 pub mod inpto;
 pub mod unit_pack;
+#[cfg(feature = "graph")]
 pub mod playback;
+#[cfg(feature = "graph")]
 pub mod storage;
 
 pub use manager::FrameManager;
-pub use keyframe::{KeyFrame, SerializableKeyFrame};
-pub use inpto::Inpto;
+pub use keyframe::KeyFrame;
+pub use inpto::{Inpto, InptoTransform};
 pub use unit_pack::UnitPack;
+#[cfg(feature = "graph")]
 pub use playback::{PlaybackState, FramePlaybackPlugin};
+#[cfg(feature = "graph")]
 pub use storage::{FrameStorage, FrameStoragePlugin};
 
 // ==================== FrameManager 插件 ====================
 
+#[cfg(feature = "graph")]
 pub struct FrameManagerPlugin;
 
+#[cfg(feature = "graph")]
 impl Plugin for FrameManagerPlugin {
     fn build(&self, app: &mut App) {
         app
@@ -30,10 +38,12 @@ impl Plugin for FrameManagerPlugin {
     }
 }
 
+#[cfg(feature = "graph")]
 fn setup_frame_manager(mut commands: Commands) {
     commands.insert_resource(FrameManager::default());
 }
 
+#[cfg(feature = "graph")]
 fn update_frame_manager(
     mut frame_manager: ResMut<FrameManager>,
     mut tag_registry: ResMut<crate::data::tag::TagRegistry>,
@@ -41,7 +51,6 @@ fn update_frame_manager(
 ) {
     let mut processed_count = 0;
     while let Ok(unit) = channel.redra_recver.try_recv() {
-        // 提取 TagCollectionDef 到 TagRegistry（不进入帧数据流）
         let filtered: Vec<_> = unit.objects.iter().filter(|obj| {
             use expto::rdmp::ex_object::UObject;
             if let Some(UObject::TagCollectionDef(def)) = &obj.u_object {

@@ -1,0 +1,7 @@
+# 黑色材质（近黑，保留微光感）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.06, 0.06, 0.06, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0

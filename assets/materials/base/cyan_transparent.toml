@@ -1,0 +1,6 @@
+# cyan_transparent — 半透明版
+type = "StandardMaterial"
+
+[material]
+alpha_mode = "Blend"
+base_color.Srgba = [0.26, 0.80, 0.94, 0.5]

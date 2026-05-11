@@ -1,0 +1,7 @@
+# 亮紫 — 高对比标注
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.75, 0.25, 1.0, 1.0]
+perceptual_roughness = 0.3
+metallic = 0.0

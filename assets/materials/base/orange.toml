@@ -1,0 +1,5 @@
+# 橙色材质（感知均匀校正）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.55, 0.10, 1.0]

@@ -144,6 +144,13 @@ impl SqlWriter {
         self.entities.remove(&id);
     }
 
+    /// 修改已有实体的材质
+    pub fn set_material(&mut self, id: u64, material: impl Into<String>) {
+        if let Some(entity) = self.entities.get_mut(&id) {
+            entity.material = material.into();
+        }
+    }
+
     /// 清除当前帧中所有实体
     pub fn destroy_all(&mut self) {
         self.entities.clear();

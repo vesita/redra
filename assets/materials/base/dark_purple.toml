@@ -1,0 +1,7 @@
+# 暗紫 — 低饱和背景
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.38, 0.14, 0.52, 1.0]
+perceptual_roughness = 0.7
+metallic = 0.0

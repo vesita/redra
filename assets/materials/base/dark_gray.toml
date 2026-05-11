@@ -1,0 +1,7 @@
+# 深灰 — 中性背景
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [0.25, 0.25, 0.25, 1.0]
+perceptual_roughness = 0.8
+metallic = 0.0

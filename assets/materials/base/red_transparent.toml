@@ -1,0 +1,6 @@
+# red_transparent — 半透明版
+type = "StandardMaterial"
+
+[material]
+alpha_mode = "Blend"
+base_color.Srgba = [0.94, 0.35, 0.32, 0.5]

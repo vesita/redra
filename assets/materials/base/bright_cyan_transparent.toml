@@ -1,0 +1,8 @@
+# bright_cyan_transparent — 半透明版
+type = "StandardMaterial"
+
+[material]
+alpha_mode = "Blend"
+base_color.Srgba = [0.20, 1.0, 1.0, 0.5]
+perceptual_roughness = 0.4
+metallic = 0.0

@@ -5,14 +5,19 @@
 // - render:    渲染层，Bevy 场景渲染、交互、UI
 // - ui:        UI 层，用户界面（基于 egui）
 
+#[cfg(feature = "graph")]
 pub mod control;
 pub mod data;
+#[cfg(feature = "graph")]
 pub mod assets;
+#[cfg(feature = "graph")]
 pub mod render;
+#[cfg(feature = "graph")]
 pub mod ui;
 
 // 导出子 crate
 pub extern crate expto;
 
 // 导出主要插件
+#[cfg(feature = "graph")]
 pub use control::ControlPlugin as RedraPlugin;

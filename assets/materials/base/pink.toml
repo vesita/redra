@@ -1,0 +1,5 @@
+# 粉色材质（感知均匀校正）
+type = "StandardMaterial"
+
+[material]
+base_color.Srgba = [1.0, 0.42, 0.72, 1.0]

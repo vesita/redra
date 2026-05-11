@@ -68,7 +68,8 @@ fn render_static_entities(
                 Mesh3d(meshes.add(Sphere::new(0.1)))
             });
         let material_handle = protocol::inpto_to_generic_material(inpto, material_manager, asset_server);
-        let render_transform = apply_coord_system(inpto.transform, coord);
+        let bevy_t: bevy::transform::components::Transform = inpto.transform.into();
+        let render_transform = apply_coord_system(bevy_t, coord);
 
         commands.spawn((
             mesh_handle,

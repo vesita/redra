@@ -1,0 +1,6 @@
+# purple_transparent — 半透明版
+type = "StandardMaterial"
+
+[material]
+alpha_mode = "Blend"
+base_color.Srgba = [0.65, 0.35, 0.90, 0.5]

@@ -1,8 +1,6 @@
 //! 帧数据持久化模块 — 基于 SQLite（通过 sea-orm）
-//!
-//! 替代旧的 bincode .rdra 文件格式，每个实体存储为 SQL 行。
-//! 支持流式逐帧写入、按材质/标签查询。
 
+#[cfg(feature = "graph")]
 use bevy::prelude::*;
 
 pub mod sql;
@@ -10,8 +8,10 @@ pub mod sql;
 pub use sql::FrameStorage;
 
 /// FrameStorage 的 Bevy 插件。
+#[cfg(feature = "graph")]
 pub struct FrameStoragePlugin;
 
+#[cfg(feature = "graph")]
 impl Plugin for FrameStoragePlugin {
     fn build(&self, app: &mut App) {
         let cwd = std::env::current_dir().ok();
@@ -19,7 +19,6 @@ impl Plugin for FrameStoragePlugin {
             .and_then(|p| p.parent().map(|d| d.to_path_buf()));
         let tmp_dir = Some(std::env::temp_dir());
 
-        // 收集候选目录（去重）
         let mut dirs = Vec::new();
         if let Some(d) = &cwd { if !dirs.contains(d) { dirs.push(d.clone()); } }
         if let Some(d) = &exe_dir { if !dirs.contains(d) { dirs.push(d.clone()); } }
@@ -28,7 +27,6 @@ impl Plugin for FrameStoragePlugin {
         let mut storage: Option<FrameStorage> = None;
         for dir in &dirs {
             let path = dir.join("storage.db");
-            // 预检查：尝试写一个测试文件
             let test_path = dir.join(".redra_writable_test");
             match std::fs::write(&test_path, b"test") {
                 Ok(()) => { let _ = std::fs::remove_file(&test_path); }

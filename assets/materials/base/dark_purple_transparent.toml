@@ -1,0 +1,8 @@
+# dark_purple_transparent — 半透明版
+type = "StandardMaterial"
+
+[material]
+alpha_mode = "Blend"
+base_color.Srgba = [0.38, 0.14, 0.52, 0.5]
+perceptual_roughness = 0.7
+metallic = 0.0

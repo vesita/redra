@@ -1,10 +1,6 @@
-use bevy::prelude::*;
 use expto::rdmp::{CommandType, ExMesh, ExTransform, Unit, Tag, ex_object::UObject};
-use redra_geo::axis::AxisConvention;
 
-use crate::data::frame::Inpto;
-use crate::assets::materials::MaterialManager;
-use crate::assets::materials::GenericMaterial;
+use crate::data::frame::InptoTransform;
 
 // ==================== 基础对象解析 ====================
 
@@ -106,46 +102,70 @@ pub fn parse_timestamp(unit: &Unit) -> u64 {
     if let Some(stamp) = &unit.stamp { stamp.timestamp } else { 0 }
 }
 
-pub fn e2i_transform(transform: ExTransform) -> Transform {
-    Transform {
-        translation: Vec3::new(transform.x, transform.y, transform.z),
-        rotation: Quat::from_euler(EulerRot::XYZ, transform.rx, transform.ry, transform.rz),
-        scale: Vec3::new(transform.sx, transform.sy, transform.sz),
-    }
+/// 将 ExTransform 转为内部 InptoTransform（欧拉角 → 四元数）
+pub fn e2i_transform(transform: ExTransform) -> InptoTransform {
+    InptoTransform::from(transform)
 }
 
-/// 将 Bevy Transform 转换为协议 ExTransform
-pub fn i2e_transform(t: Transform) -> ExTransform {
-    let (rx, ry, rz) = t.rotation.to_euler(EulerRot::XYZ);
+/// 将内部 InptoTransform 转为协议 ExTransform
+pub fn i2e_transform(t: InptoTransform) -> ExTransform {
+    // 四元数 → 欧拉角 (XYZ)
+    let (rx, ry, rz) = quat_to_euler_xyz(t.rx, t.ry, t.rz, t.rw);
     ExTransform {
-        x: t.translation.x,
-        y: t.translation.y,
-        z: t.translation.z,
+        x: t.tx, y: t.ty, z: t.tz,
         rx, ry, rz,
-        sx: t.scale.x,
-        sy: t.scale.y,
-        sz: t.scale.z,
+        sx: t.sx, sy: t.sy, sz: t.sz,
     }
 }
 
-/// 通过 redra_geo 管线在不同坐标轴约定间转换 Bevy Transform
+/// 四元数转欧拉角 (XYZ)
+fn quat_to_euler_xyz(qx: f32, qy: f32, qz: f32, qw: f32) -> (f32, f32, f32) {
+    let sinr_cosp = 2.0 * (qw * qx + qy * qz);
+    let cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy);
+    let rx = sinr_cosp.atan2(cosr_cosp);
+
+    let sinp = 2.0 * (qw * qy - qz * qx);
+    let ry = if sinp.abs() >= 1.0 {
+        std::f32::consts::FRAC_PI_2.copysign(sinp)
+    } else {
+        sinp.asin()
+    };
+
+    let siny_cosp = 2.0 * (qw * qz + qx * qy);
+    let cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
+    let rz = siny_cosp.atan2(cosy_cosp);
+
+    (rx, ry, rz)
+}
+
+// ── 以下仅在 graph feature 下可用（依赖 bevy Transform）──
+
+#[cfg(feature = "graph")]
+use bevy::prelude::*;
+
+#[cfg(feature = "graph")]
+use crate::assets::materials::{MaterialManager, GenericMaterial};
+#[cfg(feature = "graph")]
+use crate::data::frame::Inpto;
+
+/// 通过 redra_geo 管线在不同坐标轴约定间转换 bevy Transform
 ///
 /// 注意：中间的 Transform3 使用等方缩放（f32），
 /// 各向异性缩放信息会丢失（三个轴的平均值）。
+#[cfg(feature = "graph")]
 pub fn convert_bevy_transform(
     t: &Transform,
-    from: AxisConvention,
-    to: AxisConvention,
+    from: redra_geo::axis::AxisConvention,
+    to: redra_geo::axis::AxisConvention,
 ) -> Transform {
-    let ext = i2e_transform(*t);
+    let ext = i2e_transform(InptoTransform::from(*t));
     let t3 = redra_geo::convert::extransform_to_transform3(&ext);
     let converted = redra_geo::axis::convert_axis(&t3, from, to);
     let back_ext = redra_geo::convert::transform3_to_extransform(&converted);
-    e2i_transform(back_ext)
+    Transform::from(e2i_transform(back_ext))
 }
 
-// ==================== Inpto 材质工具 ====================
-
+#[cfg(feature = "graph")]
 pub fn inpto_material_name(inpto: &Inpto, material_manager: &MaterialManager) -> String {
     if inpto.material.is_empty() {
         "default".to_string()
@@ -156,6 +176,7 @@ pub fn inpto_material_name(inpto: &Inpto, material_manager: &MaterialManager) ->
     }
 }
 
+#[cfg(feature = "graph")]
 pub fn inpto_material_path(inpto: &Inpto, material_manager: &MaterialManager) -> String {
     if inpto.material.is_empty() {
         "materials/default.toml".to_string()
@@ -166,6 +187,7 @@ pub fn inpto_material_path(inpto: &Inpto, material_manager: &MaterialManager) ->
     }
 }
 
+#[cfg(feature = "graph")]
 pub fn inpto_to_generic_material(inpto: &Inpto, material_manager: &MaterialManager, asset_server: &AssetServer) -> Handle<GenericMaterial> {
     let path = inpto_material_path(inpto, material_manager);
     material_manager.load_generic_material(&path, asset_server)

@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use bevy::prelude::*;
 use expto::rdmp::{TagCollectionDef, TagOption};
 
 // ==================== Tag 集合注册表 ====================
@@ -20,7 +19,8 @@ pub enum CollectionSource {
 }
 
 /// Bevy Resource：全局 Tag 集合定义注册表
-#[derive(Resource, Default)]
+#[cfg_attr(feature = "graph", derive(bevy::prelude::Resource))]
+#[derive(Default)]
 pub struct TagRegistry {
     pub collections: HashMap<String, TagCollection>,
 }
@@ -89,7 +89,7 @@ pub enum FilterExpr {
 }
 
 /// Bevy Resource：渲染筛选规则
-#[derive(Resource)]
+#[cfg_attr(feature = "graph", derive(bevy::prelude::Resource))]
 pub struct TagFilter {
     pub enabled: bool,
     pub mode: FilterMode,

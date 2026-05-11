@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use expto::rdmp::mesh::ex_mesh::UMesh;
 
-use crate::data::frame::{FrameManager, Inpto};
+use crate::data::frame::{FrameManager, Inpto, InptoTransform};
 use crate::data::tag::{TagFilter, TagRegistry, entity_passes_filter};
 use crate::assets::materials::MaterialManager;
 use crate::render::interaction::picking::PickableEntity;
@@ -110,7 +110,8 @@ fn render_current_frame(
         if let Some(&entity) = entity_map.map.get(&entity_id) {
             update_entity_transform(&mut commands, entity, &inpto.transform, *handedness, &hidden_query);
         } else {
-            let new_entity = spawn_entity_from_inpto(&mut commands, &mut meshes, &asset_server, &material_manager, inpto, entity_id, *handedness);
+            let bevy_transform = bevy::transform::components::Transform::from(inpto.transform);
+            let new_entity = spawn_entity_from_inpto(&mut commands, &mut meshes, &asset_server, &material_manager, inpto, bevy_transform, entity_id, *handedness);
             entity_map.map.insert(entity_id, new_entity);
             log::info!("创建新实体 {} (名称: {})", entity_id, inpto.name());
         }
@@ -131,8 +132,9 @@ fn spawn_entity_from_inpto(
     asset_server: &AssetServer,
     material_manager: &MaterialManager,
     inpto: &Inpto,
+    render_transform: Transform,
     entity_id: u64,
-    handedness: CoordSystem,
+    _handedness: CoordSystem,
 ) -> Entity {
     let mesh_handle = crate::render::conversion::proto_mesh_to_bevy(meshes, &inpto.mesh)
         .unwrap_or_else(|| {
@@ -149,7 +151,6 @@ fn spawn_entity_from_inpto(
         });
 
     let material_handle = material_manager.load_generic_material(&inpto.material_path(), asset_server);
-    let render_transform = apply_coord_system(inpto.transform, handedness);
 
     commands.spawn((
         mesh_handle,
@@ -236,13 +237,13 @@ fn update_point_groups(
 fn update_entity_transform(
     commands: &mut Commands,
     entity: Entity,
-    transform: &Transform,
+    transform: &InptoTransform,
     handedness: CoordSystem,
     hidden_query: &Query<(), With<Hidden>>,
 ) {
-    // 实体可能在同一帧被其他系统（如文件加载）despawn，需要先检查有效性
     let Ok(mut ec) = commands.get_entity(entity) else { return };
-    let render_transform = apply_coord_system(*transform, handedness);
+    let bevy_t: bevy::transform::components::Transform = (*transform).into();
+    let render_transform = apply_coord_system(bevy_t, handedness);
     let has_hidden = hidden_query.get(entity).is_ok();
     ec.insert(render_transform);
     if has_hidden {
