@@ -22,6 +22,7 @@ use super::builder::ShapeBuilder;
 
 // ─── 内部数据结构 ────────────────────────────────────────────
 
+#[derive(Clone)]
 struct EntityData {
     mesh: ExMesh,
     material: String,
@@ -156,6 +157,17 @@ impl SqlWriter {
         self.entities.clear();
     }
 
+    /// 从另一个 SqlWriter 克隆当前帧的所有实体到本写入器。
+    ///
+    /// 用于避免重复写入相同数据（如点云）到多个文件。
+    /// 仅复制实体内存状态，不涉及 SQLite I/O。
+    /// 不会覆盖本写入器中已存在的 ID。
+    pub fn absorb(&mut self, other: &SqlWriter) {
+        for (&id, data) in &other.entities {
+            self.entities.entry(id).or_insert_with(|| data.clone());
+        }
+    }
+
     /// 结束当前帧，将所有实体写入 SQLite。
     ///
     /// 在一个事务中完成帧记录、实体、标签的插入。
@@ -263,6 +275,31 @@ impl SqlWriter {
     /// 当前帧的实体数量
     pub fn entity_count(&self) -> usize {
         self.entities.len()
+    }
+
+    /// 将另一个 .rdra 数据库文件中的所有实体批量复制到本数据库。
+    ///
+    /// 使用 SQL 级 ATTACH + INSERT-SELECT，无 Rust 序列化开销。
+    /// 实体 ID 不重叠时最安全（点云 0..N，语义 800000+）。
+    /// 不复制 frames 表（目标库已有正确的帧记录）。
+    pub fn merge_db(target_path: &Path, source_path: &Path) -> Result<(), String> {
+        let conn = Connection::open(target_path)
+            .map_err(|e| format!("打开目标数据库失败: {}", e))?;
+        let source_str = source_path.to_str().ok_or_else(|| "路径包含无效 UTF-8".to_string())?;
+        conn.execute("ATTACH DATABASE ? AS src", params![source_str])
+            .map_err(|e| format!("ATTACH 失败: {}", e))?;
+        let r = conn.execute_batch(
+            "BEGIN; \
+             INSERT INTO entities (entity_id, frame_id, material, mesh_data, \
+              tx, ty, tz, rx, ry, rz, rw, sx, sy, sz) \
+             SELECT entity_id, frame_id, material, mesh_data, \
+              tx, ty, tz, rx, ry, rz, rw, sx, sy, sz FROM src.entities; \
+             INSERT INTO entity_tags (entity_id, frame_id, tag_index, tag_text, tag_data) \
+             SELECT entity_id, frame_id, tag_index, tag_text, tag_data FROM src.entity_tags; \
+             COMMIT;",
+        );
+        conn.execute_batch("DETACH DATABASE src").ok();
+        r.map_err(|e| format!("合并实体失败: {}", e))
     }
 
     /// 清空所有帧数据。
